@@ -1095,11 +1095,13 @@ function createWorldFeatures(ctx) {
     return v;
   }
   // ---- bank networks over the ROAD WEB -------------------------------------
-  // The bank fiction follows the ROADS the player actually sees: settlements
-  // joined by the drawn road web share one bank; a city that no road chain
-  // reaches (Keolwulfduun across its shallow strait — terrain-fordable, but
-  // no road goes there) runs its own bank, as does a pocket of 2-3 linked
-  // villages. roadNetId floods the REAL road graph (roadSelection edges, both
+  // The bank fiction follows the ROADS the player actually sees: EVERY
+  // settlement joined by the drawn road web shares one bank — long-haul
+  // trunk roads and sea-overpass decks carry the bank just like village
+  // lanes (a road is a road; if you can walk it, the coin wagons can too).
+  // Only a settlement no road chain reaches at all (Keolwulfduun across its
+  // shallow strait — terrain-fordable, but no road goes there) runs its own
+  // bank. roadNetId floods the REAL road graph (roadSelection edges, both
   // directions — selection is asymmetric) with a settlement budget: small
   // components get a canonical "roadnet:<min cell>" id; blowing the budget
   // means the endless mainland web → "main".
@@ -1107,15 +1109,11 @@ function createWorldFeatures(ctx) {
                                     // (it then degenerates to sharing "main")
   const roadNetCache = new Map();   // "vcx,vcy" (village cell) → net id
   const netMembersCache = new Map(); // net id → [[vcx,vcy]...] (finite nets only)
-  // Does this road edge cross open water for longer than a bridge? Banks
-  // don't run coin wagons over the long sea-overpass decks: a strait
-  // crossing joins the ROADS but not the BANKS, so an island city keeps its
-  // own network even when a sea road reaches it. The route is resampled
-  // every 2 map units (route points are ROAD_STEP=6 apart — too coarse to
-  // tell a river bridge from a narrow strait) and the LONGEST contiguous
-  // water span decides: rivers under bridges run a few units wide, sea
+  // Longest contiguous open-water span along an edge's route (map units) —
+  // debug/diagnostic only (see _edgeSeaSpans); no gameplay rule reads it any
+  // more. The route is resampled every 2 map units (route points are
+  // ROAD_STEP=6 apart): rivers under bridges run a few units wide, sea
   // crossings run tens.
-  const BANK_SEA_SPAN = 12; // map units (~24 game tiles) of unbroken water
   function edgeSeaSpan(pe) {
     if (pe._seaSpan !== undefined) return pe._seaSpan;
     let span = 0, run = 0;
@@ -1134,21 +1132,6 @@ function createWorldFeatures(ctx) {
     pe._seaSpan = span;
     return span;
   }
-  const edgeCrossesSea = pe => edgeSeaSpan(pe) > BANK_SEA_SPAN;
-  // A road carries its BANK only when it is a LOCAL road: no long sea deck,
-  // and no long-haul highway. City-to-city trunk roads reach up to 14 cells
-  // out — trade flows along them, but each region keeps its own bank, which
-  // is what makes "Bank of Keolwulfduun" its own ledger even though a king's
-  // road runs there from Newhaven. 432 map units (3 village cells, ~864 game
-  // tiles) keeps every village-to-neighbour link (≤ ~407) and adjacent twin
-  // cities, and cuts the trunks.
-  const BANK_EDGE_MAX = 432; // map units
-  function edgeCarriesBank(pe) {
-    if (pe._bank !== undefined) return pe._bank;
-    const len = Math.hypot(pe.B[0] - pe.A[0], pe.B[1] - pe.A[1]);
-    pe._bank = len <= BANK_EDGE_MAX && !edgeCrossesSea(pe);
-    return pe._bank;
-  }
   function roadNetId(vcx0, vcy0) {
     const k0 = vcx0 + "," + vcy0;
     const hit = roadNetCache.get(k0);
@@ -1164,10 +1147,8 @@ function createWorldFeatures(ctx) {
     for (let i = 0; i < q.length && !id; i++) {
       if (seen.size > ROADNET_BUDGET) { id = "main"; break; }
       const [cx, cy] = q[i];
-      // outgoing: the roads this settlement itself chose to build (sea
-      // crossings and long-haul trunks carry the road but not the bank)
+      // outgoing: the roads this settlement itself chose to build
       for (const pe of roadSelection(cx, cy)) {
-        if (!edgeCarriesBank(pe)) continue;
         push(pe.a.vcx, pe.a.vcy); push(pe.b.vcx, pe.b.vcy);
       }
       // incoming: neighbours whose own selection built a road to us. Cities
@@ -1185,8 +1166,8 @@ function createWorldFeatures(ctx) {
           if (h.kind !== "city" &&
               (Math.abs(dx) > ROAD_LINK_CELLS || Math.abs(dy) > ROAD_LINK_CELLS)) continue;
           for (const pe of roadSelection(nx, ny))
-            if (((pe.a.vcx === cx && pe.a.vcy === cy) || (pe.b.vcx === cx && pe.b.vcy === cy)) &&
-                edgeCarriesBank(pe)) { push(nx, ny); break; }
+            if ((pe.a.vcx === cx && pe.a.vcy === cy) ||
+                (pe.b.vcx === cx && pe.b.vcy === cy)) { push(nx, ny); break; }
         }
     }
     if (!id) {
@@ -1217,7 +1198,6 @@ function createWorldFeatures(ctx) {
         if (!seen.has(k)) { seen.set(k, [nx2, ny2, via]); q.push([nx2, ny2]); }
       };
       for (const pe of roadSelection(cx, cy)) {
-        if (!edgeCarriesBank(pe)) continue;
         push(pe.a.vcx, pe.a.vcy, "out:" + cx + "," + cy);
         push(pe.b.vcx, pe.b.vcy, "out:" + cx + "," + cy);
       }
@@ -1233,8 +1213,8 @@ function createWorldFeatures(ctx) {
           if (h.kind !== "city" &&
               (Math.abs(dx) > ROAD_LINK_CELLS || Math.abs(dy) > ROAD_LINK_CELLS)) continue;
           for (const pe of roadSelection(nx, ny))
-            if (((pe.a.vcx === cx && pe.a.vcy === cy) || (pe.b.vcx === cx && pe.b.vcy === cy)) &&
-                edgeCarriesBank(pe)) { push(nx, ny, "in:" + cx + "," + cy); break; }
+            if ((pe.a.vcx === cx && pe.a.vcy === cy) ||
+                (pe.b.vcx === cx && pe.b.vcy === cy)) { push(nx, ny, "in:" + cx + "," + cy); break; }
         }
     }
     return [...seen.values()].map(([cx, cy, via]) => {
@@ -1252,12 +1232,12 @@ function createWorldFeatures(ctx) {
     };
   }
   // debug/verification: the selected edges of a settlement with their
-  // longest contiguous water spans (map units) — for tuning BANK_SEA_SPAN
+  // longest contiguous water spans (map units)
   function _edgeSeaSpans(vcx, vcy) {
     const nm = (cx, cy) => ((villageHead(cx, cy) || {}).name || "?") + "@" + cx + "," + cy;
     return roadSelection(vcx, vcy).map(pe => ({
       a: nm(pe.a.vcx, pe.a.vcy), b: nm(pe.b.vcx, pe.b.vcy),
-      span: Math.round(edgeSeaSpan(pe) * 10) / 10, sea: edgeCrossesSea(pe),
+      span: Math.round(edgeSeaSpan(pe) * 10) / 10,
     }));
   }
   // members of a finite net, re-derivable from the id alone (a saved net id

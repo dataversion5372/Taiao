@@ -385,6 +385,34 @@ function loadGame() {
   } catch (e) {}
   return null;
 }
+// Bank-network vault re-keying — called from main.js init AFTER genWorld
+// (the road graph must exist). The network edge rules changed (chunk v43:
+// banks span the WHOLE road web, no trunk/sea-deck cutoffs), so a save can
+// hold vaults/accounts keyed by regional ids ("roadnet:cx,cy") that no
+// longer name a component: recompute each id's cell and fold the vault +
+// account onto the network it resolves to today (usually "main").
+// Callers (1):
+//  main.js:23
+function migrateBankNets() {
+  if (!player.banks || typeof world === "undefined" || !world || !world.roadNetId) return;
+  for (const k of Object.keys(player.banks)) {
+    const m = /^roadnet:(-?\d+),(-?\d+)$/.exec(k);
+    if (!m) continue;
+    const now = world.roadNetId(+m[1], +m[2]);
+    if (!now || now === k) continue;
+    const dst = player.banks[now] || (player.banks[now] = []);
+    for (const s of player.banks[k]) {
+      const b = dst.find(x => x.id === s.id);
+      if (b) b.qty += s.qty; else dst.push({ id: s.id, qty: s.qty });
+    }
+    delete player.banks[k];
+    if (player.bankAccounts && player.bankAccounts[k]) {
+      player.bankAccounts[now] = 1;
+      delete player.bankAccounts[k];
+    }
+  }
+  player.bank = player.banks.main;
+}
 // starter kit as raw save data (mirrors newPlayer)
 // Callers (1):
 //  storage.js:123

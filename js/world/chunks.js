@@ -142,9 +142,13 @@ function createWorldChunks(ctx) {
   // v42: WORLD name registry — settlement/landmark names are now allocated
   // per 15000²-tile world (unique within a world, disjoint from all 8
   // neighbours); nearly every name changed and labels embed names.
-  const _IDB_NAME = 'ioe-chunks-v42';
+  // v43: bank networks span the WHOLE road web (features.js dropped the
+  // trunk-length and sea-deck edge cutoffs) — cities that were their own
+  // network's main branch (Hegestesduun, Easthuus…) lose their grand bank
+  // hall to Newhaven's, so their city layouts change.
+  const _IDB_NAME = 'ioe-chunks-v43';
   // stale caches from earlier versions still occupy disk/origin quota — drop them
-  for (const old of ['ioe-chunks-v3', 'ioe-chunks-v4', 'ioe-chunks-v5', 'ioe-chunks-v6', 'ioe-chunks-v7', 'ioe-chunks-v8', 'ioe-chunks-v9', 'ioe-chunks-v10', 'ioe-chunks-v11', 'ioe-chunks-v12', 'ioe-chunks-v13', 'ioe-chunks-v14', 'ioe-chunks-v15', 'ioe-chunks-v16', 'ioe-chunks-v17', 'ioe-chunks-v18', 'ioe-chunks-v19', 'ioe-chunks-v20', 'ioe-chunks-v21', 'ioe-chunks-v22', 'ioe-chunks-v23', 'ioe-chunks-v24', 'ioe-chunks-v25', 'ioe-chunks-v26', 'ioe-chunks-v27', 'ioe-chunks-v28', 'ioe-chunks-v29', 'ioe-chunks-v30', 'ioe-chunks-v31', 'ioe-chunks-v32', 'ioe-chunks-v33', 'ioe-chunks-v34', 'ioe-chunks-v35', 'ioe-chunks-v36', 'ioe-chunks-v37', 'ioe-chunks-v38', 'ioe-chunks-v39', 'ioe-chunks-v40', 'ioe-chunks-v41'])
+  for (const old of ['ioe-chunks-v3', 'ioe-chunks-v4', 'ioe-chunks-v5', 'ioe-chunks-v6', 'ioe-chunks-v7', 'ioe-chunks-v8', 'ioe-chunks-v9', 'ioe-chunks-v10', 'ioe-chunks-v11', 'ioe-chunks-v12', 'ioe-chunks-v13', 'ioe-chunks-v14', 'ioe-chunks-v15', 'ioe-chunks-v16', 'ioe-chunks-v17', 'ioe-chunks-v18', 'ioe-chunks-v19', 'ioe-chunks-v20', 'ioe-chunks-v21', 'ioe-chunks-v22', 'ioe-chunks-v23', 'ioe-chunks-v24', 'ioe-chunks-v25', 'ioe-chunks-v26', 'ioe-chunks-v27', 'ioe-chunks-v28', 'ioe-chunks-v29', 'ioe-chunks-v30', 'ioe-chunks-v31', 'ioe-chunks-v32', 'ioe-chunks-v33', 'ioe-chunks-v34', 'ioe-chunks-v35', 'ioe-chunks-v36', 'ioe-chunks-v37', 'ioe-chunks-v38', 'ioe-chunks-v39', 'ioe-chunks-v40', 'ioe-chunks-v41', 'ioe-chunks-v42'])
     try { indexedDB.deleteDatabase(old); } catch (e) { /* best effort */ }
   let _db = null;
   function _openDB() {

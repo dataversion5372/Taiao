@@ -311,6 +311,9 @@ function genWorld() {
     // bank network for a chest at GAME-tile (x,y): the ROAD-web component of
     // the nearest settlement, or the terrain id for unsettled hermit pockets
     bankNetAt: features.bankNetAt,
+    // road-web component id for a VILLAGE CELL — used by the save migration
+    // that re-keys old regional vault ids after network rule changes
+    roadNetId: features.roadNetId,
     // { title, branch, members } for a settled network, null for hermit vaults
     bankNetInfo: features.bankNetInfo,
     // the network's main-branch city ({x,y,name} in game tiles) or null when

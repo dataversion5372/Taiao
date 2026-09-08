@@ -20,6 +20,9 @@ async function init() {
   // if (lcBoot && typeof applyLcBestiary === "function") applyLcBestiary();
   world = genWorld();
   monsters = []; // spawned lazily as chunks activate (updateWorldStuff)
+  // fold vaults/accounts keyed by retired regional net ids onto today's
+  // networks (bank edge rules changed in chunk v43 — storage.js)
+  if (loaded) migrateBankNets();
   if (!loaded) {
     newPlayer();
     const s = world.playerStart;
