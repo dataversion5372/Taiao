@@ -212,6 +212,9 @@
 			     tools/build.mjs (run it after editing any js/ file). The disabled
 			     LC3D voxel subsystem is dropped from this bundle. -->
 			<script src="dist/bundle.js"></script>
+			<!-- Community Art Workshop (Shift+A): self-contained, loads after the
+			     bundle. Injects its own UI + capture-phase keybind, so no rebuild. -->
+			<script src="js/gameplay/artgallery.js"></script>
 			<!-- Service worker: cache-first for externalized sheets/audio/fonts so
 			     the game loads once then runs instantly & offline. No-op on file://
 			     (SW requires http/https) — the game still works, just uncached. -->
