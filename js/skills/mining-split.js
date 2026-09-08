@@ -100,8 +100,13 @@
   // ~12% gem veins, else the caller's default (metal ore rock). Uses the chunk
   // RNG passed in; returns a node key or null to fall through. (Stone has no
   // nodes any more — it drops as a by-product of mining these.)
+  // Vein tier is cubic-biased toward the low end: Quartz boulders are the most
+  // abundant (~31% of all veins), each tier up rarer, Worldheart ~1%.
   window.mineExtraNode = function (rng) {
-    if (rng() < 0.12 && GEM_NODES.length) return GEM_NODES[Math.floor(rng() * GEM_NODES.length)];
+    if (rng() < 0.12 && GEM_NODES.length) {
+      const r = rng();
+      return GEM_NODES[Math.min(GEM_NODES.length - 1, Math.floor(r * r * r * GEM_NODES.length))];
+    }
     return null;
   };
 

@@ -202,6 +202,20 @@
   //  luxury->fulled_25).
   const weaveReq = {};
   for (const r of RECIPES.textiles) if (r.skill === "Weaving") weaveReq[r.out] = r.req;
+  // material-class representative for each fulled cloth — the 8 fulled ids the
+  // garment recipes actually name. Registering the other 24 as ITEM_FAMILY
+  // variants of their class head means every fulled cloth can be sewn wherever
+  // a garment asks for its class (production.js countItemFam/removeItemFam).
+  const fulledClass = nm => {
+    if (/tweed/i.test(nm)) return "fulled_18";
+    if (/felt/i.test(nm)) return "fulled_8";
+    if (/wool/i.test(nm)) return "fulled_3";
+    if (/silk|satin|taffeta|samite|velvet|damask|brocade|lace|chiffon|moonshroud/i.test(nm)) return "fulled_15";
+    if (/gold|silver|ember|aether|world|shadow/i.test(nm)) return "fulled_25";
+    if (/linen|gauze/i.test(nm)) return "fulled_2";
+    if (/hemp|burlap|jute|sisal|kenaf|ramie|canvas/i.test(nm)) return "fulled_4";
+    return "fulled_0";
+  };
   RECIPES.fulling = [];
   TEXTILE_NAMES.forEach((nm, i) => {
     const src = i === 0 ? "cloth" : "cloth_" + i;
@@ -212,6 +226,9 @@
     ITEMS[id] = { name: "Fulled " + low, icon: "i_" + id, stack: true, value: 30 + req * 4, prov: "batch" };
     EXAMINE[id] = `Fulled ${low} — washed and fulled dense and weatherproof.`;
     registerPlaceholder(id, "Fulled " + low, "fulled cloth — tinted cloth-icon placeholder");
+    const head = fulledClass(nm);
+    if (head !== id && typeof window !== "undefined")
+      (window.ITEM_FAMILY = window.ITEM_FAMILY || {})[id] = head;
     RECIPES.fulling.push({ id: "full_" + src, out: id, name: "Full " + low,
       skill: "Fulling", req, xp: 30 + req * 3, in: { [src]: 1 }, tick: 1500 + i * 10,
       family: "fulling", stations: ["fulling_mill", "tanrack", "loom"] });

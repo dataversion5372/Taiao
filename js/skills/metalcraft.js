@@ -97,7 +97,7 @@
   for (const [id, nm] of [["chain", "Chain"], ["gold_chain", "Gold chain"], ["silver_chain", "Silver chain"], ["jump_rings", "Jump rings"]])
     mk(id, nm, "i_bar_au", " hue-rotate(20deg) saturate(0.6) brightness(1.0)", { stack: true, value: 40, prov: "batch" }, "wire good — tinted placeholder");
   const WIRE = [
-    ["draw_copper_wire", "copper_wire", "Draw copper wire", 1,  { bronze_bar: 1 }, "c"],
+    ["draw_copper_wire", "copper_wire", "Draw copper wire", 1,  { copper_bar: 1 }, "c"],
     ["draw_iron_wire",   "iron_wire",   "Draw iron wire",   3,  { iron_bar: 1 }, "c"],
     ["draw_gold_wire",   "gold_wire",   "Draw gold wire",   6,  { [GOLD]: 1 }, "c"],
     ["draw_silver_wire", "silver_wire", "Draw silver wire", 5,  { [SILVER]: 1 }, "c"],

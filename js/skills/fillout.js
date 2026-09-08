@@ -78,6 +78,8 @@
     mk(id, grains[i].name.replace(/s$/, "") + " malt", "i_wheat", maltTint(i), { stack: true, value: 12 + i, prov: "batch" });
     R("malting", { id: "malt_species_" + i, out: id, qty: 2, name: "Malt " + grains[i].name.toLowerCase(), skill: "Malting", req, xp: 24 + req * 3,
       in: { [g]: 2 }, passive: true, time: 14000 + i * 300, tick: 14000 + i * 300, family: "malts", stations: ["malthouse", "furnace"] });
+    // any grain malt can be milled to grist where a recipe asks for pale "malt"
+    if (typeof window !== "undefined") (window.ITEM_FAMILY = window.ITEM_FAMILY || {})[id] = "malt";
   }
 
   // ---------- SPINNING → 32 (spin each new fibre crop into its OWN distinct yarn) ----------
@@ -111,7 +113,18 @@
     mk(cid, cn, "i_cloth", ` hue-rotate(${(req * 23) % 360}deg) saturate(1.1) brightness(1.03)`, { stack: true, value: 20 + req * 2, prov: "batch" }, "woven cloth — tinted placeholder");
     R("textiles", { id: "weave_" + yid, out: cid, name: "Weave " + cn.toLowerCase(), skill: "Weaving", req: Math.min(32, req + 1), xp: 40 + req * 3,
       in: { [yid]: 2 }, tick: 1600, family: "cloth", stations: ["loom"] });
+    // any specialty cloth can stand in where a recipe asks for plain "cloth"
+    if (typeof window !== "undefined") (window.ITEM_FAMILY = window.ITEM_FAMILY || {})[cid] = "cloth";
   }
+
+  // rough_cloth / fine_cloth_x are consumed by the garment tables below (and
+  // garments.js) — weave them from yarn so those recipes are actually craftable.
+  const flaxFib = (Object.values(CROPS).find(c => c.skill === "Fibriculture" && c.name === "flax") || {}).item;
+  const linenThread = flaxFib && ITEMS["yarn_" + flaxFib] ? "yarn_" + flaxFib : null;
+  R("textiles", { id: "weave_rough_cloth", out: "rough_cloth", name: "Weave rough cloth", skill: "Weaving", req: 3, xp: 34,
+    in: { wool_yarn: 2 }, tick: 1500, family: "cloth", stations: ["loom"] });
+  R("textiles", { id: "weave_fine_cloth", out: "fine_cloth_x", name: "Weave fine cloth", skill: "Weaving", req: 5, xp: 46,
+    in: linenThread ? { wool_yarn: 1, [linenThread]: 2 } : { wool_yarn: 3 }, tick: 1700, family: "cloth", stations: ["loom"] });
 
   // ---------- generic table filler for finished-goods skills ----------
   // rows: [id, name, req, inputs, props]  props → item def (equip/heals/finished)

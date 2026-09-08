@@ -188,6 +188,8 @@ const GRAINS = GRAIN_NAMES.map((name, i) => {
     ITEMS[grain] = { name, icon: "i_grain" + i, stack: true, value: tierVal(i) + 3 };
     ITEMS[flour] = { name: name + " flour", icon: "i_gflour" + i, stack: true, value: (tierVal(i) + 3) * 2 };
     RECIPES.milling.push({ out: flour, name: "Mill " + lname, skill: "Milling", req: i + 1, xp: tierXp(i, 26), in: { [grain]: 1 }, tick: 1200 });
+    // any grain flour bakes where a recipe asks for plain wheat "flour"
+    if (typeof window !== "undefined") (window.ITEM_FAMILY = window.ITEM_FAMILY || {})[flour] = "flour";
     if (typeof SHOP_STOCK !== "undefined") SHOP_STOCK.push(grain);
   }
   return { name, grain, flour, req: i + 1 };

@@ -94,7 +94,7 @@
     // returned to you when the milk is curdled at a creamery (see cheesemaking.js).
     if (!ITEMS.pail) {
       if (typeof SPR !== "undefined") SPR.i_pail = ["t", 22, 0, { filter: "hue-rotate(-8deg) brightness(1.14) saturate(0.5)" }];
-      ITEMS.pail = { name: "Empty pail", icon: "i_pail", stack: true, value: 6 };
+      ITEMS.pail = { name: "Empty pail", icon: "i_pail", stack: true, value: 6, tool: true };
       if (typeof EXAMINE !== "undefined") EXAMINE.pail = "An empty wooden pail — carry these to milk your animals.";
       if (typeof RECIPES !== "undefined")
         (RECIPES.crafting = RECIPES.crafting || []).push({
@@ -117,15 +117,34 @@
     if (!ITEMS.scales) {
       ITEMS.scales = { name: "Scales", icon: (ITEMS.hide && ITEMS.hide.icon) || "i_meat", stack: true, value: 22 };
       if (typeof EXAMINE !== "undefined") EXAMINE.scales = "Shed reptile scales — prized by armourers.";
+      // ...and armourers really do prize them: wyrmling scales + leather → scale
+      // armour (the Husbandry exotic line's dedicated Armoursmithing sink)
+      if (typeof SPR !== "undefined" && SPR.i_body && !SPR.i_scale_hauberk)
+        SPR.i_scale_hauberk = [SPR.i_body[0], SPR.i_body[1], SPR.i_body[2], { filter: "hue-rotate(95deg) saturate(1.2) brightness(0.9)" }];
+      ITEMS.scale_hauberk = ITEMS.scale_hauberk || {
+        name: "Scale hauberk", icon: SPR && SPR.i_scale_hauberk ? "i_scale_hauberk" : "i_body",
+        value: 420, equip: ["torso", "pauldron1", "pauldron2", "left_arm", "right_arm"], block: 0.16,
+      };
+      if (typeof EXAMINE !== "undefined") EXAMINE.scale_hauberk = "Overlapping wyrmling scales stitched onto leather — light for the protection it gives.";
+      if (typeof registerPlaceholder === "function") registerPlaceholder("scale_hauberk", "Scale hauberk", "scale armour — tinted body-icon placeholder");
+      (RECIPES.armoursmithing = RECIPES.armoursmithing || []).push({
+        id: "smith_scale_hauberk", out: "scale_hauberk", name: "Stitch a scale hauberk",
+        skill: "Armoursmithing", req: 20, xp: 160, in: { scales: 6, leather: 2 },
+        tick: 2400, family: "armour", stations: ["anvil"],
+      });
     }
-    // young-animal items — the barn/passive "Raise ___" recipes yield these; the
-    // roaming "Raise" tiers instead spawn a physical baby that grows on the spot.
+    // young-animal items — weaned young the roaming "Raise" tiers sometimes yield
+    // alongside the physical baby (litters). Livestock trade goods: farm markets
+    // buy them (finished => market.js tags them to Husbandry, excluded from the
+    // dead-output check like other commissioned goods).
     const babyIcon = (ITEMS.egg && ITEMS.egg.icon) || "i_meat";
-    const BABY_ITEMS = { kit: "Kit", piglet: "Piglet", poult: "Poult", kid: "Kid", lamb: "Lamb",
-      calf: "Calf", camel_calf: "Camel calf", aurochs_calf: "Aurochs calf" };
-    for (const id in BABY_ITEMS) if (!ITEMS[id]) {
-      ITEMS[id] = { name: BABY_ITEMS[id], icon: babyIcon, stack: true, value: 16 };
-      if (typeof EXAMINE !== "undefined") EXAMINE[id] = `A young ${BABY_ITEMS[id].toLowerCase()} — raise it to maturity.`;
+    const BABY_ITEMS = { kit: ["Kit", 20], piglet: ["Piglet", 35], poult: ["Poult", 30], kid: ["Kid", 40],
+      lamb: ["Lamb", 45], calf: ["Calf", 70], camel_calf: ["Camel calf", 65], aurochs_calf: ["Aurochs calf", 110] };
+    for (const id in BABY_ITEMS) {
+      const [nm, val] = BABY_ITEMS[id];
+      if (!ITEMS[id]) ITEMS[id] = { name: nm, icon: babyIcon, stack: true, value: val };
+      ITEMS[id].finished = true; ITEMS[id].value = ITEMS[id].value || val;
+      if (typeof EXAMINE !== "undefined") EXAMINE[id] = `A weaned young ${nm.toLowerCase()} — healthy stock fetches a good price at farm markets.`;
     }
     // (No "giant_<item>" product line: giant beasts simply yield 2x the ordinary item.)
   }
@@ -256,6 +275,15 @@
       const target = (g && MONSTERS[a.out.baby + "_v_baby"]) ? a.out.baby + "_v" : a.out.baby;
       const babyNm = spawnBaby(mon, target) || "young";
       log(`You raise the ${aniName(mon).toLowerCase()} — a ${babyNm.toLowerCase()} is born!`);
+      // litters: sometimes a second young is weaned into your pack — livestock
+      // you can sell on (farm-market demand good, see BABY_ITEMS above)
+      const YOUNG_ITEM = { rabbit: "kit", pig: "piglet", turkey: "poult", goat: "kid",
+        sheep: "lamb", camel: "camel_calf", cow: "calf", aurochs: "aurochs_calf", buffalo: "calf" };
+      const yi = YOUNG_ITEM[a.out.baby];
+      if (yi && ITEMS[yi] && Math.random() < 0.35) {
+        addItem(yi, 1);
+        log(`The litter runs to two — you take a weaned ${ITEMS[yi].name.toLowerCase()} for market.`);
+      }
     } else {
       const outs = Object.entries(a.out);
       const mult = g ? 2 : 1;             // giants yield twice the ordinary item

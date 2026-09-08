@@ -77,7 +77,7 @@
 
   // ---- oars: the small-craft propulsion (gameplay/placing.js canRowBoat) ----
   if (!ITEMS.oars) {
-    ITEMS.oars = { name: "Oars", icon: objIcon("staves") || "i_planks", value: 40 };
+    ITEMS.oars = { name: "Oars", icon: objIcon("staves") || "i_planks", value: 40, tool: true };
     EXAMINE.oars = "A matched pair. The river argues less when you have these.";
     RECIPES.carpentry.push({
       id: "carp_oars", out: "oars", name: "Carve a pair of oars",

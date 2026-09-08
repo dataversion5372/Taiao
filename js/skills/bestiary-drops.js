@@ -12,7 +12,7 @@
 //
 //   theme        → gated skills
 //   b beast      → Fletching, Tanning, Leatherworking, Cordwaining, Saddlery, Ropemaking, Spinning
-//   h humanoid   → Toolmaking, Locksmithing, Wire-drawing, Coopering, Carpentry
+//   h humanoid   → Toolmaking, Locksmithing, Wire-drawing, Coopering, Carpentry, Weaponsmithing
 //   m magical    → Potionmaking, Pottery, Seasoning, Soapmaking, Assaying
 //   u undead     → Runecrafting, Bookbinding, Candlemaking, Papermaking
 //   e elemental  → Glassblowing, Smelting, Charcoaling
@@ -54,6 +54,7 @@
       ["drawplate_die", "Drawplate die", "hardened_die", "Hardened die", "Wire-drawing", 7],
       ["iron_hoopstock", "Iron hoopstock", "riveted_hoopstock", "Riveted hoopstock", "Coopering", 6],
       ["joiners_glue", "Joiner's glue", "master_joiners_glue", "Master joiner's glue", "Carpentry", 8],
+      ["quench_oil", "Quench oil", "fine_quench_oil", "Fine quench oil", "Weaponsmithing", 5],
     ]},
     m: { base: "i_vial", skills: [
       ["arcane_dust", "Arcane dust", "arcane_powder", "Arcane powder", "Potionmaking", 6],
@@ -118,8 +119,18 @@
     const t = (typeof MONSTER_THEME !== "undefined" && MONSTER_THEME[k]) || "m";
     (themeLvls[t] = themeLvls[t] || []).push(MONSTERS[k].lvl || 1);
   }
-  const themeMid = {};
-  for (const t in themeLvls) { const a = themeLvls[t]; themeMid[t] = (Math.min(...a) + Math.max(...a)) / 2; }
+  // Midpoint = min(arithmetic mid, 80th-percentile level). The arithmetic mid
+  // alone is outlier-sensitive: magical runs lvl 1-162 (median 8!), which put
+  // its mid at 81.5 and locked five skills' greater reagents behind near-boss
+  // kills. Clamping to the 80th percentile only bites on such bottom-heavy
+  // themes; top-heavy ones (dragons/celestials) keep their generous mid.
+  const themeMid = {}, themePct = {};
+  for (const t in themeLvls) {
+    const a = themeLvls[t].slice().sort((x, y) => x - y);
+    const pct = p => a[Math.min(a.length - 1, Math.floor(p * (a.length - 1)))];
+    themePct[t] = pct;
+    themeMid[t] = Math.min((a[0] + a[a.length - 1]) / 2, pct(0.8));
+  }
 
   function dropTable(theme, lvl) {
     const L = Math.max(1, lvl | 0);
@@ -145,6 +156,24 @@
     if (theme === "b") out.push({ id: "tallow", min: 1, max: 2, ch: 0.35 });
     if (theme === "u") out.push({ id: "action_rune", min: 1, max: 2 + Math.floor(L / 12), ch: 0.35 });
     if (theme === "m") out.push({ id: "action_rune", min: 1, max: 1 + Math.floor(L / 16), ch: 0.22 });
+    // rare-theme trickle: the top-decile monsters of a big common theme also
+    // carry a scarce partner theme's reagents at HALF chance, so the skills
+    // gated behind seldom-seen dragons/celestials/golems aren't hostage to
+    // finding them — while true-theme hunting stays twice as productive.
+    //   apex beasts → dragon reagents · arch-magical → celestial · greater elementals → golem
+    const TRICKLE = { b: "d", m: "c", e: "g" };
+    const rt = TRICKLE[theme];
+    if (rt && themePct[theme] && L >= themePct[theme](0.9)) {
+      const rtPairs = REAGENTS[rt].skills;
+      const rtMid = themeMid[rt] != null ? themeMid[rt] : 16;
+      const rtCh = Math.max(0.12, Math.min(0.4, 0.7 / rtPairs.length)) * 0.5;
+      // always the lesser grade (the mid-tier bottleneck), plus the greater
+      // above the rare theme's own midpoint
+      for (const R of rtPairs) {
+        out.push({ id: R[0], min: 1, max: 1, ch: rtCh });
+        if (L >= rtMid) out.push({ id: R[2], min: 1, max: 1, ch: rtCh });
+      }
+    }
     return out.filter(x => ITEMS[x.id]);
   }
 
@@ -163,7 +192,15 @@
   for (const key in MONSTERS) {
     const def = MONSTERS[key];
     const theme = (typeof MONSTER_THEME !== "undefined" && MONSTER_THEME[key]) || "m";
-    const keep = (def.drops || []).filter(d => d && ITEMS[d.id] && (ITEMS[d.id].equip || ITEMS[d.id].tool));
+    // keep equipment/tool drops AND signature raw meats (raw_moa etc.) — those
+    // are chain-starters for Cooking that only their species can supply.
+    // Non-stack GEAR (gold swords, gem amulets — 41/58 droppers) is clamped to
+    // ≤4% so free legacy loot doesn't undercut the smithing/jewelry trades;
+    // stackable equips (arrows, wearable runes) are consumables and keep theirs.
+    const keep = (def.drops || [])
+      .filter(d => d && ITEMS[d.id] && (ITEMS[d.id].equip || ITEMS[d.id].tool || /^raw_/.test(d.id)))
+      .map(d => (ITEMS[d.id].equip && !ITEMS[d.id].stack)
+        ? Object.assign({}, d, { ch: Math.min(d.ch != null ? d.ch : 0.1, 0.04) }) : d);
     def.drops = [...dropTable(theme, def.lvl), ...keep];
     if (!def.butcher && (theme === "d" || theme === "q")) {
       const hi = dragonSeaHide(def.name, theme);

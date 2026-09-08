@@ -182,9 +182,27 @@ function recipeById(id) {
 function recipeFamily(recipe) { return recipe.family || recipe.out || "general"; }
 
 // ---------- quality computation ----------
+// A family variant's tier (its trailing _N) grants an input-quality bonus, so
+// crafting with celestial-quinoa flour or a fulled samite genuinely outdoes the
+// base commodity — higher ladder rungs feed the quality model, not just value.
+function famTierBonus(id) { const m = /_(\d+)$/.exec(id); return m ? Math.min(20, (+m[1]) * 0.65) : 0; }
 function readInputMeta(recipe) {
   let qsum = 0, qn = 0; const refs = [];
   for (const [id, q] of recipeInputs(recipe)) {
+    if (famHeads().has(id)) {
+      // family-head input: read quality off the stacks removeItemFam will
+      // actually consume (cheapest first), plus the variant's tier bonus
+      const val = s => ((ITEMS[s.id] && ITEMS[s.id].value) || 0);
+      const order = famStacks(id).sort((a, b) => val(a) - val(b));
+      let need = q;
+      for (const s of order) {
+        if (need <= 0) break;
+        const t = Math.min(need, s.qty);
+        qsum += Math.min(100, (s.q != null ? s.q : 50) + famTierBonus(s.id)) * t; qn += t; need -= t;
+        if (s.prov != null) refs.push(s.prov);
+      }
+      continue;
+    }
     const s = player.inv.find(s => s && s.id === id);
     const qual = s && s.q != null ? s.q : 50; // un-tracked / bought goods are "average"
     qsum += qual * q; qn += q;
@@ -333,33 +351,42 @@ function readyJobCount() { return (player.jobs || []).reduce((n, j) => n + (jobR
 function validateEconomy() {
   const produced = {}, consumed = {}, skillOut = {}, skillIn = {};
   const note = (map, id) => { map[id] = (map[id] || 0) + 1; };
+  // family-aware: a produced/sourced variant also satisfies its ITEM_FAMILY head
+  // (a rough ruby sources "gem", lp_mortar_fine sources "mortar"), and an item
+  // whose family HEAD is consumed counts as consumed (flour_9 lives because
+  // recipes eat "flour"). Mirrors countItemFam/removeItemFam at craft time.
+  const FAM = (typeof ITEM_FAMILY !== "undefined" && ITEM_FAMILY) || {};
   // gatherable / grown / dropped / butchered items count as "sourced"
   const sourced = new Set();
-  if (typeof NODE_TYPES !== "undefined") for (const k in NODE_TYPES) if (NODE_TYPES[k].item) sourced.add(NODE_TYPES[k].item);
-  if (typeof CROPS !== "undefined") for (const k in CROPS) sourced.add(CROPS[k].item);
-  if (typeof FORAGE !== "undefined") for (const f of FORAGE) sourced.add(f.id);
-  if (typeof FISH !== "undefined") for (const f of FISH) sourced.add(f.raw);
-  if (typeof SHOP_STOCK !== "undefined") for (const id of SHOP_STOCK) sourced.add(id);
+  const source = id => { sourced.add(id); if (FAM[id]) sourced.add(FAM[id]); };
+  if (typeof NODE_TYPES !== "undefined") for (const k in NODE_TYPES) if (NODE_TYPES[k].item) source(NODE_TYPES[k].item);
+  if (typeof CROPS !== "undefined") for (const k in CROPS) source(CROPS[k].item);
+  if (typeof FORAGE !== "undefined") for (const f of FORAGE) source(f.id);
+  if (typeof FISH !== "undefined") for (const f of FISH) source(f.raw);
+  if (typeof SHOP_STOCK !== "undefined") for (const id of SHOP_STOCK) source(id);
   if (typeof MONSTERS !== "undefined") for (const k in MONSTERS) {
-    for (const d of MONSTERS[k].drops || []) sourced.add(d.id);
-    const b = MONSTERS[k].butcher; if (b) { sourced.add("raw_meat"); if (b.hideItem) sourced.add(b.hideItem); }
+    for (const d of MONSTERS[k].drops || []) source(d.id);
+    const b = MONSTERS[k].butcher; if (b) { source(b.item || "raw_meat"); if (b.hideItem) source(b.hideItem); }
   }
   const edges = {}; // skill -> Set(skill) it draws inputs from
   for (const cat in RECIPES) for (const r of RECIPES[cat]) {
-    for (const o of recipeOutputs(r)) { note(produced, o.id); (skillOut[r.skill] = skillOut[r.skill] || new Set()).add(o.id); }
-    for (const b of r.byproducts || []) note(produced, b.id);
+    for (const o of recipeOutputs(r)) { note(produced, o.id); if (FAM[o.id]) note(produced, FAM[o.id]); (skillOut[r.skill] = skillOut[r.skill] || new Set()).add(o.id); }
+    for (const b of r.byproducts || []) { note(produced, b.id); if (FAM[b.id]) note(produced, FAM[b.id]); }
     for (const [id] of recipeInputs(r)) { note(consumed, id); (skillIn[r.skill] = skillIn[r.skill] || new Set()).add(id); }
   }
   // which skill makes item X (for chain edges)
   const makerSkill = {};
-  for (const cat in RECIPES) for (const r of RECIPES[cat]) for (const o of recipeOutputs(r)) makerSkill[o.id] = r.skill;
+  for (const cat in RECIPES) for (const r of RECIPES[cat]) for (const o of recipeOutputs(r)) { makerSkill[o.id] = r.skill; if (FAM[o.id] && !makerSkill[FAM[o.id]]) makerSkill[FAM[o.id]] = r.skill; }
   for (const cat in RECIPES) for (const r of RECIPES[cat]) for (const [id] of recipeInputs(r)) {
     const src = makerSkill[id];
     if (src && src !== r.skill) (edges[r.skill] = edges[r.skill] || new Set()).add(src);
   }
   const report = { missingSources: [], deadOutputs: [], isolatedSkills: [], cycles: [], longChains: [] };
   for (const id in consumed) if (!produced[id] && !sourced.has(id) && ITEMS[id]) report.missingSources.push(id);
-  for (const id in produced) if (!consumed[id] && !(ITEMS[id] && (ITEMS[id].equip || ITEMS[id].heals || ITEMS[id].potion || ITEMS[id].boat || ITEMS[id].tool || ITEMS[id].finished || ITEMS[id].log || ITEMS[id].light)))
+  // place (furniture) and reveal (spyglass) items are used by gameplay, not recipes
+  const usable = it => it && (it.equip || it.heals || it.potion || it.boat || it.tool || it.finished || it.log || it.light || it.place || it.reveal);
+  const isConsumed = id => consumed[id] || (FAM[id] && consumed[FAM[id]]);
+  for (const id in produced) if (!isConsumed(id) && !usable(ITEMS[id]))
     report.deadOutputs.push(id);
   // isolated skills: draw no external inputs AND feed no other skill
   const feedsOthers = (skill, outs) => {
