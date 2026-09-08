@@ -1,0 +1,15 @@
+{
+  "name": "emberfall",
+  "version": "1.0.0",
+  "description": "Isle of Emberfall — an offline, single-player 3D tile RPG that runs entirely in the browser.",
+  "private": true,
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "build:sheets": "python3 tools/extract_sheets.py",
+    "serve": "python3 -m http.server 8901"
+  },
+  "type": "commonjs",
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
