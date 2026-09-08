@@ -1,0 +1,1379 @@
+ISLE OF EMBERFALL — PLAYER CHARACTER OUTFITS
+============================================
+Every selectable outfit for each of the 223 player characters (character-select
+roster, js/sprites/characters-data.js CHAR_LIST, in order). Each outfit STATE a
+character can wear on the C-menu (from OUTFIT_STATES / assets/families_source) is
+described in enough detail to recreate it: garments, layers, colours, trim,
+accessories, weapons and hair. "New Outfit" is the AI-generated alternate; the
+others are the default look edited (new hair, armed, undressed, gender/feature
+variants, Māori flax cloaks, etc.).
+
+------------------------------------------------------------------------------
+
+0. Ade — dark-skinned human sorcerer
+   Default       : Layered sage-and-cream mage robes — a long pale grey-green under-robe with full sleeves, a lighter draped shawl/stole folded over both shoulders, cinched with a cloth sash at the waist; loose robe skirts to the ankles. Big rounded dark-brown afro. Holds a slender wand/rod.
+   New Outfit    : Big rounded dark-brown afro; an olive-khaki high-collared leather jacket laced down the front with brown crossing chest straps, dark grey trousers and brown boots; one hand raised.
+   New Hairstyle : As the default outfit — layered sage-and-cream mage robes — a long pale grey-green under-robe with full sleeves, a lighter draped shawl/stole folded over both shoulders, cinched with a cloth sash at the waist; loose robe skirts to the ankles. Big rounded dark-brown afro. Holds a slender wand/rod. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+   Female        : A female-presenting version of the character in the same style of outfit, with a softer build and longer hair.
+
+1. Aeliana — elven cleric
+   Default       : Ornate white-and-blue priestly vestment — a white gown with gold edging, a teal mantle and layered blue over-skirts, gold clasps at the chest; long flowing ice-blue hair. Carries a tall staff crowned with a glowing blue orb.
+   New Outfit    : Long ice-blue hair; a moss-green sleeveless tunic under brown leather chest straps and buckles, a brown leather tasset-skirt over dark leggings and boots, forearm bracers; carries a tall wooden staff crowned with a blue orb.
+   New Hairstyle : As the default outfit — ornate white-and-blue priestly vestment — a white gown with gold edging, a teal mantle and layered blue over-skirts, gold clasps at the chest; long flowing ice-blue hair. Carries a tall staff crowned with a glowing blue orb. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+2. Aelric — elf
+   Default      : Barbaric near-bare outfit — bare muscular chest crossed by a brown leather harness/strap, a brown loin-kilt on a wide belt, a single steel pauldron and matching vambrace on one arm, leather bracers, bare legs. Wild fair hair.
+   New Outfit   : Wild fair hair, pointed ears; bare-chested with big rounded steel pauldrons and matching vambraces on both arms, olive-green cloth trousers and a brown belt; a braced wide stance.
+   Smallclothes : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+3. Aeson — male elven sorcerer
+   Default       : Dark high-collared sorcerer coat — a long near-black robe/coat with a raised collar and a gold clasp at the throat, layered dark tunic beneath, belted; silver undercut hair. Holds a staff.
+   New Outfit    : Silver undercut hair; a deep-crimson floor-length coat with gold-edged lapels open over a teal underrobe, cinched with a brown belt, dark trousers beneath.
+   New Hairstyle : As the default outfit — dark high-collared sorcerer coat — a long near-black robe/coat with a raised collar and a gold clasp at the throat, layered dark tunic beneath, belted; silver undercut hair. Holds a staff. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+4. Aiyana — human, traditional buckskin
+   Default       : Fringed tan buckskin dress and leggings — soft earth-brown hide with fringe along the sleeves and hem, a simple belt and beaded accents; long dark braided hair.
+   New Outfit    : Brown hair in a low bun; a royal-blue dress with puffed short sleeves and a fitted bodice, white cuffs and a white-hemmed full skirt to the ankles, dark shoes.
+   New Hairstyle : As the default outfit — fringed tan buckskin dress and leggings — soft earth-brown hide with fringe along the sleeves and hem, a simple belt and beaded accents; long dark braided hair. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+5. Alaric — human wizard
+   Default       : Weathered grey wizard's robes and travelling cloak with a heavy layered mantle/collar, darker tunic beneath, a belt; long white hair and beard. The classic old-wizard look.
+   New Outfit    : White hair in a topknot with a full white beard; a tan-and-brown heavy layered coat with broad lapels and turned-back cuffs over a cream tunic, brown trousers and boots.
+   New Hairstyle : As the default outfit — weathered grey wizard's robes and travelling cloak with a heavy layered mantle/collar, darker tunic beneath, a belt; long white hair and beard. The classic old-wizard look. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+6. Amara — half-elf mage-priest
+   Default       : Layered blue-grey hooded robe with a draped mantle, teal accents and long trailing sleeves, belted at the waist. Holds a staff. Serene priestly bearing.
+   New Outfit    : Dark skin, pointed ears, hair tied back; a dark-green tunic under a brown leather harness with belt pouches, green leggings and boots; holds a small trident.
+   New Hairstyle : As the default outfit — layered blue-grey hooded robe with a draped mantle, teal accents and long trailing sleeves, belted at the waist. Holds a staff. Serene priestly bearing. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+7. Amaru — Andean human fighter
+   Default       : Woven Andean garb — a poncho-like mantle in warm red, orange and earth-brown geometric patterns over a layered tunic, a patterned sash; braided dark hair. Dressed for the mountains.
+   New Outfit    : Brown hair with a headband and short beard; layered brown leather armour with a fur-trimmed shoulder and studded belt straps, dark trousers and boots; grips a stone-headed mace.
+   New Hairstyle : As the default outfit — woven Andean garb — a poncho-like mantle in warm red, orange and earth-brown geometric patterns over a layered tunic, a patterned sash; braided dark hair. Dressed for the mountains. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+8. Ambris — pale tiefling
+   Default       : Dark spiked warrior armour — near-black plate with angular spiked pauldrons over a dark bodysuit, a whip-like tail curling out behind, curved horns; a grim shadowy palette.
+   New Outfit    : A pale-purple tiefling with curved horns and a long tail; a dark-olive hooded robe over layered dark leather with a ragged hem.
+   New Hairstyle : As the default outfit — dark spiked warrior armour — near-black plate with angular spiked pauldrons over a dark bodysuit, a whip-like tail curling out behind, curved horns; a grim shadowy palette. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+9. Ankhotep — undead mummy cleric
+   Default       : Wrapped head to foot in tattered off-white linen bandages, loose wrappings hanging from the arms, a broad gold Egyptian collar and ornament at the chest; a bandaged skeletal frame. Holds a staff.
+   New Outfit    : Gilded pharaonic nemes headdress and broad golden collar over off-white wrappings, gold vambraces and greaves, and a blue-and-gold pleated kilt with a hanging front tab.
+   New Hairstyle : As the default outfit — wrapped head to foot in tattered off-white linen bandages, loose wrappings hanging from the arms, a broad gold Egyptian collar and ornament at the chest; a bandaged skeletal frame. Holds a staff. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+10. Ardeshir — Persian dragonborn vizier
+   Default       : Opulent vizier's robes in deep red-orange with gold trim and patterned brocade, a long mantle and sash over scaled reptilian skin; regal and layered.
+   New Outfit    : A green-scaled dragonborn with a red head-frill, membranous wings and a tail; green-and-brown scaled plate with layered tassets, shoulder guards and vambraces.
+   New Hairstyle : As the default outfit — opulent vizier's robes in deep red-orange with gold trim and patterned brocade, a long mantle and sash over scaled reptilian skin; regal and layered. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+11. Aria — harpy bard
+   Default       : Feathered winged form — large brown-and-russet feathered wings, a light earth-toned tunic/wrap with feather detailing, feathered lower legs/talons; carries a bard's instrument.
+   New Outfit    : A harpy with large brown-red-and-blue feathered wings and taloned feet; ornate dark-steel armour with gold trim and a horned helm; holds a curved sword.
+   New Hairstyle : As the default outfit — feathered winged form — large brown-and-russet feathered wings, a light earth-toned tunic/wrap with feather detailing, feathered lower legs/talons; carries a bard's instrument. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+12. Arjun — South Asian warrior
+   Default       : Layered cloth-and-metal warrior kit — a teal/blue tunic under earth-toned armour plates and a wrapped waist-sash, bound dark hair; holds a raised curved blade.
+   New Outfit    : Dark hair in a topknot; a mustard-gold sleeveless jacket over a teal wrapped underlayer with a green sash and brown belt, dark trousers; a curved sword raised overhead and a second at the hip.
+   New Hairstyle : As the default outfit — layered cloth-and-metal warrior kit — a teal/blue tunic under earth-toned armour plates and a wrapped waist-sash, bound dark hair; holds a raised curved blade. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+13. Ashelin — eladrin-tiefling mage
+   Default       : Colourful layered mage robes in red and burnt-orange with gold trim, draped over-garments and a sash, small horns; holds a staff. Richly dressed spellcaster.
+   New Outfit    : Pale hair with small horns; ornate red-brown layered leather armour with a fur collar, buckled straps and belt pouches over dark leggings.
+   New Hairstyle : As the default outfit — colourful layered mage robes in red and burnt-orange with gold trim, draped over-garments and a sash, small horns; holds a staff. Richly dressed spellcaster. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+14. Ashen — slender fairy man
+   Default       : Dark fae warrior armour — angular blackened plate with insect/fae accents and a faint purple sheen, a slim tail, gauzy wings; twin weapons. Shadowy, sharp silhouette.
+   New Outfit    : A green-skinned fairy with gossamer wings; a long dark-green robe with pale trim and a green cap.
+   New Hairstyle : As the default outfit — dark fae warrior armour — angular blackened plate with insect/fae accents and a faint purple sheen, a slim tail, gauzy wings; twin weapons. Shadowy, sharp silhouette. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+   Female        : A female-presenting version of the character in the same style of outfit, with a softer build and longer hair.
+
+15. Aslak — Sami elf ranger
+   Default       : Cream fur-trimmed nomad coat (gákti-style) over layered earth-brown ranger clothing, belted, with fur cuffs and collar against the cold; carries a staff/bow.
+   New Outfit    : White hair and beard; a blue cloak with a pale fur-lined collar over a darker blue tunic and trousers, boots.
+   New Hairstyle : As the default outfit — cream fur-trimmed nomad coat (gákti-style) over layered earth-brown ranger clothing, belted, with fur cuffs and collar against the cold; carries a staff/bow. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+16. Asterion — minotaur barbarian
+   Default       : Massive dark-furred bull-man in heavy ornate armour — golden-brown breastplate and broad spiked pauldrons over a muscular frame, wide horns, armoured kilt-straps. Towering.
+   New Outfit    : A horned minotaur in dark grey-green segmented plate: layered pauldrons, chest plate, gauntlets and greaves over a dark bodysuit.
+   New Hairstyle : As the default outfit — massive dark-furred bull-man in heavy ornate armour — golden-brown breastplate and broad spiked pauldrons over a muscular frame, wide horns, armoured kilt-straps. Towering. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+17. Astrid — Viking shieldmaiden
+   Default       : Steel scale/mail hauberk over a padded tunic, a round wooden shield with an iron boss, winged/feathered helm accents, blonde braids; sword in hand. Norse warrior.
+   New Outfit    : Blonde hair with pushed-up goggles; a brown leather long coat over a tunic and dark trousers; a dagger in one hand and a round bronze spiral-bossed shield in the other.
+   New Hairstyle : As the default outfit — steel scale/mail hauberk over a padded tunic, a round wooden shield with an iron boss, winged/feathered helm accents, blonde braids; sword in hand. Norse warrior. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+18. Balam — spotted felinefolk warrior-monk
+   Default       : Leopard/jaguar-spotted fur body with a fur mantle and collar, minimal armour — cloth wraps and straps at the torso and forearms, a belted loin-wrap; carries a spear/staff.
+   New Outfit    : A leopard-spotted cat-person; a dark-grey buckled tactical vest over an olive shirt, dark-green cargo trousers and wrapped forearms.
+   New Hairstyle : As the default outfit — leopard/jaguar-spotted fur body with a fur mantle and collar, minimal armour — cloth wraps and straps at the torso and forearms, a belted loin-wrap; carries a spear/staff. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+19. Balla — Malian human griot bard
+   Default       : Flowing green-and-gold West-African robe (boubou) with rich trim, layered over a tunic, gold jewellery at the neck; a proud bard's bearing. Holds an instrument.
+   New Outfit    : Dark curly hair; a deep-maroon high-collared long coat with purple facings over black trousers.
+   New Hairstyle : As the default outfit — flowing green-and-gold West-African robe (boubou) with rich trim, layered over a tunic, gold jewellery at the neck; a proud bard's bearing. Holds an instrument. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+20. Batu — Mongol human archer
+   Default       : Compact steppe-warrior kit — a brown quilted/ lamellar coat bound with a sash, fur and leather trim, soft boots, a fur- edged cap; carries a bow. Built for riding.
+   New Outfit    : Hair in a topknot with a slung quiver; a blue cross-front steppe robe with a green sash and belt, soft boots; carries a bow.
+   New Hairstyle : As the default outfit — compact steppe-warrior kit — a brown quilted/ lamellar coat bound with a sash, fur and leather trim, soft boots, a fur- edged cap; carries a bow. Built for riding. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+21. Bjorn — bearfolk barbarian
+   Default       : Towering brown-furred bear-man with heavy shoulder armour and fur-and-leather straps across a huge chest, an armoured belt; minimal clothing over thick fur. Imposing.
+   New Outfit    : A bearfolk in dark-blue-and-gold samurai armour: a horned kabuto helm, layered lamellar cuirass, broad shoulder guards and skirt plates.
+   New Hairstyle : As the default outfit — towering brown-furred bear-man with heavy shoulder armour and fur-and-leather straps across a huge chest, an armoured belt; minimal clothing over thick fur. Imposing. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+22. Bolt — svirfneblin (deep gnome) artificer
+   Default       : Tinkerer's outfit — riveted leather-and-metal work clothes with a padded jerkin, brass goggles pushed up on a bald head, tool straps and pouches; sturdy boots.
+   New Outfit    : Bald; brown riveted leather work-armour with heavy shoulder pieces, harness straps, gauntlets and boots.
+   New Hairstyle : As the default outfit — tinkerer's outfit — riveted leather-and-metal work clothes with a padded jerkin, brass goggles pushed up on a bald head, tool straps and pouches; sturdy boots. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+23. Borg — human barbarian
+   Default       : Stout heavily-muscled brawler — bare chest with fur-and-leather shoulder guards and a broad studded belt, a fur loin-kilt, steel bracers; wild hair and beard.
+   New Outfit    : Dark hair and beard; a heavy olive-brown greatcoat with crossed chest straps over a broad frame, dark trousers.
+   New Hairstyle : As the default outfit — stout heavily-muscled brawler — bare chest with fur-and-leather shoulder guards and a broad studded belt, a fur loin-kilt, steel bracers; wild hair and beard. — but worn with a completely different hairstyle and hair colour.
+   Underwear     : Plain underclothes: a simple wrapped chest band and briefs in undyed linen; barefoot.
+   Female        : A female-presenting version of the character in the same style of outfit, with a softer build and longer hair.
+   Female II     : A second female-presenting version of the character in the same overall style.
+   Feminine      : A softer, more feminine-featured rendering of the character in the same outfit.
+
+24. Bracken — centaur barbarian
+   Default       : Man's bare muscular torso (fur-and-leather shoulder straps, bracers, a chest strap) joined to a chestnut horse body; wild orange hair and beard, tribal armour bits. Half-man, half-horse.
+   New Outfit    : A centaur with an orange mane and beard; steel-and-gold plate on the human torso — layered pauldrons and a blue-trimmed breastplate — with matching barding over the chestnut horse body.
+   New Hairstyle : As the default outfit — man's bare muscular torso (fur-and-leather shoulder straps, bracers, a chest strap) joined to a chestnut horse body; wild orange hair and beard, tribal armour bits. Half-man, half-horse. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+25. Bramblewick — verdan (plant-folk) wizard
+   Default       : Mossy-green skin with twiggy, leafy hair; earthy layered robes with leaf-and-bramble accents and a rope belt. Holds a staff. A walking-plant sage.
+   New Outfit    : A verdan with twiggy dreadlocked hair; a teal-green layered robe over dark leather with buckled straps and a belt.
+   New Hairstyle : As the default outfit — mossy-green skin with twiggy, leafy hair; earthy layered robes with leaf-and-bramble accents and a rope belt. Holds a staff. A walking-plant sage. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+26. Bramwell — verdan cleric
+   Default       : Green plant-folk with leafy features in green-and- brown clerical robes over a tunic, a cloth sash; earthy nature vestments.
+   New Outfit    : A verdan with leafy green hair; a blue robe with a broad gold-trimmed collar, a central clasp and gold hem.
+   New Hairstyle : As the default outfit — green plant-folk with leafy features in green-and- brown clerical robes over a tunic, a cloth sash; earthy nature vestments. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+27. Bree — hadozee monk (simian glider-folk)
+   Default       : Brown-furred simian in simple earth-toned monk's wraps — a sleeveless tunic and belt, forearm bindings, a tail; barefoot and unarmoured.
+   New Outfit    : A simian hadozee with a tail; a teal-grey armoured bodysuit with segmented plates and a glowing cyan chest core.
+   New Hairstyle : As the default outfit — brown-furred simian in simple earth-toned monk's wraps — a sleeveless tunic and belt, forearm bindings, a tail; barefoot and unarmoured. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+28. Briar — dryad ranger
+   Default                : Flower-crowned with pink blossoms, green-and-teal leafy ranger garb with bark and petal accents, a layered nature dress; the forest made person.
+   New Outfit             : A dryad in ornate golden leaf-and-petal armour — layered shoulders, cuirass and greaves — with a leafy crown.
+   New Hairstyle          : As the default outfit — flower-crowned with pink blossoms, green-and-teal leafy ranger garb with bark and petal accents, a layered nature dress; the forest made person. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+   Armed (holding weapon) : The full default outfit (above), now holding a weapon at the ready.
+
+29. Brunna — human warrior
+   Default       : Steel plate armour — breastplate and pauldrons over a padded tunic and mail, brown hair tied back, sword held point-down. A straightforward knight.
+   New Outfit    : Brown hair tied up; dark-navy leather armour with teal buckles over a fitted bodysuit and trousers; holds a steel sword low in a ready stance.
+   New Hairstyle : As the default outfit — steel plate armour — breastplate and pauldrons over a padded tunic and mail, brown hair tied back, sword held point-down. A straightforward knight. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+   Unarmoured II : A second undressed variant — armour and robes removed, leaving only the base underclothes.
+
+30. Bryony — moorland druid-witch
+   Default       : Earthy hooded druid robes and cloak in browns and mossy greens, layered wraps, a belt; auburn hair, holds a staff. Witchy wildlands garb.
+   New Outfit    : Fair-haired; a layered blue-and-tan druid coat with a cloak and belt; carries a wooden trident-headed staff.
+   New Hairstyle : As the default outfit — earthy hooded druid robes and cloak in browns and mossy greens, layered wraps, a belt; auburn hair, holds a staff. Witchy wildlands garb. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+31. Bulwark — warforged fighter (construct)
+   Default       : No cloth at all — a hulking body of riveted steel and iron plating, armoured limbs and a blank forged faceplate. A living suit of armour.
+   New Outfit    : A warforged in explorer's kit: a wide-brimmed hat, a big strapped backpack, a buckled brown leather coat, gauntlets and boots.
+   New Hairstyle : As the default outfit — no cloth at all — a hulking body of riveted steel and iron plating, armoured limbs and a blank forged faceplate. A living suit of armour. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+32. Cassian — albino tiefling seer
+   Default       : Gaunt, chalk-pale with white hair and pale horns; dark layered seer's robes with ashen accents, a mantle; holds a staff. Eerie and spectral.
+   New Outfit    : A pale tiefling with horns and white hair; a regal purple robe under a blue-and-gold ornate mantle.
+   New Hairstyle : As the default outfit — gaunt, chalk-pale with white hair and pale horns; dark layered seer's robes with ashen accents, a mantle; holds a staff. Eerie and spectral. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+33. Cathal — Gaelic human druid
+   Default                : Red-bearded man in green-and-brown layered druid clothing under a travelling cloak, leather straps and belt; rugged, holds a staff.
+   New Outfit             : Red hair and beard; a green jacket over a dark shirt with a leather baldric, brown trousers and boots.
+   New Hairstyle          : As the default outfit — red-bearded man in green-and-brown layered druid clothing under a travelling cloak, leather straps and belt; rugged, holds a staff. — but worn with a completely different hairstyle and hair colour.
+   Armed (sword & shield) : The full default outfit (above), now gripping a straight steel sword in one hand and a round wooden shield with an iron boss in the other, in a braced battle-ready stance.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+34. Cinder — charred ash-walker warlock
+   Default       : A blackened, charred body veined with glowing orange embers, small flames flickering at the shoulders and hands, scorched dark armour plates. Burning from within.
+   New Outfit    : A charred figure in blackened plate veined with glowing green embers across chest, shoulders and arms.
+   New Hairstyle : As the default outfit — a blackened, charred body veined with glowing orange embers, small flames flickering at the shoulders and hands, scorched dark armour plates. Burning from within. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+35. Ciryn — small Aetherian folk
+   Default       : A little ethereal being in flowing white-and- pale-blue luminous robes with glowing accents; airy, weightless spellcaster attire.
+   New Outfit    : White-haired; a brown leather jerkin over a green tunic, a belt, brown trousers and boots.
+   New Hairstyle : As the default outfit — a little ethereal being in flowing white-and- pale-blue luminous robes with glowing accents; airy, weightless spellcaster attire. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+36. Clover — harengon ranger (rabbit-folk)
+   Default       : Brown rabbit-man with long ears in layered leather ranger gear — a jerkin, cloak, belt and pouches; carries a staff/bow.
+   New Outfit    : A brown rabbit-person with long ears; a brown leather jerkin with a belt, pouches and straps over a shirt and trousers.
+   New Hairstyle : As the default outfit — brown rabbit-man with long ears in layered leather ranger gear — a jerkin, cloak, belt and pouches; carries a staff/bow. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+37. Croak — grung bard (frog-folk)
+   Default       : Blue-and-green frog-person in simple earth and teal garb with a few straps and a sash; cheerful, carries an instrument.
+   New Outfit    : A blue frog-person in a brown coat with a round brass-rimmed cap and gloves, webbed feet; holds a tool.
+   New Hairstyle : As the default outfit — blue-and-green frog-person in simple earth and teal garb with a few straps and a sash; cheerful, carries an instrument. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+38. Dain — human fighter
+   Default      : Plain, practical kit — a brown sleeveless leather jerkin/vest over bare muscular arms, a wide belt, trousers and boots; short cropped hair. An everyman soldier.
+   Smallclothes : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+39. Darius — Persian scholar wizard
+   Default       : Ornate blue-and-red scholar's robes with gold trim and a mantle, a cap; grey beard. Holds an orb/astrolabe and a book. Learned and richly dressed.
+   New Outfit    : Grey hair and beard; a brown-and-blue scholar's coat with a fur collar over a waistcoat; holds a large blue astrolabe-orb.
+   New Hairstyle : As the default outfit — ornate blue-and-red scholar's robes with gold trim and a mantle, a cap; grey beard. Holds an orb/astrolabe and a book. Learned and richly dressed. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+40. Dune — sand-wraith rogue (undead)
+   Default       : A tattered dark hood and wrappings whose lower half dissolves into swirling sand and dust; twin curved daggers. A ghostly desert assassin.
+   New Outfit    : A sand-wraith with flame-lit hair; dark-navy plate over a robe, wielding twin curved daggers.
+   New Hairstyle : As the default outfit — a tattered dark hood and wrappings whose lower half dissolves into swirling sand and dust; twin curved daggers. A ghostly desert assassin. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+41. Durga — rakshasa fighter (tiger-folk)
+   Default       : Orange tiger-striped fur under ornate layered armour — pauldrons, a plated cuirass and gold jewellery; a powerful, imposing warrior build.
+   New Outfit    : A tiger-striped rakshasa; brown-and-red layered leather armour with a fur collar, straps and greaves.
+   New Hairstyle : As the default outfit — orange tiger-striped fur under ornate layered armour — pauldrons, a plated cuirass and gold jewellery; a powerful, imposing warrior build. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+42. Durgan — dwarf smith-fighter
+   Default       : Stocky and bearded, in a brown leather smith's apron over a work tunic, a tool-hung belt and heavy boots; earthy craftsman clothes.
+   New Outfit    : A red-bearded dwarf; a brown leather smith's apron over a cream shirt, a belt hung with tools and vials, brown trousers.
+   New Hairstyle : As the default outfit — stocky and bearded, in a brown leather smith's apron over a work tunic, a tool-hung belt and heavy boots; earthy craftsman clothes. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+43. Durn — duergar (grey dwarf) warlock
+   Default       : Grey-skinned dwarf in dark, heavy armour-robes with a grim muted palette, spiked accents; holds a dark implement. Underdark menace.
+   New Outfit    : A grey-skinned duergar; a green hooded cloak over brown-and-steel armour with buckled straps and pouches.
+   New Hairstyle : As the default outfit — grey-skinned dwarf in dark, heavy armour-robes with a grim muted palette, spiked accents; holds a dark implement. Underdark menace. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+44. Echo — kalashtar cleric (androgynous)
+   Default       : Dark layered cleric's robes and mantle with faint luminous accents and a hood; serene, understated, muted tones.
+   New Outfit    : A plain green robe with rolled sleeves over a brown waist-wrap, sandals.
+   New Hairstyle : As the default outfit — dark layered cleric's robes and mantle with faint luminous accents and a hood; serene, understated, muted tones. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+45. Elenwe — elf paladin
+   Default       : Polished steel plate — breastplate, pauldrons and tassets over a tunic and mail, dark hair tied back; a disciplined holy knight.
+   New Outfit    : An elf with a topknot; a navy long coat over a red waistcoat and white shirt, dark trousers.
+   New Hairstyle : As the default outfit — polished steel plate — breastplate, pauldrons and tassets over a tunic and mail, dark hair tied back; a disciplined holy knight. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+46. Elowen — fairy paladin
+   Default       : A compact winged figure in gleaming plate armour with gossamer wings and golden hair, wielding a small axe/mace. A pint-sized crusader.
+   New Outfit    : A winged fairy in a green ranger tunic with a brown baldric and belt over leggings.
+   New Hairstyle : As the default outfit — a compact winged figure in gleaming plate armour with gossamer wings and golden hair, wielding a small axe/mace. A pint-sized crusader. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+   Unarmoured II : A second undressed variant — armour and robes removed, leaving only the base underclothes.
+   Unarmed       : The full default outfit (above), standing empty-handed.
+   Feminine      : A softer, more feminine-featured rendering of the character in the same outfit.
+
+47. Elwin — scrawny human rogue
+   Default       : Modest, slightly ill-fitting leather-and-cloth adventurer's clothes in browns — a jerkin, satchel and belt; a lanky, bookish "nerd" look.
+   New Outfit    : Brown-haired; a blue vest over a white puff-sleeved shirt with a brown leather work-apron; holds a dagger.
+   New Hairstyle : As the default outfit — modest, slightly ill-fitting leather-and-cloth adventurer's clothes in browns — a jerkin, satchel and belt; a lanky, bookish "nerd" look. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+48. Emory — young human wizard
+   Default       : A tall brown pointed wizard's hat and layered brown-and-olive robes under a travelling cloak, cinched with a belt; holds a staff. The apprentice-mage look.
+   New Outfit    : A blue armoured bodysuit with a capped helm and segmented plates, white boots; holds a glowing blue blade.
+   New Hairstyle : As the default outfit — a tall brown pointed wizard's hat and layered brown-and-olive robes under a travelling cloak, cinched with a belt; holds a staff. The apprentice-mage look. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+   Female        : A female-presenting version of the character in the same style of outfit, with a softer build and longer hair.
+
+49. Ezana — Aksumite Ethiopian elf priest
+   Default       : Ornate silver-and-white priestly robes with gold accents and a draped mantle over dark skin; carries a tall ornate staff. Regal, layered vestments.
+   New Outfit    : Dark-skinned with a silver-trimmed helm; a teal-and-grey layered priest's robe with a cloak; carries a tall silver cross-topped staff.
+   New Hairstyle : As the default outfit — ornate silver-and-white priestly robes with gold accents and a draped mantle over dark skin; carries a tall ornate staff. Regal, layered vestments. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+50. Facet — crystalline gem-golem paladin
+   Default       : A body of faceted coloured crystal encased in golden paladin plate inlaid with gems; radiant, jewel-bright construct armour.
+   New Outfit    : A gem-golem in bulky brown-and-gold ornate plate with rune-etched panels and big rounded pauldrons.
+   New Hairstyle : As the default outfit — a body of faceted coloured crystal encased in golden paladin plate inlaid with gems; radiant, jewel-bright construct armour. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+51. Faelar — eladrin ranger
+   Default       : A green hooded cloak over layered leather ranger armour in earthy greens, belt and bracers, auburn hair; carries a bow.
+   New Outfit    : An eladrin in a dark-blue hooded coat over layered leather with belts and twin sheathed blades.
+   New Hairstyle : As the default outfit — a green hooded cloak over layered leather ranger armour in earthy greens, belt and bracers, auburn hair; carries a bow. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+52. Faenor — eladrin bard
+   Default       : A fine blue-and-cream doublet with layered garments and trim, long braided hair; holds a lute. A courtly performer's outfit.
+   New Outfit    : A green tunic with brown leather over trousers; plays a wooden lute.
+   New Hairstyle : As the default outfit — a fine blue-and-cream doublet with layered garments and trim, long braided hair; holds a lute. A courtly performer's outfit. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+53. Fen — moss-cloaked bog druid
+   Default       : Draped in a cloak of green moss and hanging leaves over earthy druid garb, twig-and-antler accents; a walking piece of the swamp.
+   New Outfit    : A bog druid in bulky moss-brown bark-and-hide armour with heavy shoulders and a chest plate.
+   New Hairstyle : As the default outfit — draped in a cloak of green moss and hanging leaves over earthy druid garb, twig-and-antler accents; a walking piece of the swamp. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+54. Fizza — gnome artificer
+   Default       : A small figure with wild orange hair in a leather work-apron/jerkin hung with tools, goggles and pouches; a busy tinkerer.
+   New Outfit    : A gnome with wild orange hair; a grey-blue armoured jumpsuit with a glowing teal chest light.
+   New Hairstyle : As the default outfit — a small figure with wild orange hair in a leather work-apron/jerkin hung with tools, goggles and pouches; a busy tinkerer. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+55. Fleur — dryad ranger
+   Default       : Flower-crowned with a green leafy ranger dress trimmed in petals and bark, earthy layered wraps; a blossoming forest guardian.
+   New Outfit    : A dark-blue coat with a maroon-lined cape and a blue plumed beret, brown boots.
+   New Hairstyle : As the default outfit — flower-crowned with a green leafy ranger dress trimmed in petals and bark, earthy layered wraps; a blossoming forest guardian. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+56. Gale — faerie ranger
+   Default       : Windswept and light — gauzy insect wings, airy green- and-tan ranger garb, wild hair; a nimble, weightless fae scout.
+   New Outfit    : A white-haired elf in green-and-brown ranger leathers with buckled straps, a belt and a slung bow.
+   New Hairstyle : As the default outfit — windswept and light — gauzy insect wings, airy green- and-tan ranger garb, wild hair; a nimble, weightless fae scout. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+57. Ganeth — elephant-trunked hybrid wizard
+   Default       : An elephant-headed humanoid (trunk and small tusks) in layered earth-toned mage robes and a sash; an exotic spellcaster.
+   New Outfit    : An elephant-headed figure in brown-and-green layered robe-armour with shoulder plates and a wide belt.
+   New Hairstyle : As the default outfit — an elephant-headed humanoid (trunk and small tusks) in layered earth-toned mage robes and a sash; an exotic spellcaster. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+58. Gareth — broad-shouldered human
+   Default       : Steel plate armour — breastplate, pauldrons and mail over a tunic, blond hair; a solid, no-nonsense knight.
+   New Outfit    : Brown-haired; a green tunic under a green hooded cloak over brown leather, belt and boots.
+   New Hairstyle : As the default outfit — steel plate armour — breastplate, pauldrons and mail over a tunic, blond hair; a solid, no-nonsense knight. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+59. Garrick — human warrior in heavy armour
+   Default       : Full plate harness with a closed great-helm and heavy shoulder plates, a great-sword shouldered; a walking tank.
+   New Outfit    : A horned-helmed warrior in brown-and-red plate-and-leather with a red kilt; shoulders a large battleaxe.
+   New Hairstyle : As the default outfit — full plate harness with a closed great-helm and heavy shoulder plates, a great-sword shouldered; a walking tank. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+60. Glimma — petite svirfneblin sorcerer
+   Default       : A tiny grey-skinned deep gnome with wild white hair in simple robes with faint arcane accents, hands raised mid-cast.
+   New Outfit    : A deep-gnome with wild white hair; a green-grey layered robe with straps, arms spread mid-cast.
+   New Hairstyle : As the default outfit — a tiny grey-skinned deep gnome with wild white hair in simple robes with faint arcane accents, hands raised mid-cast. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+61. Granite — stone-gargoyle paladin (construct)
+   Default       : A grey carved-stone gargoyle with folded bat wings and plated armour accents; a living statue in holy guise.
+   New Outfit    : A horned stone gargoyle with spread bat-wings; brown-grey plate armour with wide pauldrons.
+   New Hairstyle : As the default outfit — a grey carved-stone gargoyle with folded bat wings and plated armour accents; a living statue in holy guise. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+62. Greta — stout human woman
+   Default       : Sturdy leather armour with fur trim over a tunic, a belt and bracers, brown hair; a robust, earthy fighter.
+   New Outfit    : Brown-haired; a green long robe with an orange sash and brown belt over a red underskirt.
+   New Hairstyle : As the default outfit — sturdy leather armour with fur trim over a tunic, a belt and bracers, brown hair; a robust, earthy fighter. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+63. Grib — bugbear rogue
+   Default       : A tall, shaggy goblinoid in dark leather rogue gear — a hood, straps and pouches; lanky and skulking.
+   New Outfit    : A bugbear in steel pauldrons and gauntlets over a blue tabard with a white sigil, dark trousers.
+   New Hairstyle : As the default outfit — a tall, shaggy goblinoid in dark leather rogue gear — a hood, straps and pouches; lanky and skulking. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+64. Grint — goblin barbarian
+   Default       : A small green goblin in spiked scrap-metal armour lashed together from junk, wild-eyed; crude and dangerous.
+   New Outfit    : A goblin in ornate blue-and-gold plate with layered pauldrons and a gem-set breastplate.
+   New Hairstyle : As the default outfit — a small green goblin in spiked scrap-metal armour lashed together from junk, wild-eyed; crude and dangerous. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+   Handsome      : A more conventionally handsome rendering of the character in the same outfit.
+
+65. Grusha — bugbear barbarian
+   Default       : A big shaggy brown goblinoid warrior in fur-and- leather armour with a great-sword over the shoulder; brutish and heavy.
+   New Outfit    : A brown-furred bugbear in a teal-green gold-trimmed tunic, dark trousers and boots.
+   New Hairstyle : As the default outfit — a big shaggy brown goblinoid warrior in fur-and- leather armour with a great-sword over the shoulder; brutish and heavy. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+66. Grynna — svirfneblin cleric
+   Default       : A stout grey deep-gnome in neat, tidy earth- toned cleric robes with a sash, white hair; hands spread in blessing.
+   New Outfit    : A deep-gnome in a green hooded cloak over a cream apron-dress with a belt and green gem.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+   Unarmoured II : A second undressed variant — armour and robes removed, leaving only the base underclothes.
+
+67. Gudrun — Norse half-orc shieldmaiden
+   Default       : A broad green-skinned half-orc woman in fur-and-leather armour with a round shield, blonde braids and small tusks; a Viking warrior.
+   New Outfit    : A blonde half-orc in steel plate with a red tabard; a sword and a round red-and-steel shield.
+   New Hairstyle : As the default outfit — a broad green-skinned half-orc woman in fur-and-leather armour with a round shield, blonde braids and small tusks; a Viking warrior. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+68. Gunner — giff fighter (hippo-folk)
+   Default                : A burly hippo-headed humanoid in a buttoned green military greatcoat/uniform; a soldierly, redcoat-style rig (in green).
+   New Outfit             : A hippo-headed figure in a grey pinstripe suit, white shirt and dark-red tie.
+   New Hairstyle          : As the default outfit — a burly hippo-headed humanoid in a buttoned green military greatcoat/uniform; a soldierly, redcoat-style rig (in green). — but worn with a completely different hairstyle and hair colour.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+   Armed (holding weapon) : The full default outfit (above), now holding a weapon at the ready.
+
+69. Gunthar — Frankish dwarf knight
+   Default                : A dark-bearded dwarf in steel plate and mail over a dark tunic, stout and armoured; a compact man-at-arms.
+   New Outfit             : A dark-bearded dwarf in a green belted tunic with cream sleeves, brown trousers and boots.
+   New Hairstyle          : As the default outfit — a dark-bearded dwarf in steel plate and mail over a dark tunic, stout and armoured; a compact man-at-arms. — but worn with a completely different hairstyle and hair colour.
+   Armed (sword & shield) : The full default outfit (above), now gripping a straight steel sword in one hand and a round wooden shield with an iron boss in the other, in a braced battle-ready stance.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+70. Gurka — orc warlock
+   Default       : A green-skinned orc in ragged leather-and-bone warlock garb with tribal fetishes and small tusks; holds a dark implement.
+   New Outfit    : A tusked orc in ragged green-and-brown layered garb with leather straps.
+   New Hairstyle : As the default outfit — a green-skinned orc in ragged leather-and-bone warlock garb with tribal fetishes and small tusks; holds a dark implement. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+71. Hakim — Arab gnome alchemist
+   Default       : A tiny figure in layered earth-toned robes and a turban with a satchel, holding up a bubbling potion vial; a pocket-sized alchemist.
+   New Outfit    : A grey-bearded gnome in a brown cap and a brown-green layered coat with a pack strap, boots.
+   New Hairstyle : As the default outfit — a tiny figure in layered earth-toned robes and a turban with a satchel, holding up a bubbling potion vial; a pocket-sized alchemist. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+72. Haldan — half-orc warrior
+   Default       : A green-skinned brawler in heavy fur-and-leather armour with dark plate pieces and a large round shield slung on the back; battle-worn.
+   New Outfit    : A green-skinned warrior in a green tunic with a leather baldric and straps, a slung bow.
+   New Hairstyle : As the default outfit — a green-skinned brawler in heavy fur-and-leather armour with dark plate pieces and a large round shield slung on the back; battle-worn. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+73. Hana — human monk
+   Default       : A simple saffron/orange wrapped monk's robe with a cloth sash, dark hair in a bun; serene and unarmed. Understated and calm.
+   New Outfit    : Dark bobbed hair; a dark-green padded vest over a grey shirt, dark trousers and boots.
+   New Hairstyle : As the default outfit — a simple saffron/orange wrapped monk's robe with a cloth sash, dark hair in a bun; serene and unarmed. Understated and calm. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+   Berserker     : A hulking, over-muscled berserker version of the character — swollen build, torn minimal clothing.
+
+74. Haneul — Goryeo Korean archer
+   Default                : A green hanbok-style layered robe/tunic with a topknot hat, drawing a bow; graceful, traditional Korean dress cut for archery.
+   New Outfit             : A fur cap; a red-brown layered archer's coat, drawing a bow with a full quiver on the back.
+   New Hairstyle          : As the default outfit — a green hanbok-style layered robe/tunic with a topknot hat, drawing a bow; graceful, traditional Korean dress cut for archery. — but worn with a completely different hairstyle and hair colour.
+   Armed (sword & shield) : The full default outfit (above), now gripping a straight steel sword in one hand and a round wooden shield with an iron boss in the other, in a braced battle-ready stance.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+75. Hawk — Native American chief
+   Default       : A full eagle-feather war-bonnet, fringed buckskin tunic and leggings with rich beadwork, a ceremonial staff; regalia of a chieftain.
+   New Outfit    : A feathered headdress over a visor; a grey-teal segmented armour suit; carries a white staff.
+   New Hairstyle : As the default outfit — a full eagle-feather war-bonnet, fringed buckskin tunic and leggings with rich beadwork, a ceremonial staff; regalia of a chieftain. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+76. Herne — stag-headed wildfolk druid
+   Default       : An antlered stag's head atop mossy green leaf-and-bark druid garb and a leafy cloak; the horned lord of the wild.
+   New Outfit    : An antlered figure in a blue segmented armoured bodysuit with glowing accents.
+   New Hairstyle : As the default outfit — an antlered stag's head atop mossy green leaf-and-bark druid garb and a leafy cloak; the horned lord of the wild. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+77. Hilde — human commoner
+   Default       : A plain long green woollen dress/gown, brown hair; no armour or ornament — a sturdy, homely villager's outfit.
+   New Outfit    : Long dark hair; dark brown-and-grey heavy plate with gold trim and a long armoured skirt.
+   New Hairstyle : As the default outfit — a plain long green woollen dress/gown, brown hair; no armour or ornament — a sturdy, homely villager's outfit. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+   No belt       : The default outfit (above) worn without its belt.
+
+78. Hine — Mori (Māori) elf ranger
+   Default       : Green-and-earth layered ranger garb with feather and greenstone (pounamu) accents, a woven cloak; carries a staff. A Māori-inspired forest warrior.
+   New Outfit    : A green-haired elf in green-and-gold ranger armour with feathers; holds a greenstone-tipped staff.
+   New Hairstyle : As the default outfit — green-and-earth layered ranger garb with feather and greenstone (pounamu) accents, a woven cloak; carries a staff. A Māori-inspired forest warrior. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+79. Hooth — owlin druid (owl-folk)
+   Default       : A tawny feathered owl-person in earth-toned druid robes and wraps; the plumage itself is much of the "outfit."
+   New Outfit    : An owl-person in a blue gold-trimmed robe with a brown belt.
+   New Hairstyle : As the default outfit — a tawny feathered owl-person in earth-toned druid robes and wraps; the plumage itself is much of the "outfit." — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+80. Huia — Mori elf
+   Default       : Green-and-brown layered garments with feathers in the hair and greenstone ornaments, a woven wrap; carries a weapon. Māori-inspired dress.
+   New Outfit    : Green hair in a topknot; green ranger garb with feathers and a slung weapon; a glowing blade in hand.
+   New Hairstyle : As the default outfit — green-and-brown layered garments with feathers in the hair and greenstone ornaments, a woven wrap; carries a weapon. Māori-inspired dress. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+81. Idir — Berber half-orc nomad
+   Default                : A stocky green-skinned figure in layered desert robes and wraps (indigo and earth tones) with a head-wrap and jewellery; dressed for the dunes.
+   New Outfit             : A half-orc in a blue cap and teal layered robe with brown leather sleeves and belt vials.
+   New Hairstyle          : As the default outfit — a stocky green-skinned figure in layered desert robes and wraps (indigo and earth tones) with a head-wrap and jewellery; dressed for the dunes. — but worn with a completely different hairstyle and hair colour.
+   Armed (sword & shield) : The full default outfit (above), now gripping a straight steel sword in one hand and a round wooden shield with an iron boss in the other, in a braced battle-ready stance.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+82. Ignis — fire genasi sorcerer
+   Default       : Red-orange flame-skinned, with fire for hair and dark armour plates glowing with embers; a blazing elemental spellcaster.
+   New Outfit    : A fire-headed figure in blue-and-steel plate with a purple gem chest, gauntlets and greaves.
+   New Hairstyle : As the default outfit — red-orange flame-skinned, with fire for hair and dark armour plates glowing with embers; a blazing elemental spellcaster. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+83. Ilssa — vedalken wizard
+   Default    : A blue-skinned humanoid in a dark hooded robe with subtle arcane trim; smooth, austere mage's attire.
+   New Outfit : A blue-skinned vedalken in a green hooded cloak over brown-and-cream layered leather.
+   Unarmoured : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+84. Inkwell — octopus-folk warlock
+   Default       : An octopus-headed being with writhing tentacles in layered teal-and-purple robes; a dripping, eldritch look.
+   New Outfit    : An octopus-headed warlock in teal-and-purple layered robes with a jewelled shoulder and writhing tentacles; a purple-crystal staff.
+   New Hairstyle : As the default outfit — an octopus-headed being with writhing tentacles in layered teal-and-purple robes; a dripping, eldritch look. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+85. Iris — human/celestial cleric
+   Default       : Flowing white-and-gold clerical robes with a draped mantle and a headpiece, carrying a tall staff; radiant and priestly.
+   New Outfit    : Brown-haired; a green tunic with a brown leather baldric and belt over trousers; a staff topped with a blue orb.
+   New Hairstyle : As the default outfit — flowing white-and-gold clerical robes with a draped mantle and a headpiece, carrying a tall staff; radiant and priestly. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+   Feminine      : A softer, more feminine-featured rendering of the character in the same outfit.
+
+86. Ivory — loxodon cleric (elephant-folk)
+   Default       : A large, gentle elephantine figure in cream-and-white clerical robes with gold trim and a sash; soft, dignified vestments.
+   New Outfit    : Goggles over big ears; a green tinkerer's outfit with brown leather straps, pouches and belt vials.
+   New Hairstyle : As the default outfit — a large, gentle elephantine figure in cream-and-white clerical robes with gold trim and a sash; soft, dignified vestments. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+   Unarmoured II : A second undressed variant — armour and robes removed, leaving only the base underclothes.
+
+87. Jabir — Moorish astronomer
+   Default       : A lean bearded scholar in cream-and-white robes with a mantle, holding an astronomical instrument; a stargazer's attire.
+   New Outfit    : Dark hair and beard; a dark-red long coat with green facings over a waistcoat and trousers.
+   New Hairstyle : As the default outfit — a lean bearded scholar in cream-and-white robes with a mantle, holding an astronomical instrument; a stargazer's attire. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+88. Jokul — frost-giant-kin barbarian
+   Default       : A hulking ice-blue-skinned giant in fur- and-hide armour rimed with frost, icy accents; the cold made flesh.
+   New Outfit    : A blue-skinned frost giant in icy blue-and-purple ornate plate with spiked pauldrons and a purple gem.
+   New Hairstyle : As the default outfit — a hulking ice-blue-skinned giant in fur- and-hide armour rimed with frost, icy accents; the cold made flesh. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+89. Kadiri — half-tiefling scholar-bard
+   Default       : Hooded dark-purple scholarly robes with fine trim, small horns, carrying a book/instrument; a bookish performer.
+   New Outfit    : A horned helm and tail; a green tunic with brown leather straps; carries a wooden staff.
+   New Hairstyle : As the default outfit — hooded dark-purple scholarly robes with fine trim, small horns, carrying a book/instrument; a bookish performer. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+90. Kaelon — centaur barbarian
+   Default       : A man's torso with fur-and-leather straps and bracers joined to a shaggy auburn horse body; a wild, unarmoured raider.
+   New Outfit    : A centaur with a red mane; blue-and-gold plate on the torso with matching barding on the horse body.
+   New Hairstyle : As the default outfit — a man's torso with fur-and-leather straps and bracers joined to a shaggy auburn horse body; a wild, unarmoured raider. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+91. Karg — half-orc fighter
+   Default       : A muscular green-skinned orc in leather-and-metal armour with an axe and prominent tusks; a straightforward bruiser.
+   New Outfit    : A half-orc with a topknot; a blue gambeson with a gold-buckled belt over dark trousers.
+   New Hairstyle : As the default outfit — a muscular green-skinned orc in leather-and-metal armour with an axe and prominent tusks; a straightforward bruiser. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+92. Karrin — kenku rogue (crow-folk)
+   Default                : A black-feathered crow-headed figure with wide eyes in dark leather rogue gear — hood, straps and pouches; a furtive corvid thief.
+   New Outfit             : A black-feathered kenku with folded wings; dark layered garb with a green sash and red trim.
+   New Hairstyle          : As the default outfit — a black-feathered crow-headed figure with wide eyes in dark leather rogue gear — hood, straps and pouches; a furtive corvid thief. — but worn with a completely different hairstyle and hair colour.
+   Armed (sword & shield) : The full default outfit (above), now gripping a straight steel sword in one hand and a round wooden shield with an iron boss in the other, in a braced battle-ready stance.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+93. Kassia — Byzantine tiefling scholar
+   Default                : Tall, in layered dark robes with rich gold Byzantine trim and small horns, holding a book/staff; opulent scholarly dress.
+   New Outfit             : A white-haired horned tiefling in green-and-gold ornate plate with a blue gem centrepiece.
+   New Hairstyle          : As the default outfit — tall, in layered dark robes with rich gold Byzantine trim and small horns, holding a book/staff; opulent scholarly dress. — but worn with a completely different hairstyle and hair colour.
+   Armed (sword & shield) : The full default outfit (above), now gripping a straight steel sword in one hand and a round wooden shield with an iron boss in the other, in a braced battle-ready stance.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+94. Kesh — aarakocra sorcerer (bird-folk)
+   Default       : A blue-feathered bird-person with a head crest and folded wings in layered mage robes; avian spellcaster.
+   New Outfit    : A bird-folk in brown feathered-and-leaf layered druid garb.
+   New Hairstyle : As the default outfit — a blue-feathered bird-person with a head crest and folded wings in layered mage robes; avian spellcaster. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+95. Kestrel — hawk-folk monk
+   Default       : A russet-feathered hawk-headed figure in earth- toned monk's wraps and bindings; a raptor ascetic.
+   New Outfit    : A hawk-headed figure in a green vest over a cream shirt, brown belt and pouches, taloned feet.
+   New Hairstyle : As the default outfit — a russet-feathered hawk-headed figure in earth- toned monk's wraps and bindings; a raptor ascetic. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+96. Kofi — dark-skinned adventurer
+   Default       : A practical brown leather jerkin/coat over a tunic with a belt and a shoulder scarf; short dark hair and beard. Everyday traveller's kit.
+   New Outfit    : A red-and-gold musketeer outfit with a wide plumed hat, a gold-buttoned doublet and boots.
+   New Hairstyle : As the default outfit — a practical brown leather jerkin/coat over a tunic with a belt and a shoulder scarf; short dark hair and beard. Everyday traveller's kit. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+97. Kohu — Patupaiarehe (Māori fae)
+   Default           : A tall, ethereal maiden in a flowing white gown with red accents and long red hair; pale, otherworldly robes.
+   New Outfit        : Long red hair; a dark blue-and-maroon layered outfit over leather trousers.
+   New Hairstyle     : As the default outfit — a tall, ethereal maiden in a flowing white gown with red accents and long red hair; pale, otherworldly robes. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes      : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+   Flax cloak (muka) : Wearing a full-length woven-flax cloak (kākahu) of pale golden fibre with a dark geometric tāniko border and a fringed hem, draped over the shoulders of the default outfit.
+
+98. Lithien — eladrin wizard
+   Default       : Elaborate white-and-lavender wizard robes with a layered mantle and long flowing pale hair, glowing arcane accents; a regal archmage.
+   New Outfit    : Long flowing white hair; a green-and-cream ornate robe with gold trim and layered skirts.
+   New Hairstyle : As the default outfit — elaborate white-and-lavender wizard robes with a layered mantle and long flowing pale hair, glowing arcane accents; a regal archmage. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+99. Lucian — dhampir rogue
+   Default       : A pale half-vampire in dark aristocratic attire — a high-collared black coat with a short cape and red accents, slicked hair; gothic and sharp.
+   New Outfit    : White-haired; a dark-green hooded cloak over layered leather with a slung bow.
+   New Hairstyle : As the default outfit — a pale half-vampire in dark aristocratic attire — a high-collared black coat with a short cape and red accents, slicked hair; gothic and sharp. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+100. Lupa — wild shifter druid
+   Default       : Clad in a full wolf-pelt cloak worn as a hood (the wolf's head as a cowl) over fur-and-leather primal garb; feral and rugged.
+   New Outfit    : Dark teal-and-brown armour with a wolf-head cowl and blue-gem accents.
+   New Hairstyle : As the default outfit — clad in a full wolf-pelt cloak worn as a hood (the wolf's head as a cowl) over fur-and-leather primal garb; feral and rugged. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+101. Lyra — cat-hybrid warrior
+   Default       : A cat-eared, dark-red-haired warrior woman in leather-and-fur armour with bracers and a tail; a lithe feline fighter.
+   New Outfit    : A cat-hybrid with purple-red hair; a green tunic with a brown sash and leather straps over dark trousers.
+   New Hairstyle : As the default outfit — a cat-eared, dark-red-haired warrior woman in leather-and-fur armour with bracers and a tail; a lithe feline fighter. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+102. Magmus — molten forgeborn fighter (construct)
+   Default       : An iron construct body veined with glowing molten-orange cracks between the plates; a walking forge.
+   New Outfit    : A forgeborn in dark green-and-brown layered armour with a horned helm, straps and pouches.
+   New Hairstyle : As the default outfit — an iron construct body veined with glowing molten-orange cracks between the plates; a walking forge. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+103. Magpie — kenku bard
+   Default       : A sleek black-feathered crow-person in dark bard's attire with a few bright accents; a stylish corvid minstrel.
+   New Outfit    : A kenku in an olive military coat and cap with a belt and straps.
+   New Hairstyle : As the default outfit — a sleek black-feathered crow-person in dark bard's attire with a few bright accents; a stylish corvid minstrel. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+104. Malica — tiefling paladin
+   Default       : Dark plate armour with a horned helm, a lashing tail and glowing purple accents; a menacing dark crusader.
+   New Outfit    : A purple-faced tiefling with large horns; dark green-and-purple layered garb with a spiked mantle.
+   New Hairstyle : As the default outfit — dark plate armour with a horned helm, a lashing tail and glowing purple accents; a menacing dark crusader. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+105. Manaia — Mori (Māori) dwarf warrior
+   Default       : A stocky dwarf with Māori tā moko markings in layered armour with teal greenstone accents; holds a weapon. A short, sturdy Māori fighter.
+   New Outfit    : A bearded dwarf in a blue cap; blue-grey layered plate-robe with a greenstone pendant.
+   New Hairstyle : As the default outfit — a stocky dwarf with Māori tā moko markings in layered armour with teal greenstone accents; holds a weapon. A short, sturdy Māori fighter. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+106. Marama — Mori (Māori) woman
+   Default       : Earth-toned traditional dress — a woven wrap/ skirt with bare shoulders, feathers and greenstone ornaments, dark hair; unarmoured and graceful.
+   New Outfit    : Dark-haired; an olive utilitarian jacket-and-trousers with a belt and boots.
+   New Hairstyle : As the default outfit — earth-toned traditional dress — a woven wrap/ skirt with bare shoulders, feathers and greenstone ornaments, dark hair; unarmoured and graceful. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+107. Marina — selkie ranger (seal-folk)
+   Default       : Sleek blue-grey garb under a seal-skin cloak, aquatic ranger kit, carrying a harpoon/spear; dressed for the sea.
+   New Outfit    : A selkie in a fur cap and green-grey coat with a seal-tail lower body; holds a fish.
+   New Hairstyle : As the default outfit — sleek blue-grey garb under a seal-skin cloak, aquatic ranger kit, carrying a harpoon/spear; dressed for the sea. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+108. Massin — Berber half-orc nomad
+   Default : A stocky green-skinned nomad in layered desert robes and armour plates with a head-wrap; a dune wanderer (a variant of Idir).
+
+109. Meihua — panda-folk monk
+   Default       : A black-and-white panda-person in dark layered monk's robes with a sash, carrying a staff; a serene bamboo ascetic.
+   New Outfit    : A panda-person in a green hoodie over dark trousers; carries a walking pick.
+   New Hairstyle : As the default outfit — a black-and-white panda-person in dark layered monk's robes with a sash, carrying a staff; a serene bamboo ascetic. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+110. Mikisew — Cree elf hunter
+   Default                : Dark fringed hunting garb with fur trim and an antlered/horned headdress, layered leathers; a tall wilderness stalker.
+   New Outfit             : Dark-haired; a dark teal-and-brown layered hunter's coat with fur trim; carries a staff.
+   New Hairstyle          : As the default outfit — dark fringed hunting garb with fur trim and an antlered/horned headdress, layered leathers; a tall wilderness stalker. — but worn with a completely different hairstyle and hair colour.
+   Armed (sword & shield) : The full default outfit (above), now gripping a straight steel sword in one hand and a round wooden shield with an iron boss in the other, in a braced battle-ready stance.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+111. Milo — halfling druid
+   Default       : A bearded halfling in earthy blue-green druid garb hung with beads and charms and teal accents; holds a staff. Homely nature dress.
+   New Outfit    : Brown-haired; a navy coat over a teal tunic with a gold clasp, brown boots.
+   New Hairstyle : As the default outfit — a bearded halfling in earthy blue-green druid garb hung with beads and charms and teal accents; holds a staff. Homely nature dress. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+112. Mirage — changeling bard (androgynous)
+   Default       : Smooth, featureless shimmering skin with minimal tan-and-gold garb — a simple wrap and belt; a blank-slate shapeshifter.
+   New Outfit    : A blank-faced changeling; a brown leather apron over tan-and-grey layered clothes with belt vials.
+   New Hairstyle : As the default outfit — smooth, featureless shimmering skin with minimal tan-and-gold garb — a simple wrap and belt; a blank-slate shapeshifter. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+113. Mireth — darakhul cleric (undead)
+   Default       : A gaunt, greyish-green ghoul in teal-grey cleric robes with bone ornaments, carrying a staff; a ghoulish priestess.
+   New Outfit    : A tan hooded tunic with a leather apron over green trousers, arms crossed.
+   New Hairstyle : As the default outfit — a gaunt, greyish-green ghoul in teal-grey cleric robes with bone ornaments, carrying a staff; a ghoulish priestess. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+114. Mistle — cat-eared rogue
+   Default       : Cat ears atop brown leather rogue armour with a lowered hood, straps and pouches, dagger in hand; a nimble catfolk thief.
+   New Outfit    : Cat-ears and blue hair; a dark grey-blue hooded jacket with pink accents, belt and teal boots.
+   New Hairstyle : As the default outfit — cat ears atop brown leather rogue armour with a lowered hood, straps and pouches, dagger in hand; a nimble catfolk thief. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+   Unarmoured II : A second undressed variant — armour and robes removed, leaving only the base underclothes.
+
+115. Moorwen — heather witch warlock
+   Default       : Layered purple-and-green witch's robes with a crown of heather flowers, ornate and trailing; carries a staff. A moorland hedge-witch.
+   New Outfit    : A witch with a flower crown; a brown-and-green layered dress with a leafy skirt.
+   New Hairstyle : As the default outfit — layered purple-and-green witch's robes with a crown of heather flowers, ornate and trailing; carries a staff. A moorland hedge-witch. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+116. Morgause — hexblood witch warlock
+   Default       : A dark witch with antler-like horns in purple-black layered robes with eerie accents; sinister and fey.
+   New Outfit    : An antlered hexblood; a dark-green wrap-robe with a brown belt and layered skirts.
+   New Hairstyle : As the default outfit — a dark witch with antler-like horns in purple-black layered robes with eerie accents; sinister and fey. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+117. Morrick — darakhul warlock (ghoul)
+   Default       : A gaunt undead in earthy layered warlock garb with pointed ears, holding a dark implement; a hungering ghoul.
+   New Outfit    : A pale ghoul with wild dark hair; a black long coat over dark clothes.
+   New Hairstyle : As the default outfit — a gaunt undead in earthy layered warlock garb with pointed ears, holding a dark implement; a hungering ghoul. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+118. Mortimer — reborn undead warlock
+   Default       : A hooded, tattered dark robe over a gaunt skeletal frame with bony hands; a grim, reaper-like figure.
+   New Outfit    : A green cap and green military coat with brass buttons over brown trousers.
+   New Hairstyle : As the default outfit — a hooded, tattered dark robe over a gaunt skeletal frame with bony hands; a grim, reaper-like figure. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+119. Motley — flamboyant rogue
+   Default       : Dark leather rogue gear topped with a vivid multi-coloured (rainbow) mohawk and bright accents; a flashy trickster.
+   New Outfit    : A rainbow mohawk; a green military jacket with a belt over dark trousers.
+   New Hairstyle : As the default outfit — dark leather rogue gear topped with a vivid multi-coloured (rainbow) mohawk and bright accents; a flashy trickster. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+120. Munn — firbolg druid
+   Default       : A big, stocky fey-giant with antlers and a broad beard in mossy green-and-brown druid garb with leaf-and-fur accents; a gentle nature giant.
+   New Outfit    : A firbolg with moose antlers; a green-brown layered robe with fur and bark accents.
+   New Hairstyle : As the default outfit — a big, stocky fey-giant with antlers and a broad beard in mossy green-and-brown druid garb with leaf-and-fur accents; a gentle nature giant. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+121. Murasaki — Heian kitsune-folk noble
+   Default                : A petite white fox-eared, many-tailed noble in an ornate multi-layered kimono (jūnihitoe) of red, white and patterned silks; refined courtly dress.
+   New Outfit             : A white-haired kitsune with fox ears and many tails; ornate white-and-blue armour with gold trim and a small crown.
+   New Hairstyle          : As the default outfit — a petite white fox-eared, many-tailed noble in an ornate multi-layered kimono (jūnihitoe) of red, white and patterned silks; refined courtly dress. — but worn with a completely different hairstyle and hair colour.
+   Armed (sword & shield) : The full default outfit (above), now gripping a straight steel sword in one hand and a round wooden shield with an iron boss in the other, in a braced battle-ready stance.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+122. Nadir — desert warrior
+   Default       : Layered desert robes and armour in blue and tan with a hood/head-wrap, a sword at the side; dressed for sun and sand.
+   New Outfit    : A helmeted desert warrior in a tan-and-olive robe with a diagonal strap and boots.
+   New Hairstyle : As the default outfit — layered desert robes and armour in blue and tan with a hood/head-wrap, a sword at the side; dressed for sun and sand. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+123. Naina — rakshasa warlock
+   Default       : A slender tiger-striped figure in dark teal-and- bronze warlock garb with jewellery; sinuous and exotic.
+   New Outfit    : A rakshasa in ornate dark bronze-and-teal armour with a horned helm and layered plates.
+   New Hairstyle : As the default outfit — a slender tiger-striped figure in dark teal-and- bronze warlock garb with jewellery; sinuous and exotic. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+124. Nereus — triton fighter (sea-folk)
+   Default       : A teal-scaled merman warrior in coral- red-and-teal fined armour, carrying a trident; a knight of the deep.
+   New Outfit    : A finned triton in blue-and-teal scaled armour over a robe.
+   New Hairstyle : As the default outfit — a teal-scaled merman warrior in coral- red-and-teal fined armour, carrying a trident; a knight of the deep. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+125. Nerida — water genasi cleric
+   Default       : Flowing icy blue-white robes with water-and-ice accents and translucent hair; a serene, frost-touched priestess.
+   New Outfit    : A green hooded cloak over layered brown leather with twin sheathed blades.
+   New Hairstyle : As the default outfit — flowing icy blue-white robes with water-and-ice accents and translucent hair; a serene, frost-touched priestess. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+126. Nib — mousefolk artificer
+   Default       : A tiny grey mouse-person with goggles in a leather tinker's apron hung with tools, a long tail; a pocket inventor.
+   New Outfit    : A mouse-person in a white-and-gold Egyptian tunic with a teal collar; holds a tablet.
+   New Hairstyle : As the default outfit — a tiny grey mouse-person with goggles in a leather tinker's apron hung with tools, a long tail; a pocket inventor. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+127. Nima — catfolk fighter
+   Default       : A cat-eared, white-haired warrior in tan leather- and-metal armour with a tail, weapon in hand; an agile feline fighter.
+   New Outfit    : A white-haired catfolk in a dark grey-and-orange strapped jacket over dark trousers.
+   New Hairstyle : As the default outfit — a cat-eared, white-haired warrior in tan leather- and-metal armour with a tail, weapon in hand; an agile feline fighter. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+128. Nimue — fey warrior
+   Default       : Short curly pink hair above steel armour with pink-red accents over a tunic; a bright, storybook knight.
+   New Outfit    : Pink-haired; a teal-and-brown fitted outfit with leather straps over trousers.
+   New Hairstyle : As the default outfit — short curly pink hair above steel armour with pink-red accents over a tunic; a bright, storybook knight. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+   Unarmoured II : A second undressed variant — armour and robes removed, leaving only the base underclothes.
+
+129. Nocturne — batfolk warlock
+   Default       : A leathery bat-winged woman with membranous wings in dark leather warlock garb; a creature of the night.
+   New Outfit    : A bat-winged figure in a dark teal-and-red robe with a horned collar.
+   New Hairstyle : As the default outfit — a leathery bat-winged woman with membranous wings in dark leather warlock garb; a creature of the night. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+130. Nyx — drow rogue
+   Default       : A regal dark-skinned drow with white hair in elegant dark leather rogue armour with purple accents; a noble assassin.
+   New Outfit    : A white-haired drow in a green-and-grey layered leather outfit with pauldrons.
+   New Hairstyle : As the default outfit — a regal dark-skinned drow with white hair in elegant dark leather rogue armour with purple accents; a noble assassin. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+131. Oakheart — treant druid
+   Default       : A walking tree-person — bark for skin, a leafy green canopy for hair, wooden limbs draped in moss; the forest itself.
+   New Outfit    : A treant in bark-and-moss armour with a glowing green crest.
+   New Hairstyle : As the default outfit — a walking tree-person — bark for skin, a leafy green canopy for hair, wooden limbs draped in moss; the forest itself. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+132. Oba — West African warrior
+   Default       : A dark-skinned warrior in a patterned tunic and layered garb with beaded and gold accents, carrying a spear; a regal fighter.
+   New Outfit    : A dark-skinned warrior in an olive-brown coat with a diagonal strap; holds a spear.
+   New Hairstyle : As the default outfit — a dark-skinned warrior in a patterned tunic and layered garb with beaded and gold accents, carrying a spear; a regal fighter. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+133. Ocelotl — Aztec jaguar-folk warrior
+   Default       : Jaguar-spotted, in Mexica regalia — a feathered-and-spotted headdress and jaguar-pelt armour, weapon in hand; a fierce eagle-jaguar warrior.
+   New Outfit    : A maned-headdress warrior in tan-and-brown leather armour with a spotted pelt.
+   New Hairstyle : As the default outfit — jaguar-spotted, in Mexica regalia — a feathered-and-spotted headdress and jaguar-pelt armour, weapon in hand; a fierce eagle-jaguar warrior. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+134. Ollivar — owlin wizard
+   Default       : A small owl-person with soft feathers in layered wizard robes, carrying a staff/book; a scholarly little owl.
+   New Outfit    : An owl-person in a blue gold-trimmed coat over a cream shirt; carries a wooden staff.
+   New Hairstyle : As the default outfit — a small owl-person with soft feathers in layered wizard robes, carrying a staff/book; a scholarly little owl. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+135. Ondine — water fae ("child of the sea")
+   Default       : Teal-haired with fin/wing accents in blue-teal aquatic garb, carrying a spear; an ocean-born spirit.
+   New Outfit    : Teal-haired; dark green-teal ranger armour with a cloak; a spear and dagger in hand.
+   New Hairstyle : As the default outfit — teal-haired with fin/wing accents in blue-teal aquatic garb, carrying a spear; an ocean-born spirit. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+136. Osric — skeleton mage (undead)
+   Default       : A hollow-eyed skeleton draped in hooded brown-and-tan robes, carrying a staff; a bony spellcaster.
+   New Outfit    : A skeleton in green-grey layered armour; carries a flame-topped staff.
+   New Hairstyle : As the default outfit — a hollow-eyed skeleton draped in hooded brown-and-tan robes, carrying a staff; a bony spellcaster. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+137. Oyuun — Mongolian steppe warrior
+   Default       : Lamellar armour with a red-plumed helm over layered steppe clothing, bow at the ready; a hardy horse-warrior.
+   New Outfit    : A green-and-brown steppe outfit with fur-lined layered leather and a slung bow.
+   New Hairstyle : As the default outfit — lamellar armour with a red-plumed helm over layered steppe clothing, bow at the ready; a hardy horse-warrior. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+138. Pan — satyr bard
+   Default       : A horned, goat-legged satyr, bare-chested with a sash and shaggy fur legs, strumming a lute; a merry woodland minstrel.
+   New Outfit    : A ram-horned satyr in an olive jacket with leather straps over shaggy goat legs.
+   New Hairstyle : As the default outfit — a horned, goat-legged satyr, bare-chested with a sash and shaggy fur legs, strumming a lute; a merry woodland minstrel. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+139. Pincer — crab-folk fighter
+   Default       : A red crab-person with pincer hands and chitinous shell plating for armour; a crustacean bruiser.
+   New Outfit    : A red crab-folk in a green-blue coat over dark trousers; a round shield and a claw.
+   New Hairstyle : As the default outfit — a red crab-person with pincer hands and chitinous shell plating for armour; a crustacean bruiser. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+140. Pip — rabbitfolk adventurer
+   Default       : A brown long-eared rabbit-woman in light leather adventurer's garb with a satchel and belt; nimble and perky.
+   New Outfit    : A brown rabbit-person in a green tunic with a brown belt and pack.
+   New Hairstyle : As the default outfit — a brown long-eared rabbit-woman in light leather adventurer's garb with a satchel and belt; nimble and perky. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+141. Prithvi — Rajput human warrior
+   Default       : Dark layered armour with a turban-helm and teal accents, spear in hand; a muscular Indian man-at-arms.
+   New Outfit    : A topknotted man in a green-and-cream robe with a gold chest sigil and sash.
+   New Hairstyle : As the default outfit — dark layered armour with a turban-helm and teal accents, spear in hand; a muscular Indian man-at-arms. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+142. Puck — fey hybrid trickster
+   Default       : A horned, pointy-eared fey creature in dark fur- and-leather garb; a mischievous goblin-sprite.
+   New Outfit    : A horned fey in dark layered leather-and-plate armour.
+   New Hairstyle : As the default outfit — a horned, pointy-eared fey creature in dark fur- and-leather garb; a mischievous goblin-sprite. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+   Fairer        : A cleaned-up, fairer-featured rendering of the character in the same outfit.
+
+143. Rajat — rakshasa rogue
+   Default       : An orange tiger-striped rogue with slicked-back black hair in dark leather, twin daggers ready; a sly feline cutthroat.
+   New Outfit    : A tiger-striped rakshasa in dark blue-and-teal segmented armour; carries a staff.
+   New Hairstyle : As the default outfit — an orange tiger-striped rogue with slicked-back black hair in dark leather, twin daggers ready; a sly feline cutthroat. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+144. Rangi — Mori (Māori) human chieftain
+   Default      : A broad chief with tā moko facial tattoos, a bare chest under a feathered cloak (korowai), greenstone pendant and layered flax garments; carries a taiaha. Chiefly regalia.
+   Smallclothes : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+145. Rata — Mori faerie druid
+   Default       : A delicate fae with butterfly wings in pink-and- green floral druid garb; a tiny, colourful nature sprite.
+   New Outfit    : A pink-winged fairy in a brown steampunk outfit with a top hat, goggles and a corset-vest.
+   New Hairstyle : As the default outfit — a delicate fae with butterfly wings in pink-and- green floral druid garb; a tiny, colourful nature sprite. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+146. Ravana — rakshasa warlock
+   Default       : A tiger-striped feline in ornate armour with a pale white-fur mantle and layered plates; a fierce, regal caster.
+   New Outfit    : A tiger-headed figure in a green-brown layered robe over leather with a fur collar.
+   New Hairstyle : As the default outfit — a tiger-striped feline in ornate armour with a pale white-fur mantle and layered plates; a fierce, regal caster. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+147. Ravi — rakshasa monk
+   Default       : A tiger-striped, shaven-headed monk, bare-chested with cloth wraps and a sash; a disciplined feline ascetic.
+   New Outfit    : A grey hooded outfit over layered leather armour.
+   New Hairstyle : As the default outfit — a tiger-striped, shaven-headed monk, bare-chested with cloth wraps and a sash; a disciplined feline ascetic. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+148. Rehua — Patupaiarehe (Māori fae)
+   Default       : A slender, pale red-haired fae in a white fur-trimmed cloak over dark garb with greenstone; ethereal and cold.
+   New Outfit    : A pale fae with red hair; a blue-grey cloak with pauldrons over dark leather.
+   New Hairstyle : As the default outfit — a slender, pale red-haired fae in a white fur-trimmed cloak over dark garb with greenstone; ethereal and cold. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+   Woven cloak   : Wearing a woven-flax shoulder cloak of pale fibre over the default outfit.
+
+149. Rewi — Mori (Māori) orc chieftain
+   Default       : A broad green orc chief with tā moko, a feathered flax cloak and greenstone over layered warrior garb, weapon in hand; a Māori war-leader.
+   New Outfit    : A red-crested orc in a brown-and-tan chieftain's coat with leather straps; a greenstone weapon.
+   New Hairstyle : As the default outfit — a broad green orc chief with tā moko, a feathered flax cloak and greenstone over layered warrior garb, weapon in hand; a Māori war-leader. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+150. Rhogar — dragonborn paladin
+   Default       : A broad scaled dragon-man in golden-brown plate armour with a horned helm and heavy pauldrons; a draconic holy knight.
+   New Outfit    : A horned dragonborn in brown-and-blue plate with a blue tabard.
+   New Hairstyle : As the default outfit — a broad scaled dragon-man in golden-brown plate armour with a horned helm and heavy pauldrons; a draconic holy knight. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+151. Riven — half-elf spellblade
+   Default       : Light armour over dark clothing with a sword and faint arcane accents, dark hair; a slender sword-mage.
+   New Outfit    : A dark-haired elf in a green-and-black spellblade outfit over leather trousers.
+   New Hairstyle : As the default outfit — light armour over dark clothing with a sword and faint arcane accents, dark hair; a slender sword-mage. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+152. Rodrigo — Iberian half-elf duelist
+   Default       : A wiry swashbuckler in leather-and-cloth with a red cape/sash, rapier at the ready; dashing and light-footed.
+   New Outfit    : A red-haired elf in a green doublet with brown leather straps, a rapier at the hip and red boots.
+   New Hairstyle : As the default outfit — a wiry swashbuckler in leather-and-cloth with a red cape/sash, rapier at the ready; dashing and light-footed. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+153. Rurik — human warrior
+   Default       : Plain brown leather armour over a tunic with a belt, blond hair; a rank-and-file fighter with a red cape.
+   New Outfit    : A tan-and-grey layered outfit with a fur mantle; holds a sword.
+   New Hairstyle : As the default outfit — plain brown leather armour over a tunic with a belt, blond hair; a rank-and-file fighter with a red cape. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+154. Rusk — aarakocra monk
+   Default       : A russet-feathered bird-person in earth-toned monk wraps; the plumage and simple bindings are the whole outfit.
+   New Outfit    : A bird-folk with a fiery crest; a green robe with a red sash over feathered legs.
+   New Hairstyle : As the default outfit — a russet-feathered bird-person in earth-toned monk wraps; the plumage and simple bindings are the whole outfit. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+155. Sable — shadow-touched scholar
+   Default       : A tall figure in dark purple-black scholarly robes with a hood and shadowy accents, carrying a book; a sombre academic.
+   New Outfit    : Dark-haired; grey-and-brown shadowy garb with a chest strap and a slung weapon over baggy trousers.
+   New Hairstyle : As the default outfit — a tall figure in dark purple-black scholarly robes with a hood and shadowy accents, carrying a book; a sombre academic. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+156. Scarrow — hadozee ranger
+   Default       : A lean brown simian with gliding membranes in golden-brown leather ranger armour, weapons in hand; an arboreal scout.
+   New Outfit    : A hadozee in brown-and-teal layered leather armour with a slung weapon.
+   New Hairstyle : As the default outfit — a lean brown simian with gliding membranes in golden-brown leather ranger armour, weapons in hand; an arboreal scout. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+157. Scurry — ratfolk rogue
+   Default       : A twitchy grey rat-woman with a long tail in leather rogue gear, short sword drawn; a scavenging cutpurse.
+   New Outfit    : A helmeted mouse-person in a red-and-grey outfit with a belt; holds a lens.
+   New Hairstyle : As the default outfit — a twitchy grey rat-woman with a long tail in leather rogue gear, short sword drawn; a scavenging cutpurse. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+158. Sedna — Inuit hunter
+   Default       : A fur-hooded parka and fur-trimmed hide clothing, holding a harpoon/spear; dressed against the arctic cold.
+   New Outfit    : A feathered-headband warrior in blue-and-red layered armour with fur trim; holds a spear.
+   New Hairstyle : As the default outfit — a fur-hooded parka and fur-trimmed hide clothing, holding a harpoon/spear; dressed against the arctic cold. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+159. Selene — tall human woman
+   Default       : Sleek dark blue-black leather armour with paired blades and long dark hair; an elegant, deadly duellist.
+   New Outfit    : Brown-haired; a green-and-cream flowing gown with a teal cape and gold trim.
+   New Hairstyle : As the default outfit — sleek dark blue-black leather armour with paired blades and long dark hair; an elegant, deadly duellist. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+160. Seraphine — aasimar cleric
+   Default       : A radiant angelic priestess in white-and-gold robes with gold armour accents, a halo and feathered wings; luminous and holy.
+   New Outfit    : An aasimar in white-and-gold winged armour with a rayed halo-crown.
+   New Hairstyle : As the default outfit — a radiant angelic priestess in white-and-gold robes with gold armour accents, a halo and feathered wings; luminous and holy. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+161. Sess — lizardfolk ranger
+   Default       : A lithe green lizard-person in leather ranger garb with a bow; a cold-blooded stalker.
+   New Outfit    : A green lizardfolk in a blue-and-gold robe with a jewelled belt; carries a staff.
+   New Hairstyle : As the default outfit — a lithe green lizard-person in leather ranger garb with a bow; a cold-blooded stalker. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+162. Shellwyn — tortle druid
+   Default       : A hardy turtle-person with a domed shell in green- and-brown druid garb, staff in hand; slow and steady.
+   New Outfit    : A tortle in brown-and-gold shell armour with leather straps; a gem-topped staff.
+   New Hairstyle : As the default outfit — a hardy turtle-person with a domed shell in green- and-brown druid garb, staff in hand; slow and steady. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+163. Sigrun — human barbarian
+   Default       : A muscular woman in fur-and-leather barbarian garb with minimal armour and wild hair; a raw brawler.
+   New Outfit    : Brown-haired; a green coat with cream sleeves and a brown belt over dark trousers.
+   New Hairstyle : As the default outfit — a muscular woman in fur-and-leather barbarian garb with minimal armour and wild hair; a raw brawler. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+164. Silwen — elf ranger
+   Default       : Green-and-leather ranger garb with a cloak and long silver hair, bow in hand; the archetypal woodland archer.
+   New Outfit    : A white-haired elf in a blue-and-purple ornate robe with silver trim.
+   New Hairstyle : As the default outfit — green-and-leather ranger garb with a cloak and long silver hair, bow in hand; the archetypal woodland archer. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+165. Skarr — half-orc barbarian
+   Default       : A tall green orc in fur-and-leather armour with a shield and prominent tusks; a towering raider.
+   New Outfit    : A red-crested half-orc in green-and-steel plate with a round shield.
+   New Hairstyle : As the default outfit — a tall green orc in fur-and-leather armour with a shield and prominent tusks; a towering raider. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+166. Snarl — gnoll ranger
+   Default       : A grinning spotted-hyena-headed figure in leather ranger armour with a weapon; a cackling hunter.
+   New Outfit    : A gnoll in a wide-brimmed hat and olive duster over a waistcoat and cravat.
+   New Hairstyle : As the default outfit — a grinning spotted-hyena-headed figure in leather ranger armour with a weapon; a cackling hunter. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+167. Snik — goblin rogue
+   Default       : A small green goblin with spiky black hair in dark leather rogue gear; a darting little sneak.
+   New Outfit    : A spiky-haired goblin in a blue-and-teal layered robe.
+   New Hairstyle : As the default outfit — a small green goblin with spiky black hair in dark leather rogue gear; a darting little sneak. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+168. Sobek — crocodile-folk barbarian
+   Default       : A dark-green croc-man in leather-and-bone armour with straps across the chest and tribal ornaments; a scaly brute.
+   New Outfit    : A crocodile-folk in green-and-brown leather armour with straps; a mace and dagger.
+   New Hairstyle : As the default outfit — a dark-green croc-man in leather-and-bone armour with straps across the chest and tribal ornaments; a scaly brute. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+169. Sovann — Khmer naga-blooded dancer
+   Default                : A sinuous dark-skinned dancer draped in ornate golden Khmer jewellery and minimal silk wraps; serpentine grace.
+   New Outfit             : A dark-haired dancer in a dark-blue fitted bodysuit with silver trim and white boots.
+   New Hairstyle          : As the default outfit — a sinuous dark-skinned dancer draped in ornate golden Khmer jewellery and minimal silk wraps; serpentine grace. — but worn with a completely different hairstyle and hair colour.
+   Armed (sword & shield) : The full default outfit (above), now gripping a straight steel sword in one hand and a round wooden shield with an iron boss in the other, in a braced battle-ready stance.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+170. Sporus — myconid druid
+   Default       : A mushroom-capped fungal humanoid in earthy garb, spore-dusted, with a broad cap for a "hat"; a walking toadstool.
+   New Outfit    : A mushroom-capped myconid in a teal-and-gold ornate robe with a jewelled collar.
+   New Hairstyle : As the default outfit — a mushroom-capped fungal humanoid in earthy garb, spore-dusted, with a broad cap for a "hat"; a walking toadstool. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+171. Sprig — faerie druid
+   Default       : A small mossy-green fae with insect wings in leafy nature garb; a woodland sprite.
+   New Outfit    : A green-skinned fairy with wings; a dark red-and-brown ornate coat with a high collar.
+   New Hairstyle : As the default outfit — a small mossy-green fae with insect wings in leafy nature garb; a woodland sprite. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+172. Sprocket — kobold artificer
+   Default       : A wiry little kobold with goggles and a strapped wing-contraption, in leather tinker's gear hung with tools.
+   New Outfit    : A kobold with a strapped bat-wing contraption; a purple-and-brown outfit.
+   New Hairstyle : As the default outfit — a wiry little kobold with goggles and a strapped wing-contraption, in leather tinker's gear hung with tools. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+173. Ssarath — yuan-ti warlock
+   Default       : A scaled serpent-man in dark-red hooded robes; sinuous and cold-blooded.
+   New Outfit    : A serpent-man in a red-and-gold robe with a green-gem collar and layered scales.
+   New Hairstyle : As the default outfit — a scaled serpent-man in dark-red hooded robes; sinuous and cold-blooded. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+174. Sylvaris — eladrin ranger
+   Default       : A graceful silver-haired elf in green-and-leather ranger garb with a cloak and bow; elegant and poised.
+   New Outfit    : An eladrin in a blue tricorne and green coat over brown leather; carries a bow.
+   New Hairstyle : As the default outfit — a graceful silver-haired elf in green-and-leather ranger garb with a cloak and bow; elegant and poised. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+   Unarmoured II : A second undressed variant — armour and robes removed, leaving only the base underclothes.
+
+175. Takeshi — samurai fighter
+   Default       : Full lacquered samurai armour (ō-yoroi) with a horned kabuto helm and shoulder guards, katana in hand; a feudal warrior.
+   New Outfit    : A headbanded warrior in a tan-and-olive layered outfit with leather straps.
+   New Hairstyle : As the default outfit — full lacquered samurai armour (ō-yoroi) with a horned kabuto helm and shoulder guards, katana in hand; a feudal warrior. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+176. Tariq — Saharan nomad ranger
+   Default       : Layered desert robes and a head-wrap (tagelmust) in blue and tan, curved sword at hand; a dune wanderer.
+   New Outfit    : A conical straw hat and dark-blue robe with a sash; a sword in hand.
+   New Hairstyle : As the default outfit — layered desert robes and a head-wrap (tagelmust) in blue and tan, curved sword at hand; a dune wanderer. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+177. Tembar — loxodon druid
+   Default       : A grey elephant-headed figure with tusks in green- and-brown druid garb, staff in hand; a gentle tusked sage.
+   New Outfit    : An elephant-headed figure in grey plate with layered pauldrons and tusks.
+   New Hairstyle : As the default outfit — a grey elephant-headed figure with tusks in green- and-brown druid garb, staff in hand; a gentle tusked sage. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+178. Tembo — loxodon paladin
+   Default       : A grey elephant-man in heavy plate armour with tusks and broad pauldrons; a mountainous armoured knight.
+   New Outfit    : An elephant-headed figure in brown-and-steel heavy plate with big shoulders and tusks.
+   New Hairstyle : As the default outfit — a grey elephant-man in heavy plate armour with tusks and broad pauldrons; a mountainous armoured knight. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+179. Tenzin — Tibetan firbolg monk
+   Default       : A tall fey-giant in maroon-and-red Tibetan monk's robes with prayer beads, white hair; a towering serene ascetic.
+   New Outfit    : A white-haired firbolg in a blue coat and waistcoat with a belt.
+   New Hairstyle : As the default outfit — a tall fey-giant in maroon-and-red Tibetan monk's robes with prayer beads, white hair; a towering serene ascetic. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+180. Terra — earth genasi paladin
+   Default       : Stony, crystal-veined skin under earthen plate armour with rocky accents; a paladin of living stone.
+   New Outfit    : A teal-hooded earth genasi in teal-and-brown plate with pauldrons and a belt.
+   New Hairstyle : As the default outfit — stony, crystal-veined skin under earthen plate armour with rocky accents; a paladin of living stone. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+181. Tewodros — Ethiopian warrior paladin
+   Default       : A dark-skinned knight in steel plate with a cross motif, sword in hand; a devout man-at-arms.
+   New Outfit    : A green tunic under brown leather with a baldric; holds a sword.
+   New Hairstyle : As the default outfit — a dark-skinned knight in steel plate with a cross motif, sword in hand; a devout man-at-arms. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+182. Thistle — verdant fae halfling
+   Default       : A small green-haired fae-halfling in leafy green garb; a tiny woodland spirit.
+   New Outfit    : A green-haired fae halfling in a green-and-blue leaf-trimmed tunic with a belt.
+   New Hairstyle : As the default outfit — a small green-haired fae-halfling in leafy green garb; a tiny woodland spirit. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+183. Thora — dwarf cleric
+   Default       : An auburn-haired dwarf woman in steel mail and plate bearing a holy symbol; a sturdy battle-priestess.
+   New Outfit    : A red-braided dwarf in a green coat with brown leather straps and gold trim.
+   New Hairstyle : As the default outfit — an auburn-haired dwarf woman in steel mail and plate bearing a holy symbol; a sturdy battle-priestess. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+   Unarmoured II : A second undressed variant — armour and robes removed, leaving only the base underclothes.
+
+184. Thorne — antlered wildfae
+   Default       : A tall antlered fae in earthy druid robes with a staff and leafy accents; a lord of the wildwood.
+   New Outfit    : A stag-skulled wildfae in a purple-and-dark robe; carries a staff.
+   New Hairstyle : As the default outfit — a tall antlered fae in earthy druid robes with a staff and leafy accents; a lord of the wildwood. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+185. Threx — sahuagin warlock (sea-devil)
+   Default       : A green-scaled fish-man with fins and minimal armour, wielding a spear/trident; a predator of the depths.
+   New Outfit    : A green-scaled sahuagin in dark scaled armour with a finned crest.
+   New Hairstyle : As the default outfit — a green-scaled fish-man with fins and minimal armour, wielding a spear/trident; a predator of the depths. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+186. Tink — kobold artificer
+   Default       : A small red-scaled horned kobold in leather work- gear hung with tools; a scrappy little inventor.
+   New Outfit    : A red-scaled horned kobold in brown-and-red plate armour.
+   New Hairstyle : As the default outfit — a small red-scaled horned kobold in leather work- gear hung with tools; a scrappy little inventor. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+187. Toadwick — forestfolk forager
+   Default       : A small stout green toad-like forest person in a wide-brimmed hat and earthy leaf-garb; a woodland gatherer.
+   New Outfit    : A green forestfolk in a gold top hat and a tan buttoned vest over green.
+   New Hairstyle : As the default outfit — a small stout green toad-like forest person in a wide-brimmed hat and earthy leaf-garb; a woodland gatherer. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+188. Toby — halfling bard
+   Default       : A tousled sandy-haired halfling in simple traveller's clothes — a vest and shirt with a belt — instrument at hand; cheerful and homely.
+   New Outfit    : A sandy-haired halfling in a blue-and-tan outfit with a red cape; a glowing sword.
+   New Hairstyle : As the default outfit — a tousled sandy-haired halfling in simple traveller's clothes — a vest and shirt with a belt — instrument at hand; cheerful and homely. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+189. Toko — Mori (Māori) gnome tinkerer
+   Default       : A tiny gnome in a blue hood/cap and leather tinker's gear hung with tools; a pocket-sized fixer.
+   New Outfit    : A blue-capped gnome in a green-and-brown layered outfit with straps and pouches.
+   New Hairstyle : As the default outfit — a tiny gnome in a blue hood/cap and leather tinker's gear hung with tools; a pocket-sized fixer. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+190. Torvald — turtlefolk adventurer
+   Default       : A turtle-person with a domed shell (used as a pack) in earthy adventurer's garb, staff in hand; a slow, sturdy wanderer.
+   New Outfit    : A tortle in brown-and-teal shell armour with a helm; carries a staff.
+   New Hairstyle : As the default outfit — a turtle-person with a domed shell (used as a pack) in earthy adventurer's garb, staff in hand; a slow, sturdy wanderer. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+191. Trilla — faerie bard
+   Default       : A pink-haired winged fairy in a colourful teal-and-pink dress; a small, chipper minstrel.
+   New Outfit    : A pink-haired fairy with iridescent wings; a white-and-cream dress.
+   New Hairstyle : As the default outfit — a pink-haired winged fairy in a colourful teal-and-pink dress; a small, chipper minstrel. — but worn with a completely different hairstyle and hair colour.
+   Underwear     : Plain underclothes: a simple wrapped chest band and briefs in undyed linen; barefoot.
+
+192. Tusk — boarfolk fighter
+   Default       : A tusked boar-headed warrior in heavy steel plate armour with broad pauldrons; a solid, snorting bruiser.
+   New Outfit    : A tusked boarfolk in a green tunic under brown leather armour.
+   New Hairstyle : As the default outfit — a tusked boar-headed warrior in heavy steel plate armour with broad pauldrons; a solid, snorting bruiser. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+193. Tāne — Mori (Māori) warrior
+   Default       : Bare-chested with tā moko, a flax kilt and feathered cloak with a greenstone pendant, taiaha in hand; a traditional warrior.
+   New Outfit    : A warrior in full steel plate armour with a visored helm.
+   New Hairstyle : As the default outfit — bare-chested with tā moko, a flax kilt and feathered cloak with a greenstone pendant, taiaha in hand; a traditional warrior. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+194. Tāwhiri — mist-touched Mori
+   Default       : A Māori figure in a feathered cloak and flax garb with tā moko and ethereal misty accents; a wind-touched spirit-warrior.
+   New Outfit    : A dark-red gold-trimmed coat over dark leather with feathers; a sword in hand.
+   New Hairstyle : As the default outfit — a Māori figure in a feathered cloak and flax garb with tā moko and ethereal misty accents; a wind-touched spirit-warrior. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+195. Umbra — dusk elf
+   Default       : A pale, orange-haired elf in dark shadowy leather armour and a cloak; a creature of twilight and stealth.
+   New Outfit    : An orange-haired elf in a green cloak over layered leather with a belt.
+   New Hairstyle : As the default outfit — a pale, orange-haired elf in dark shadowy leather armour and a cloak; a creature of twilight and stealth. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+196. Una — goliath barbarian
+   Default       : A towering grey-skinned giant in fur-and-metal barbarian armour with bone-and-skull accents; a mountainous brute.
+   New Outfit    : A grey-skinned goliath in a green tunic under leather armour with a fur collar.
+   New Hairstyle : As the default outfit — a towering grey-skinned giant in fur-and-metal barbarian armour with bone-and-skull accents; a mountainous brute. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+197. Vael — vedalken wizard
+   Default       : A smooth blue-skinned mage in flowing blue-and-white robes, casting with glowing hands; calm and cerebral.
+   New Outfit    : A hooded vedalken in a green-brown robe over leather, casting blue magic from both hands.
+   New Hairstyle : As the default outfit — a smooth blue-skinned mage in flowing blue-and-white robes, casting with glowing hands; calm and cerebral. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+198. Varkul — hobgoblin fighter
+   Default       : A red-skinned hobgoblin in orderly lamellar/ plate military armour; a disciplined soldier.
+   New Outfit    : A red-skinned hobgoblin in brown-and-tan armour with a large fur collar.
+   New Hairstyle : As the default outfit — a red-skinned hobgoblin in orderly lamellar/ plate military armour; a disciplined soldier. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+199. Vashti — South Asian female warrior
+   Default       : Layered armour over a sari-like wrapped garment, a curved talwar in hand, dark hair; a graceful, deadly fighter.
+   New Outfit    : Dark-haired; a teal-and-brown outfit with a purple sash and leather; wields a curved sword.
+   New Hairstyle : As the default outfit — layered armour over a sari-like wrapped garment, a curved talwar in hand, dark hair; a graceful, deadly fighter. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+   Unarmoured II : A second undressed variant — armour and robes removed, leaving only the base underclothes.
+
+200. Verdant — human paladin
+   Default       : Steel plate armour with a green-plumed helm and green tabard accents, shield and sword; a sturdy holy knight.
+   New Outfit    : Green-haired; dark-teal leather armour with a hood, wielding dual swords.
+   New Hairstyle : As the default outfit — steel plate armour with a green-plumed helm and green tabard accents, shield and sword; a sturdy holy knight. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+201. Vesper — foxfolk
+   Default       : A tall, angular orange-furred fox-woman in a leather-and- cloth outfit with a bushy tail; sly and sharp.
+   New Outfit    : A fox-person in a teal-and-cream coat over a waistcoat and dark trousers, bushy tail.
+   New Hairstyle : As the default outfit — a tall, angular orange-furred fox-woman in a leather-and- cloth outfit with a bushy tail; sly and sharp. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+202. Vex — human rogue
+   Default       : Dark leather rogue armour with a lowered hood and paired daggers, dark hair; a professional assassin.
+   New Outfit    : A green hooded ranger cloak over leather with a slung bow and quiver.
+   New Hairstyle : As the default outfit — dark leather rogue armour with a lowered hood and paired daggers, dark hair; a professional assassin. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+203. Volk — Kievan Rus orc warrior
+   Default                : A green orc in Slavic-style lamellar-and-fur armour with a round shield and axe; a steppe raider.
+   New Outfit             : An orc in a green-and-brown tunic with leather straps; holds a round shield.
+   New Hairstyle          : As the default outfit — a green orc in Slavic-style lamellar-and-fur armour with a round shield and axe; a steppe raider. — but worn with a completely different hairstyle and hair colour.
+   Armed (sword & shield) : The full default outfit (above), now gripping a straight steel sword in one hand and a round wooden shield with an iron boss in the other, in a braced battle-ready stance.
+   Smallclothes           : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+204. Volt — lightning genasi sorcerer
+   Default       : Crackling with electricity — blue-white lightning hair and accents over dark energised robes; a living storm.
+   New Outfit    : Spiky-haired; dark-green tactical leather armour with straps; a dagger in hand.
+   New Hairstyle : As the default outfit — crackling with electricity — blue-white lightning hair and accents over dark energised robes; a living storm. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+205. Waman — Inca slinger
+   Default       : A compact Andean warrior in a layered woven tunic and light armour with a headband, sling/blade in hand; a highland skirmisher.
+   New Outfit    : Dark-haired; a green-brown tunic with layered leather over trousers.
+   New Hairstyle : As the default outfit — a compact Andean warrior in a layered woven tunic and light armour with a headband, sling/blade in hand; a highland skirmisher. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+206. Wick — small adventurer
+   Default       : A little figure in steel plate armour with a helm, shield and warhammer; a pint-sized man-at-arms.
+   New Outfit    : A feathered-cap adventurer in a green-brown outfit with a big backpack and straps.
+   New Hairstyle : As the default outfit — a little figure in steel plate armour with a helm, shield and warhammer; a pint-sized man-at-arms. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+207. Willa — owlin cleric
+   Default       : A stocky white-feathered owl-person in clerical robes bearing a holy symbol; a downy priestess.
+   New Outfit    : A white owl-person in a dark blue-and-teal segmented armour bodysuit.
+   New Hairstyle : As the default outfit — a stocky white-feathered owl-person in clerical robes bearing a holy symbol; a downy priestess. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+208. Willowen — human/elf druid
+   Default       : A slender druid in green-and-brown garb with leafy accents and dark hair, staff in hand; understated nature dress.
+   New Outfit    : Brown-haired; a brown-and-cream leather druid outfit with straps over trousers.
+   New Hairstyle : As the default outfit — a slender druid in green-and-brown garb with leafy accents and dark hair, staff in hand; understated nature dress. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+
+209. Wisp — will-o-wisp sprite bard
+   Default       : A luminous fae with glowing blue insect wings and ethereal light garb, carrying a glowing blade; radiant and weightless.
+   New Outfit    : A blue-winged sprite in a green hooded ranger cloak over leather; a leaf-tipped staff.
+   New Hairstyle : As the default outfit — a luminous fae with glowing blue insect wings and ethereal light garb, carrying a glowing blade; radiant and weightless. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+210. Wispin — gnome sorcerer
+   Default       : A white-haired gnome crackling with arcane energy in layered earthy robes with glowing accents; a small but potent mage.
+   New Outfit    : A white-haired gnome in a green-and-red ornate mage robe with gold trim.
+   New Hairstyle : As the default outfit — a white-haired gnome crackling with arcane energy in layered earthy robes with glowing accents; a small but potent mage. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+211. Wynn — Anglo-Saxon halfling farmer
+   Default       : A round halfling in simple peasant garb — a tunic and apron with a belt — holding a farm tool; humble and homely.
+   New Outfit    : A halfling in dark teal-and-gold layered armour with straps.
+   New Hairstyle : As the default outfit — a round halfling in simple peasant garb — a tunic and apron with a belt — holding a farm tool; humble and homely. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+212. Xiulan — Tang-dynasty elf sorcerer
+   Default       : Flowing Tang-style hanfu robes in teal and purple with long purple hair; an elegant, willowy spellcaster.
+   New Outfit    : Purple-haired; dark purple-and-black ornate armour with a chain-flail.
+   New Hairstyle : As the default outfit — flowing Tang-style hanfu robes in teal and purple with long purple hair; an elegant, willowy spellcaster. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+213. Yara — Amazonian hunter ranger
+   Default       : A feathered headdress and tribal hide-and- feather garb, bow/spear in hand; a fierce jungle huntress.
+   New Outfit    : A knit-capped hunter in a green-and-tan outfit with a chest strap; holds a spear.
+   New Hairstyle : As the default outfit — a feathered headdress and tribal hide-and- feather garb, bow/spear in hand; a fierce jungle huntress. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+214. Zafir — djinn sorcerer
+   Default       : A genie in flowing robes and a turban with mystical accents; an exotic, airy conjurer.
+   New Outfit    : A goggled tinker in a brown leather vest over a cream shirt with a tool belt.
+   New Hairstyle : As the default outfit — a genie in flowing robes and a turban with mystical accents; an exotic, airy conjurer. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+215. Zahra — leonin fighter (lion-folk)
+   Default       : A golden lion-headed warrior with a full mane in leather-and-metal armour; a proud feline champion.
+   New Outfit    : A lion-folk in a green-and-brown jacket over leather with a belt.
+   New Hairstyle : As the default outfit — a golden lion-headed warrior with a full mane in leather-and-metal armour; a proud feline champion. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+216. Zara — human fighter
+   Default       : Dark leather-and-metal armour with bracers over long dark braided/loc'd hair, weapon in hand; a rugged, road-worn warrior.
+   New Outfit    : Loc'd hair; a dark teal-green outfit with leather straps and a belt.
+   New Hairstyle : As the default outfit — dark leather-and-metal armour with bracers over long dark braided/loc'd hair, weapon in hand; a rugged, road-worn warrior. — but worn with a completely different hairstyle and hair colour.
+   Unarmoured    : Armour and outer robes stripped away to the plain base garments beneath — a simple shirt or wrap and trousers/briefs.
+   Feminine      : A softer, more feminine-featured rendering of the character in the same outfit.
+
+217. Zephyra — air genasi sorcerer
+   Default       : Wind-blown flowing green hair and airy teal- and-blue robes with breezy accents; a light, weightless caster.
+   New Outfit    : Green flowing hair; a green layered robe with leaf-and-fur trim.
+   New Hairstyle : As the default outfit — wind-blown flowing green hair and airy teal- and-blue robes with breezy accents; a light, weightless caster. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+218. Zerai — githzerai wizard
+   Default       : Pink-haired and serene in ornate gold-and-tan layered robe-armour with fine trim; a poised psionic mage.
+   New Outfit    : Pink-haired; a dark-green layered coat over leather with a belt.
+   New Hairstyle : As the default outfit — pink-haired and serene in ornate gold-and-tan layered robe-armour with fine trim; a poised psionic mage. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+219. Zevran — tiefling wizard
+   Default       : Long straight blue-black hair over dark layered robes with a high collar and small horns; a sleek, cool spellcaster.
+   New Outfit    : A blue-haired tiefling in a dark red-and-blue mage robe with a sash.
+   New Hairstyle : As the default outfit — long straight blue-black hair over dark layered robes with a high collar and small horns; a sleek, cool spellcaster. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+220. Ziggle — kobold bard
+   Default       : A wiry little horned kobold in simple garb, strumming a lute; a scrappy busker.
+   New Outfit    : A horned goblin in a brown feathered hat and blue-and-brown outfit; plays a mandolin.
+   New Hairstyle : As the default outfit — a wiry little horned kobold in simple garb, strumming a lute; a scrappy busker. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+221. Zik — thri-kreen monk (mantis-folk)
+   Default       : A gangly four-armed insectoid whose chitinous exoskeleton is its armour, with only minimal cloth wraps; an alien ascetic.
+   New Outfit    : A red-carapaced mantis-folk with extra arms and a leather harness over the chitin.
+   New Hairstyle : As the default outfit — a gangly four-armed insectoid whose chitinous exoskeleton is its armour, with only minimal cloth wraps; an alien ascetic. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+222. Zuri — tabaxi monk (cat-folk)
+   Default       : A spotted leopard-cat person in earth-toned monk's wraps with a red sash; a lithe feline martial artist.
+   New Outfit    : A leopard-spotted tabaxi in a green-grey segmented armour bodysuit.
+   New Hairstyle : As the default outfit — a spotted leopard-cat person in earth-toned monk's wraps with a red sash; a lithe feline martial artist. — but worn with a completely different hairstyle and hair colour.
+   Smallclothes  : Stripped to the base layer: a wrapped off-white linen band tied at one side across the chest and matching high-waisted briefs; barefoot, showing the character's own build and skin tone.
+
+------------------------------------------------------------------------------
+End — 223 characters; 919 outfits, each described.

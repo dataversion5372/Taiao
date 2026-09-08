@@ -1,0 +1,75 @@
+ISLE OF EMBERFALL — CRAFTING-STATION SPRITE PROMPTS (single-view objects)
+==========================================================================
+AUDIT: 32 production stations currently share just 8 generic sprites — 13
+different stations all render as "workbench", 5 as "furnace", 4 as
+"cauldron", etc. These are ground objects the player walks around; most are
+visually symmetric enough that ONE sprite reused for all 8 camera
+directions is fine (like boulders/standing stones already are), so no
+8-direction rotation sets are needed.
+
+NO NEW ART NEEDED — REPOINT ONLY (objects already exist in OBJ_MAP,
+js/sprites/objects-data.js; just change the station's spr/object key):
+  Spinning wheel  -> spinning_wheel      Pottery kiln -> kiln
+  Brewery         -> brewery_tun         Dyeworks     -> dye_vat
+  Bakehouse       -> bread_oven          Jeweller's bench -> jewelrytable
+  Sail loft       -> sailmaker_spindle   Chandlery    -> chandler_set
+
+==============================================================================
+GLOBAL STYLE (paste above the sheet prompt)
+==============================================================================
+Art style: 16-bit / 'HD-2D' pixel-art game objects in the look of the
+Kenney.nl roguelike packs and classic RuneScape scenery: a single free-
+standing object per cell, drawn from a 3/4 top-down front view, bold
+readable silhouette, thin dark outline, limited flat palette with light
+dithered shading, soft light from the upper-left, and the object's base
+resting at the bottom-centre of its cell (it will stand on the ground as a
+billboard). Fully TRANSPARENT background, no floor tile, no drop shadow,
+no text or borders. Consistent scale: each object roughly fills 70-90% of
+its cell height; person-sized equipment, not buildings.
+
+Output: one PNG sheet, uniform grid of 128x128 px cells (draw large,
+downscale later), objects placed left-to-right then top-to-bottom in the
+exact order listed, one per cell.
+
+------------------------------------------------------------------------------
+SHEET: Production Stations   |   Grid: 6 cols x 4 rows, 24 objects
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 24 medieval crafting
+stations in the global style above. 6 columns, 128x128 px cells. Each is a
+distinct, instantly recognizable free-standing workstation, in this order:
+   1. Sawmill — log cradle with a big circular saw blade and cut planks
+   2. Cooperage — barrel-in-progress on a stand, hoops and staves leaning
+   3. Malthouse kiln — squat brick kiln with a grain tray and small chimney
+   4. Fulling mill — wooden trough with two heavy mallets over wet cloth
+   5. Mason's yard — half-carved stone block on trestles, mallet and chisel
+   6. Assay furnace — small precise crucible furnace with bellows and scale
+   7. Draw bench — long bench with a crank and gleaming wire being drawn
+   8. Leatherworker's bench — bench with stretched hide, awls and punches
+   9. Cobbler's bench — stool-height bench with a shoe last and hammer
+  10. Saddler's bench — heavy bench with a wooden horse form and a saddle
+  11. Toolsmith's bench — anvil-and-bench combo with racked tools
+  12. Locksmith's bench — small bench with vice, keys and an open lock
+  13. Paper mill — vat with a deckle screen and hanging drying sheets
+  14. Bindery — book press with stacked signatures and thread
+  15. Soap works — cauldron-and-mould table with stacked pale soap bars
+  16. Seasoning yard — open rack of stacked timber air-drying under a lid
+  17. Charcoal clamp — smoking earth-covered mound with a vent
+  18. Lime kiln — rough stone bottle-kiln with a white-dusted mouth
+  19. Ropewalk — post with hooks and long twisted strands winding a rope
+  20. Shipyard slipway — keel and ribs of a small boat on wooden blocks
+  21. Barn stall — hay-filled wooden stall front with a feed trough
+  22. Creamery — churn and cheese press on a stone slab with rounds aging
+  23. Tailor's bench — table with folded cloth, shears and a dress form
+  24. Runestone altar (upgrade) — carved standing altar stone with glowing
+      runic face and offering ledge
+
+INTEGRATION NOTES (for later wiring):
+- Pack as single-view objects; render3d objForKey() can serve one view for
+  all 8 directions (same as boulders). Give each a new OBJ_MAP entry named
+  after its station key (sawmill, cooperage, malthouse, fulling_mill,
+  masons_yard, assay_furnace, drawbench, leather_bench, cobblers_bench,
+  saddlers_bench, toolsmith, locksmith_bench, paper_mill, bindery,
+  soap_works, seasoning_yard, charcoal_clamp, lime_kiln, ropewalk,
+  shipyard, barn, creamery, tailors_bench, altar) and set each STATIONS
+  entry's spr to it.

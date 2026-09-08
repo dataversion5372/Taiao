@@ -1,0 +1,502 @@
+ISLE OF EMBERFALL — ILLUSTRATED INDEX OF OUTFIT ITEMS
+======================================================
+An index of every distinct item of clothing, armour, and accessory that appears
+across the player-character outfits (see player-character-outfits.txt). Each
+entry describes the ITEM itself in detail — its material, form, colour, cut and
+trim — as one specific, concrete piece, so it can be recreated exactly. The
+[bracketed] name is only the character the item is drawn from, not part of the
+description. Held equipment (weapons / implements / instruments) is indexed last.
+
+
+-----------------------------------------------------------------------------
+1. HEADWEAR & FACE
+-----------------------------------------------------------------------------
+Hooded robe hood  [Amara]
+   A soft blue-grey hood cut generously and worn up over the head, its opening
+   edged with teal, the fabric falling straight into a draped shoulder mantle
+   behind. Matte woven cloth, no stiffening.
+
+Winged helm  [Astrid]
+   A rounded steel helm with a fixed nose-guard, a pair of stylised feathered /
+   winged plates flaring up and back from each temple. Bare polished metal,
+   unpainted.
+
+Fur-edged cap  [Batu]
+   A soft brown conical steppe cap, close-fitting, its lower brim turned back
+   and trimmed with a band of fur; leather crown, no rigid frame.
+
+Feathered war-bonnet / headdress  [Ocelotl]
+   A tall headdress of spotted pelt banded across the brow and crowned with a
+   fan of long feathers sweeping back — layered plumes over a fur base.
+
+Brass goggles  [Bolt]
+   Round twin-lens goggles with brass rims and riveted leather sidebands and a
+   leather head-strap; lenses tinted, frame scuffed and grease-marked.
+
+Desert head-wrap  [Idir]
+   A long strip of cloth in indigo and earth tones wound several times around
+   the head and crown, one end left to drape — loose, breathable weave.
+
+Turban  [Hakim]
+   An earth-toned cloth turban wound high in stacked layers, the folds visible,
+   a short tail tucked at the side.
+
+Crown of heather  [Moorwen]
+   A circlet woven from living purple heather sprigs and stems, ornate and
+   slightly untidy, a few blooms trailing loose.
+
+Warrior's headband  [Waman]
+   A narrow woven band in Andean colours tied flat across the brow, the knot at
+   the back, ends short.
+
+Wide-brimmed hat  [Toadwick]
+   A broad, soft floppy-brimmed hat in mottled earth tones, the wide brim
+   drooping all round, a low rounded crown.
+
+Kabuto  [Takeshi]
+   A lacquered iron samurai helm of laced horizontal plates with a flared
+   neck-guard (shikoro) and a pair of swept gilt horns (kuwagata) rising from
+   the brow-plate; dark lacquer finish.
+
+Wolf-pelt cowl  [Lupa]
+   The head and upper pelt of a grey wolf worn as a hood, the animal's skull and
+   jaws framing the face, the rest of the hide falling as a mantle behind.
+
+Halo  [Seraphine]
+   A thin ring of golden holy light hovering level above the head — luminous,
+   weightless, with no physical band.
+
+Pointed wizard's hat  [Emory]
+   A tall tapering brown cone-hat with a slightly drooping tip and a soft wide
+   brim; matte felt, unadorned.
+
+Top hat  [Rata]
+   A small brown cylindrical top hat with a flat crown and narrow curled brim, a
+   pair of goggles resting on the band.
+
+Feathered visor  [Hawk]
+   A hard segmented face-visor in grey-teal metal, worn under a low feathered
+   crest fixed across the brow.
+
+Tricorne  [Sylvaris]
+   A blue three-cornered hat, the broad brim pinned up on three sides into sharp
+   points around a low crown.
+
+Conical straw hat  [Tariq]
+   A wide shallow cone of woven straw (nón lá style), the brim sweeping down to
+   a broad circle, a chin-cord beneath.
+
+Plumed beret  [Fleur]
+   A soft blue flat-topped beret slouched to one side, a single upright plume
+   fixed at the band.
+
+Nemes headdress  [Ankhotep]
+   A striped blue-and-gold cloth head-cloth gathered at the brow and falling in
+   two lappets to the shoulders, the tail bound behind — stiff pleated linen.
+
+Brass-rimmed diving cap  [Croak]
+   A rounded close-fitting cap sealed with a heavy brass rim around the face
+   opening — an early diving-helm form in weathered metal.
+
+
+-----------------------------------------------------------------------------
+2. UPPER-BODY GARMENTS
+-----------------------------------------------------------------------------
+Layered dark tunic  [Aeson]
+   A close-cut dark under-tunic with long sleeves, worn belted; plain matte
+   cloth meant to layer beneath an outer coat.
+
+Traveller's shirt  [Toby]
+   A simple loose homespun shirt with gathered sleeves, off-white and well-worn,
+   cut to be worn under a vest.
+
+High-collared sorcerer's coat  [Aeson]
+   A long near-black robe-coat falling past the knee, with a stiff raised
+   collar, a single gold throat-clasp, and a fitted belted waist; matte dark
+   fabric.
+
+Leather jerkin  [Dain]
+   A brown sleeveless leather jerkin laced or buckled up the front, cut square at
+   the shoulders to leave the arms bare; supple worn hide.
+
+Smith's apron  [Durgan]
+   A heavy full-length brown leather apron with a bib and a waist tie, scorched
+   and stained, worn over a work tunic.
+
+Sleeveless vest  [Dain]
+   A brown sleeveless leather vest, close-fitting to the torso, open-armed;
+   plain and hard-wearing.
+
+Armoured bodysuit  [Ambris]
+   A dark form-fitting full-body underlayer of matte flexible material, cut to be
+   worn beneath plate — smooth and seamless.
+
+Sleeveless jacket  [Arjun]
+   A mustard-gold sleeveless jacket worn open down the front, hip-length, with
+   simple edging; bright dyed cloth over a wrapped underlayer.
+
+Waistcoat  [Darius]
+   A fitted sleeveless waistcoat buttoned up the front, worn as a middle layer
+   beneath an outer coat; scholarly cut.
+
+Leather long coat  [Astrid]
+   A brown leather coat falling to the calf with a turned collar and open front,
+   loose-skirted — a rugged duster in worn hide.
+
+Pinstripe suit  [Gunner]
+   A grey pinstripe three-piece suit — matching jacket and trousers over a white
+   shirt and dark-red tie; sharp tailored lines.
+
+Blue-and-cream doublet  [Faenor]
+   A fitted blue-and-cream doublet with slashed contrasting panels and fine trim
+   at the seams; a close-bodied courtly cut.
+
+Military greatcoat  [Gunner]
+   A long green military greatcoat in a redcoat cut, double rows of buttons up
+   the front, structured shoulders and turned cuffs.
+
+Wrapped chest band-top  [Borg]
+   A single strip of undyed linen wound and tied across the chest as a plain
+   band-top, no fastenings but the knot.
+
+Gambeson  [Karg]
+   A blue quilted padded gambeson with vertical stitched channels, closed at the
+   waist with a gold-buckled belt; thick protective cloth.
+
+Green hoodie  [Meihua]
+   A soft green hooded pullover top with a front pocket and drawstring hood;
+   casual knit fabric.
+
+Corset-vest  [Rata]
+   A brown leather corset-vest laced tight up the front over the torso, boned
+   panels, buckled straps — steampunk styling.
+
+
+-----------------------------------------------------------------------------
+3. ROBES · DRESSES · CULTURAL WEAR
+-----------------------------------------------------------------------------
+Layered mage robes  [Ade]
+   A long pale grey-green under-robe with full sleeves, its loose skirts to the
+   ankles, cinched at the waist by a cloth sash, with a lighter shawl draped over
+   both shoulders; soft sage-and-cream layered cloth.
+
+Buckskin dress  [Aiyana]
+   A soft earth-brown hide dress with cut fringe running along the sleeve-ends
+   and hem, decorated with small beadwork accents.
+
+Priestly vestments  [Aeliana]
+   A white gown with gold-edged hems, layered with blue over-skirts and a teal
+   shoulder mantle, fastened at the chest with gold clasps.
+
+White gown  [Aeliana]
+   A floor-length white gown with fine gold edging at collar and hem, smooth
+   flowing fabric, worn as the base of layered vestments.
+
+Green tabard  [Verdant]
+   A green sleeveless tabard hanging front and back from the shoulders, open at
+   the sides, worn over plate as a surcoat marking.
+
+Twelve-layer kimono  [Murasaki]
+   An ornate multi-layered court kimono (jūnihitoe) in red, white and patterned
+   silks, the stacked overlapping collars showing each layer at the neck and
+   cuffs; long trailing skirts.
+
+Hanbok  [Haneul]
+   A green hanbok — a short high-waisted bodice-jacket (jeogori) tied at the
+   chest over a full gathered skirt (chima); soft flowing panels.
+
+Hanfu  [Xiulan]
+   Flowing Tang-style hanfu robes in teal and purple with a wrapped cross-collar
+   and very long trailing sleeves; light layered silk.
+
+Andean poncho  [Amaru]
+   A rectangular poncho-mantle woven in warm red, orange and earth-brown
+   geometric bands, a slit for the head, worn over a tunic.
+
+Boubou  [Balla]
+   A flowing full-length green-and-gold West-African boubou, wide-sleeved and
+   draped, with rich woven trim at the neck and hems.
+
+Sari-wrap  [Vashti]
+   A length of draped cloth wound and pleated as a sari-style wrap, layered as
+   the soft garment beneath armour.
+
+Steppe deel-robe  [Batu]
+   A blue cross-front steppe robe (deel) closing to one side, wrapped and held
+   with a green sash and belt; long-skirted riding cut.
+
+
+-----------------------------------------------------------------------------
+4. ARMOUR PIECES
+-----------------------------------------------------------------------------
+Spiked plate armour  [Ambris]
+   A near-black full plate harness with angular, aggressively spiked pauldrons,
+   dark matte finish; heavy overlapping plates.
+
+Steel pauldron  [Aelric]
+   A single rounded steel shoulder-plate strapped over one shoulder, polished
+   bare metal, articulated at the edge.
+
+Golden-brown breastplate  [Asterion]
+   A heavy ornate breastplate in golden-brown metal, moulded to a broad muscular
+   chest, with embossed detailing and armoured kilt-straps hanging below.
+
+Leather bracers  [Aelric]
+   A pair of plain brown leather forearm bracers, laced along the inner arm;
+   simple protective cuffs.
+
+Scale / mail hauberk  [Astrid]
+   A hip-length hauberk of steel scales over riveted mail, worn over a padded
+   tunic; layered flexible metal.
+
+Lamellar coat  [Batu]
+   A brown lamellar coat of small rectangular plates laced together in rows,
+   quilted backing, trimmed with fur and leather; bound with a sash.
+
+Tassets  [Elenwe]
+   Polished steel thigh-plates (tassets) hung from the breastplate's waistline
+   to guard the upper legs; overlapping lames.
+
+Fur-collared leather armour  [Ashelin]
+   Ornate red-brown layered leather armour with a soft fur collar, buckled
+   straps and belt pouches; tooled overlapping panels.
+
+Gauntlets  [Asterion]
+   Segmented plate gauntlets in dark grey-green metal, articulated over the back
+   of the hand and fingers.
+
+Greaves  [Ankhotep]
+   Gold plate shin-guards (greaves) wrapping the lower leg, matched to gold
+   vambraces; gilded metal.
+
+Vambraces  [Aelric]
+   A single steel forearm guard (vambrace) enclosing one arm from wrist to
+   elbow; polished plate.
+
+Scaled plate  [Ardeshir]
+   Green-and-brown scaled plate armour, the plates textured like overlapping
+   scales, with layered tassets, shoulder guards and vambraces.
+
+Barding  [Bracken]
+   Steel-and-gold horse-barding plating the equine body — segmented flank and
+   chest plates — matched to a blue-trimmed breastplate above.
+
+Shell armour  [Shellwyn]
+   Brown-and-gold armour built onto a domed turtle-shell, reinforced with
+   leather straps across the plates.
+
+Chestplate  [Asterion]
+   A dark grey-green segmented chest plate of overlapping lames worn over a
+   bodysuit; matte metal.
+
+
+-----------------------------------------------------------------------------
+5. CLOAKS & SHOULDER WEAR
+-----------------------------------------------------------------------------
+Travelling cloak  [Alaric]
+   A weathered grey full-length cloak with a heavy layered mantle / collar
+   bunched at the shoulders, fastened at the throat; coarse worn wool.
+
+Teal mantle  [Aeliana]
+   A teal shoulder mantle draped over the upper back and pinned at the chest
+   with gold clasps; smooth flowing cloth.
+
+Short cape  [Lucian]
+   A short black shoulder-cape lined and accented in red, clasped at the throat,
+   falling only to the mid-back.
+
+Fur mantle  [Balam]
+   A thick fur mantle and collar draped across the shoulders, natural spotted
+   pelt, worn open at the front.
+
+Feathered cloak (korowai)  [Rangi]
+   A Māori korowai — a woven flax cloak densely covered in dark feathers across
+   its surface, draped from the shoulders; ceremonial weight.
+
+Flax cloak (kākahu)  [Rangi]
+   A woven-flax kākahu of pale natural fibre, the muka strands hanging in a
+   textured surface, draped over the shoulders.
+
+Draped shawl / stole  [Ade]
+   A light narrow shawl / stole folded once and laid over both shoulders,
+   hanging down the front in two ends; fine soft cloth.
+
+
+-----------------------------------------------------------------------------
+6. LOWER BODY
+-----------------------------------------------------------------------------
+Briefs & chest band  [Borg]
+   Plain high-waisted briefs of undyed linen, matched to a wrapped chest band —
+   the base underlayer, no trim.
+
+Trousers  [Dain]
+   Plain straight-legged cloth trousers, mid-toned and hard-wearing, gathered
+   into boots.
+
+Robe over-skirts  [Ade]
+   Loose full robe-skirts falling to the ankles, layered and gathered at the
+   waist by a sash; soft draping cloth.
+
+Loin-kilt  [Aelric]
+   A short brown leather loin-kilt of hanging panels slung from a wide belt,
+   leaving the legs bare.
+
+Fringed leggings  [Aiyana]
+   Soft earth-brown buckskin leggings with cut fringe down the outer seam and
+   small beadwork accents.
+
+Cargo trousers  [Balam]
+   Dark-green tactical cargo trousers with bellowed thigh pockets and a straight
+   leg; sturdy modern cut.
+
+Pleated kilt  [Ankhotep]
+   A short blue-and-gold pleated kilt with a stiff hanging front tab (the
+   shendyt / triangular apron), crisp knife-pleats.
+
+
+-----------------------------------------------------------------------------
+7. FOOTWEAR
+-----------------------------------------------------------------------------
+Soft boots  [Batu]
+   Soft low supple leather boots with flexible soles, snug to the calf; unstiff
+   riding footwear.
+
+Boots  [Dain]
+   Sturdy plain leather boots to mid-calf, thick-soled, laced or pull-on.
+
+Sandals  [Echo]
+   Simple flat open sandals with a few plain straps across the foot.
+
+Dark shoes  [Aiyana]
+   Plain closed dark leather shoes, low and rounded at the toe.
+
+
+-----------------------------------------------------------------------------
+8. BELTS · STRAPS · CONTAINERS  (accessories)
+-----------------------------------------------------------------------------
+Wide belt  [Aelric]
+   A broad thick leather belt slung low at the hips with a simple buckle,
+   carrying a loin-kilt.
+
+Chest harness / straps  [Aelric]
+   A brown leather harness of straps crossing the chest and shoulders, buckled,
+   used to anchor scraps of armour.
+
+Cloth sash  [Ade]
+   A soft wide cloth sash wound once around the waist and knotted, its ends
+   hanging, gathering a robe.
+
+Belt pouches  [Bolt]
+   A row of small leather belt pouches and tool straps hung along the waistline;
+   riveted flaps.
+
+Gold-buckled belt  [Karg]
+   A leather waist-belt closed with a large ornate gold buckle at the front.
+
+Shell backpack  [Torvald]
+   A domed turtle-shell fitted with straps to ride high on the back as a pack;
+   natural ridged carapace.
+
+Leather baldric  [Iris]
+   A brown leather baldric strap worn diagonally across the chest from shoulder
+   to opposite hip, paired with a waist-belt.
+
+Quiver  [Batu]
+   A cylindrical quiver of arrows slung across the back on a shoulder-strap,
+   fletchings showing at the top.
+
+Red cape-sash  [Rodrigo]
+   A length of red cloth worn as combined half-cape and waist-sash, knotted at
+   the hip with the tail hanging free.
+
+
+-----------------------------------------------------------------------------
+9. JEWELLERY · TRIM · ACCENTS  (accessories)
+-----------------------------------------------------------------------------
+Feather detailing  [Aria]
+   Rows of small feathers worked into the surface of a light earth-toned tunic /
+   wrap as decorative trim, in brown-and-russet tones.
+
+Neck jewellery  [Balla]
+   Gold necklaces and neck ornaments layered at the throat over a robe collar;
+   polished metal links and pendants.
+
+Gold edging  [Aeliana]
+   A fine gold border stitched along the collar, cuffs and hem of a white gown;
+   thin bright piping.
+
+Greenstone pendant (pounamu)  [Rangi]
+   A carved greenstone (pounamu) pendant on a cord at the throat — a smooth
+   polished jade-green hei-tiki or drop form.
+
+Fur trim  [Aslak]
+   Bands of cream fur edging the cuffs and collar of a coat; thick soft pile.
+
+Gold chest clasps  [Aeliana]
+   A set of gold clasps fastening a mantle and over-skirts at the chest; ornate
+   hooked fittings.
+
+Broad golden collar (usekh)  [Ankhotep]
+   A wide flat usekh collar of concentric gold bands spread across the chest and
+   shoulders; stiff beaded rows.
+
+Tāniko border  [Kohu]
+   A woven geometric tāniko border in dark contrasting colours running along the
+   edge of a flax cloak, finished with a fringed hem.
+
+Glowing chest-core  [Bree]
+   A round glowing cyan core set flush into the sternum of a segmented armoured
+   bodysuit, emitting soft light.
+
+
+=============================================================================
+HELD EQUIPMENT  (weapons / implements / instruments — carried, not worn)
+=============================================================================
+Tall orb-staff  [Aeliana]
+   A tall slender staff topped with a glowing blue orb held in a clawed setting;
+   pale shaft, luminous head.
+
+Sword  [Astrid]
+   A straight single-handed steel sword with a simple crossguard and leather-
+   wound grip.
+
+Round wooden shield  [Astrid]
+   A round wooden shield with plank facing and a central domed iron boss;
+   rim-bound edge.
+
+Bow  [Batu]
+   A recurved composite steppe bow, short and deeply curved at the limbs,
+   strung.
+
+Spear  [Balam]
+   A long plain-hafted spear with a simple leaf-shaped head; wooden shaft.
+
+Twin curved daggers  [Dune]
+   A matched pair of short curved daggers with hooked blades and wrapped grips.
+
+Astrolabe-orb  [Darius]
+   A large blue spherical astrolabe-orb ringed with graduated bands and set with
+   a small gem; an instrument held in one hand.
+
+Katana  [Takeshi]
+   A single-edged curved katana with a long two-hand grip and a small round
+   tsuba guard; drawn from its saya.
+
+Wand / rod  [Ade]
+   A slender short wand / rod, plain and tapering, held in one hand.
+
+Lute  [Faenor]
+   A round-backed lute with a fretted neck, angled pegbox and a carved
+   soundhole rosette.
+
+Axe / mace  [Elowen]
+   A small one-handed weapon — a compact axe or flanged mace head on a short
+   haft.
+
+Trident  [Nereus]
+   A three-pronged trident with barbed tines on a long shaft; coral-and-teal
+   accents.
+
+Rapier  [Rodrigo]
+   A slender thrusting rapier with a swept basket-guard hilt and a long thin
+   blade.

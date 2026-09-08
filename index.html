@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<title>Isle of Emberfall — Offline RPG</title>
+		<link rel="stylesheet" href="css/style.css">
+	</head>
+	<body>
+		<div id="wrap">
+		  <div id="gamecol">
+			<canvas id="game"></canvas>
+			<canvas id="overlay"></canvas>
+			<div id="hovertext"></div>
+			<div id="log"></div>
+			<div id="ctxmenu"></div>
+			<div id="worldmap">
+			  <canvas id="wmcanvas"></canvas>
+			  <div id="wmtip"></div>
+				  <div id="wmcoords"></div>
+			  <div id="wmbtns">
+			    <select id="wm-biome" title="Jump to the nearest biome of a type"><option value="">Nearest biome…</option></select>
+				    <button id="wm-newhaven" title="Centre the map on Newhaven">Newhaven</button>
+			    <button id="wm-player" title="Centre the map on your location">My location</button>
+				    <label id="wm-tz-label" title="Show timezone bands (1 hour per 256 tiles)"><input type="checkbox" id="wm-tz"> Timezones</label>
+				    <label id="wm-dn-label" title="Shade the map by day / dusk / night"><input type="checkbox" id="wm-dn"> Day/Night</label>
+				    <label id="wm-wx-label" title="Live synoptic chart: isobars, H/L centres, fronts, wind barbs and precipitation"><input type="checkbox" id="wm-wx"> Weather</label>
+			  </div>
+			  <button id="wmclose">✕</button>
+			</div>
+			<div id="charselect">
+			  <div id="charselect-head">
+			    <button id="cs-back" title="Back to characters" style="display:none">← Back</button>
+			    <span>Choose your character</span>
+			    <button id="csclose" title="Close (C / Esc)">✕</button>
+			  </div>
+			  <div id="charselect-grid"></div>
+			</div>
+			<div id="skillguide">
+			  <div id="skillguide-head">
+			    <span id="skillguide-title">Skill guide</span>
+			    <button id="sgclose" title="Close (Esc)">✕</button>
+			  </div>
+			  <div id="skillguide-body"></div>
+			</div>
+			<div id="bestiary">
+			  <div id="bestiary-head">
+			    <span id="bestiary-title">Bestiary</span>
+			    <input id="bestiary-search" type="text" placeholder="Search creatures…" autocomplete="off">
+			    <select id="bestiary-biome" title="Filter by spawn biome"><option value="">All biomes</option></select>
+			    <button id="bestiaryclose" title="Close (Esc)">✕</button>
+			  </div>
+			  <div id="bestiary-body"></div>
+			</div>
+
+				<div id="questlog">
+				  <div id="questlog-head">
+				    <span id="questlog-title">Quest Journal</span>
+				    <button id="questlogclose" title="Close (Esc)">✕</button>
+				  </div>
+				  <div id="questlog-body"></div>
+				</div>
+			<div id="trade">
+			  <div id="trade-head">
+			    <span id="trade-title">Trade</span>
+			    <button id="tradeclose" title="Close (Esc)">✕</button>
+			  </div>
+			  <div id="trade-body">
+			    <div id="trade-shop">
+			      <div id="shopgrid"></div>
+			      <p class="hint">Left-click to buy 1 (shift: 5) — keep clicking to keep buying. Right-click for Buy 5 / 10 / 50 / X / max.</p>
+			      <p class="hint" id="sellhdr"></p>
+			      <div id="sellgrid"></div>
+			    </div>
+			    <div id="trade-bank">
+			      <div id="bankbar">
+			        <input id="banksearch" type="text" placeholder="Search the vault…" autocomplete="off">
+			        <div id="bankcats"></div>
+			        <span id="bankdepbtns">
+			          <button id="depositallbtn" title="Deposit your whole inventory">Deposit all</button>
+			          <button id="depositmostbtn" title="Deposit everything except the top two inventory rows">Deposit almost all</button>
+			        </span>
+			      </div>
+			      <p class="hint">Left-click to withdraw 1 (shift: 5, alt: all) — right-click for amounts. Deposit by clicking items in your inventory on the right (right-click for amounts).</p>
+			      <div id="bankgrid"></div>
+			    </div>
+			    <div id="trade-craft">
+			      <div id="craftlist"></div>
+			    </div>
+			  </div>
+			</div>
+		  </div>
+		  <div id="sidebar">
+			<div id="minimapbox">
+				<div id="minimapwrap">
+					<canvas id="minimap" width="224" height="224"></canvas>
+					<canvas id="minimap-icons" width="364" height="364"></canvas>
+					<canvas id="compass" width="44" height="44" title="Facing"></canvas>
+				</div>
+				<div id="minimap-btnrow">
+					<button id="mapbtn" title="World map (M)">Map (M)</button>
+					<button id="questbtn" title="Quest Journal (J)">Quests (J)</button>
+						<button id="bestiarybtn" title="Bestiary (B)">Bestiary (B)</button>
+					<button id="charbtn" title="Character (C)">Character (C)</button>
+						<button id="soapbtn" title="Soaps (Left-Shift+S)">Soap (⇧S)</button>
+				</div>
+				<button id="interactmodebtn" title="Toggle the default action on animals: Combat (Attack first) or Husbandry (Tend/Feed first). Also the left-click default.">Mode: 🌾 Husbandry</button>
+			</div>
+			<div id="statbar">
+			  <div class="statline">
+				<span id="hplabel">HP</span>
+				<div class="bar">
+					<div id="hpbar"></div>
+					<span id="hptext"></span>
+				</div>
+			  </div>
+			  <div id="cmblevel"></div>
+			  <div id="stinkline" class="statline" title="Stink metre — do skill work and you'll start to reek. Stand in water and use soap to wash.">
+				<span id="stinklabel">Stink</span>
+				<div class="bar">
+					<div id="stinkbar"></div>
+					<span id="stinktext"></span>
+				</div>
+			  </div>
+			</div>
+			  <div id="terrainbar">
+				  <div class="tbrow">
+					<span class="tblabel">X,Y</span>
+					<span id="t-xy">—</span>
+					<span class="tblabel">Alt</span>
+					<span id="t-alt">—</span>
+					<span class="tblabel">Lat</span>
+					<span id="t-lat">—</span>
+				  </div>
+				  <div class="tbrow">
+					<span class="tblabel">Hum</span>
+					<span id="t-hum">—</span>
+					<span class="tblabel">Tmp</span>
+					<span id="t-tmp">—</span>
+					<span class="tblabel">Prs</span>
+					<span id="t-prs">—</span>				  </div>
+				  <div class="tbrow">
+					<span class="tblabel">Sky</span>
+					<span id="t-sky" class="tbmed">—</span>
+					<span class="tblabel">Biome</span>
+					<span id="t-biome" class="tbwide">—</span>
+				  </div>
+				  <div class="tbrow">
+					<span class="tblabel">Wx</span>
+					<span id="t-wx" class="tbmed">—</span>
+					<span class="tblabel">Wnd</span>
+					<span id="t-wnd" class="tbwide">—</span>
+				  </div>
+					  <div class="tbrow">
+						<span class="tblabel">Time</span>
+						<span id="t-time">—</span>
+						<span class="tblabel">Zone</span>
+						<span id="t-tz">—</span>
+					  </div>
+			</div>
+			<div id="tabs">
+			  <button class="tab active" data-tab="inv">Inventory</button>
+			  <button class="tab" data-tab="equip">Equip</button>
+			  <button class="tab" data-tab="skills">Skills</button>
+			  <button class="tab" data-tab="help">?</button>
+			</div>
+			<div id="panels">
+				<div id="panel-inv" class="panel active">
+			  <div id="invgrid"></div>
+			</div>
+			<div id="panel-equip" class="panel">
+			  <div id="equipgrid"></div>
+			</div>
+			<div id="panel-skills" class="panel"></div>
+			<div id="panel-help" class="panel">
+			  <h3>Isle of Emberfall</h3>
+				  <p>An offline single-player tribute to old-school tile MMOs. You start in the city of <b>Newhaven</b>; 37 biomes stretch out forever in every direction, each with its own creatures.</p>
+			  <ul>
+				<li><b>Left-click</b>: walk / gather / attack / talk</li>
+				<li><b>Right-click</b>: context menu · <b>WASD</b>: walk</li>
+				<li><b>Character (C)</b>: choose which of 94 characters you play as; they face the way you move.</li>
+				<li><b>Combat</b>: your style follows your main hand — a bow shoots (arrows in the quiver), a <b>wand or staff weaves runes into spell sentences</b> (runes are words: substances like Fire and Frost, verbs like Strike, Bind and Drain, modifiers like Twin and Wrath), anything else is melee. An offhand <b>dagger</b> in the shield slot lets an archer or mage fight back when enemies close in. <b>Shift+WASD</b> backs away mid-fight without dropping your target. Train Defence by taking hits. A mage can also speak spells directly: <b>Enter</b> opens the chant bar — type the words ("fire strike") and Enter casts them — and <b>V</b> toggles casting by voice (say the words aloud; browsers with speech recognition only). Every chanted word still burns its rune from the pouch.</li>
+				<li><b>Gather</b>: trees, rocks, fishing spots, berry bushes, herb patches.</li>
+				<li><b>Farm</b>: fenced fields grow naturally in Farmland — each one takes a single agriculture skill's seeds. Enter by the gate, <b>hoe</b> the bare soil to till it, then plant and harvest.</li>
+				<li><b>Craft</b>: furnace (smelt/jewelry), anvil, workbench (carpentry/fletching/leather), loom, tanning rack, millstone, cauldron (potions), runestone altar.</li>
+				<li><b>Furnish & launch</b>: carpentry furniture, casks, pottery and glassware can be <b>placed in the world</b> (click them in your pack) and picked back up. Boats launch onto water — board one and sail it, <b>row</b> small craft with a pair of oars, or ride oarless down the river current.</li>
+				<li><b>Firemaking</b>: click logs in your pack to light a cooking fire.</li>
+				<li><b>Slain beasts</b> drop meat and their own hide automatically — tan the hides into leather at a tanning rack.</li>
+				<li><b>Agility</b> shortcuts: cross stepping stones, mossy stones, rock scrambles and cliff ledges at rivers and ravines. Harder crossings need more Agility and risk a slip — but training it makes you nimbler and quicker on your feet.</li>
+				<li><b>Alchemy table</b> turns items into coins.</li>
+				<li><b>Villages</b> dot the wilderness — talk to villagers, trade with their merchants.</li>
+				<li><b>Sailing</b>: build a canoe/sailboat/ship at a shipyard (Shipwrighting), then click across rivers, lakes and seas. Deep-water fishing spots hold the best fish.</li>
+				<li><b>World map (M)</b>: everywhere you've explored, with hover icons for banks, villages, resources and mob camps. Scroll to zoom, drag to pan.</li>
+				<li>Trade at the <b>general store</b>. Bank at the <b>chest</b>. Eat food to heal. Autosaves.</li>
+				<li>Resources get richer with distance: 32 tiers each of trees, ores, fish, herbs, crops, runes and more.</li>
+			  </ul>
+				  <button id="resetbtn">Reset… (exploration / character / both)</button>
+				  <button id="exportbtn">Save to file…</button>
+				  <button id="importbtn">Load from file…</button>
+				  <input type="file" id="importfile" accept="application/json" style="display:none">
+				  <p class="hint">Save/load a real <code>.json</code> file on disk, independent of browser storage — use it as a backup or to move your character between browsers/computers.</p>
+				  <p class="hint">3D needs WebGL: hard-refresh (Cmd+Shift+R), enable hardware acceleration in your browser's performance settings, and allow this page in any canvas/fingerprint-blocking extension.</p>
+			  <p class="credits">Art: Kenney.nl roguelike packs (CC0) + custom sprites + Tiny Creatures (Clint Bellanger)</p>
+			</div>
+				</div>
+				<div id="sidebar-spacer"></div>
+		  </div>
+		</div>
+			<!-- hidden canvas required by the retired prototype engine bundle at load time -->
+			<canvas id="canvas" width="8" height="8" style="display:none"></canvas>
+			<script src="libs/three.min.js"></script>
+			<script src="libs/legacy-engine.js"></script>
+			<script src="js/sprites/lc-cache-data.js"></script>
+			<script src="js/sprites/assets-data.js"></script>
+			<script src="js/sprites/nature-sheet.js"></script>
+			<script src="js/sprites/characters-data.js"></script>
+			<script src="js/sprites/outfit-manifest.js"></script>
+			<script src="js/sprites/outfit-sheet-data.js"></script>
+			<script src="js/sprites/objects-data.js"></script>
+			<script src="js/sprites/tree-voxels-data.js"></script>
+			<script src="js/sprites/ore-voxels-data.js"></script>
+			<script src="js/sprites/forage-voxels-data.js"></script>
+			<script src="js/sprites/mix-npc-data.js"></script>
+			<script src="js/data.js"></script>
+			<script src="js/character-stats.js"></script>
+			<script src="js/decor-examine.js"></script>
+			<script src="js/content.js"></script>
+			<script src="js/audio.js"></script>
+			<script src="js/skills/economy.js"></script>
+			<script src="js/skills/textiles.js"></script>
+			<script src="js/skills/husbandry.js"></script>
+			<script src="js/skills/husbandry-animals.js"></script>
+			<script src="js/skills/cheesemaking.js"></script>
+			<script src="js/skills/ropemaking.js"></script>
+			<script src="js/skills/sailmaking.js"></script>
+			<script src="js/skills/shipwrighting.js"></script>
+			<script src="js/skills/stonework.js"></script>
+			<script src="js/skills/potteryglass.js"></script>
+			<script src="js/skills/metalcraft.js"></script>
+			<script src="js/skills/alloys.js"></script>
+			<script src="js/skills/leathercraft.js"></script>
+			<script src="js/skills/toolcraft.js"></script>
+			<script src="js/skills/geartiers.js"></script>
+			<script src="js/skills/paper.js"></script>
+			<script src="js/skills/agriculture.js"></script>
+			<script src="js/skills/chandlery.js"></script>
+			<script src="js/skills/mining-split.js"></script>
+			<script src="js/skills/gather-decor.js"></script>
+			<script src="js/skills/fillout.js"></script>
+			<script src="js/skills/garments.js"></script>
+			<script src="js/skills/foodbuffs.js"></script>
+			<script src="js/skills/practical-uses.js"></script>
+			<script src="js/skills/one-skill-per-station.js"></script>
+			<script src="js/skills/furniture.js"></script>
+			<script src="js/skills/market.js"></script>
+			<script src="js/custom-mobs.js"></script>
+			<script src="js/nz-extra-trees.js"></script>
+			<script src="js/skills/woodcraft.js"></script>
+			<script src="js/nz-extra-birds.js"></script>
+			<script src="js/skills/bestiary-drops.js"></script>
+			<script src="js/skills/seed-drops.js"></script>
+			<script src="js/biome-tiles.js"></script>
+			<script src="js/world/terrain.js"></script>
+			<script src="js/world/features.js"></script>
+			<script src="js/world/chunks.js"></script>
+			<script src="js/world/map.js"></script>
+			<script src="js/world.js"></script>
+			<script src="js/render3d.js"></script>
+			<script src="js/lc-bestiary.js"></script>
+			<script src="js/sprites/paperdoll-manifest.js"></script>
+			<script src="js/paperdoll.js"></script>
+			<script src="js/legacy3d.js"></script>
+			<script src="js/main/assets.js"></script>
+			<script src="js/main/state.js"></script>
+			<script src="js/gameplay/stink.js"></script>
+			<script src="js/gameplay/pathing.js"></script>
+			<script src="js/gameplay/movement.js"></script>
+			<script src="js/gameplay/items.js"></script>
+			<script src="js/gameplay/placing.js"></script>
+			<script src="js/gameplay/decor-pickup.js"></script>
+			<script src="js/skills/gathering.js"></script>
+			<script src="js/skills/combat.js"></script>
+			<script src="js/skills/production.js"></script>
+			<script src="js/skills/crafting.js"></script>
+			<script src="js/skills/farming.js"></script>
+			<script src="js/skills/agility.js"></script>
+			<script src="js/skills/firemaking.js"></script>
+			<script src="js/gameplay/actions.js"></script>
+			<script src="js/gameplay/monsters.js"></script>
+			<script src="js/gameplay/portals.js"></script>
+			<script src="js/gameplay/locks.js"></script>
+			<script src="js/gameplay/world.js"></script>
+			<script src="js/gameplay/input.js"></script>
+			<script src="js/gameplay/npc-chat.js"></script>
+			<script src="js/gameplay/chant.js"></script>
+			<script src="js/main/ui.js"></script>
+			<script src="js/storage.js"></script>
+			<script src="js/gameplay/charselect.js"></script>
+			<script src="js/sprites/item-icons-data.js"></script>
+			<script src="js/sprites/container-icons-data.js"></script>
+			<script src="js/sprites/rune-icons-data.js"></script>
+			<script src="js/sprites/boat-icons-data.js"></script>
+			<script src="js/sprites/sheep-shorn-data.js"></script>
+			<script src="js/sprites/animal-sprites-data.js"></script>
+			<script src="js/sprites/animal-sprites-2-data.js"></script>
+			<script src="js/sprites/world-tiles-data.js"></script>
+			<script src="js/sprites/craft-icons-data.js"></script>
+			<script src="js/sprites/nz-log-icons-data.js"></script>
+			<script src="js/sprites/bar-icons-data.js"></script>
+			<script src="js/sprites/copper-bar-icon-data.js"></script>
+			<script src="js/sprites/alloy-icons-data.js"></script>
+			<script src="js/sprites/tool-icons-data.js"></script>
+			<script src="js/sprites/fishing-icons-data.js"></script>
+			<script src="js/sprites/weapon-icons-data.js"></script>
+			<script src="js/sprites/armor-icons-data.js"></script>
+			<script src="js/sprites/jewelry-icons-data.js"></script>
+			<script src="js/sprites/shield-icons-data.js"></script>
+			<!-- 2026-09 art drop: loads AFTER the older assorted-sprites icon files
+			     so its real per-metal art wins wherever both cover an item -->
+			<script src="js/sprites/gear-icons-data.js"></script>
+			<script src="js/sprites/alloy-armour-icons.js"></script>
+			<script src="js/sprites/pauldron-icons-data.js"></script>
+			<script src="js/sprites/vessel-icon-align.js"></script>
+			<!-- EXCEPT ammunition: arrow-icons-data.js carries MATCHED per-metal
+			     arrow + arrowhead pairs from one sheet, so it loads after the art
+			     drop and owns both halves (mismatched pairs look worse than older art) -->
+			<script src="js/sprites/arrow-icons-data.js"></script>
+			<script src="js/sprites/content-arrow-icons-hook.js"></script>
+			<script src="js/sprites/map-icon-atlas-data.js"></script>
+			<script src="js/sprites/map-icon-atlas-2-data.js"></script>
+			<script src="js/sprites/crop-cerealiculture-data.js"></script>
+			<script src="js/sprites/crop-olericulture-data.js"></script>
+			<script src="js/sprites/crop-fibriculture-data.js"></script>
+			<script src="js/sprites/crop-pomiculture-data.js"></script>
+			<script src="js/sprites/crop-herbiculture-data.js"></script>
+			<script src="js/sprites/crop-item-icons.js"></script>
+			<script src="js/sprites/fruit-icons-data.js"></script>
+			<script src="js/sprites/seed-icons-data.js"></script>
+			<script src="js/sprites/forage-icons-data.js"></script>
+			<script src="js/sprites/herb-icons-data.js"></script>
+			<script src="js/sprites/malt-icons-data.js"></script>
+			<script src="js/sprites/fish-icons-data.js"></script>
+			<script src="js/sprites/shrimp-icons-data.js"></script>
+			<script src="js/sprites/fishers-soap-icon-data.js"></script>
+			<script src="js/sprites/watering-can-icon-data.js"></script>
+			<script src="js/sprites/fulling-icons-data.js"></script>
+			<script src="js/sprites/alfalfa-icons-data.js"></script>
+			<script src="js/sprites/hide-icons-data.js"></script>
+			<script src="js/sprites/gem-icons-data.js"></script>
+			<script src="js/sprites/cw-icons-data.js"></script>
+			<script src="js/sprites/fw-icons-data.js"></script>
+			<script src="js/sprites/leather-icons-data.js"></script>
+			<script src="js/sprites/leather-armour-icons-data.js"></script>
+			<script src="js/sprites/garment-icons-data.js"></script>
+			<script src="js/sprites/outfit-item-icons-data.js"></script>
+			<script src="js/skills/outfit-items.js"></script>
+			<script src="js/sprites/char-body-fit-data.js"></script>
+			<script src="js/sprites/char-landmarks-data.js"></script>
+			<script src="js/sprites/armour-overlay-data.js"></script>
+			<script src="js/sprites/lb-icons-data.js"></script>
+			<script src="js/sprites/mi-icons-data.js"></script>
+			<script src="js/sprites/rn-icons-data.js"></script>
+			<script src="js/sprites/sheep-dir-data.js"></script>
+			<script src="js/sprites/wild-dir-data.js"></script>
+			<script src="js/sprites/animal-dir-fix.js"></script>
+			<script src="js/sprites/animal-spent-dirs.js"></script>
+			<script src="js/sprites/fibre-icons-data.js"></script>
+			<script src="js/sprites/milling-icons-data.js"></script>
+			<!-- log-icons-data.js (the "lg" double/stacked-log sheet) reverted: logs
+			     keep their older single-log icons (i_log<tier>/i_logs/i_pinelogs). -->
+			<script src="js/sprites/spinning-icons-data.js"></script>
+			<script src="js/sprites/textile-paper-icons-data.js"></script>
+			<script src="js/sprites/vial-icon-data.js"></script>
+			<script src="js/sprites/reagent-icons-data.js"></script>
+			<script src="js/sprites/object-icons-hook.js"></script>
+			<script src="js/gameplay/bestiary.js"></script>
+			<script src="js/gameplay/quests.js"></script>
+			<script src="js/gameplay/daynight.js"></script>
+			<script src="js/gameplay/weather.js"></script>
+			<script src="js/gameplay/armour-overlay.js"></script>
+			<script src="js/gameplay/dream.js"></script>
+			<script src="js/main.js"></script>
+	</body>
+</html>

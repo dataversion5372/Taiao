@@ -1,0 +1,64 @@
+ISLE OF EMBERFALL — FISHING TOOLS ICON PROMPT
+=============================================
+AUDIT: the five Fishing-skill tools (fishing_rod, small_net, big_net,
+harpoon, lobster_cage — data.js) all currently share ONE placeholder icon
+(i_rod = a single rod sprite), so a net, a harpoon and a lobster cage are
+indistinguishable in the pack, shop and skill guide. This sheet replaces
+them with real per-tool art. Integration follows the "gi" item-icon
+pattern (tools/build_item_icons.py -> item-icons-data.js): slice the sheet
+into 64px cells left-to-right, pack, and repoint ITEMS[id].icon for the
+five ids below.
+
+==============================================================================
+GLOBAL STYLE
+==============================================================================
+Art style: 16-bit / 'HD-2D' pixel-art inventory icons in the look of the
+roguelike NES RPGs and classic RuneScape item sprites. One tool per cell,
+centred and filling most of the cell, drawn 3/4 or flat side-on with a
+bold readable silhouette, a thin dark outline, a limited flat palette with
+a little dithered shading, and a soft light from the upper-left. Weathered,
+salt-worn fishing gear — pale ash/oak wood, tarred cord and rope, dull
+grey wrought iron. Fully TRANSPARENT background (alpha), no drop shadows,
+no text, numbers, labels, borders or frames. Consistent scale, lighting
+and palette across the whole sheet so the five icons read as one matched
+set. Unlike a tiered sheet, every cell is a DIFFERENT tool — each must be
+instantly recognisable at 32x32 from its silhouette alone.
+
+Output: one PNG sprite sheet, a uniform grid of 5 columns x 1 row, 64x64 px
+per cell (draw at 64x64; the game downscales to 32x32), one icon per cell,
+even margins, no gridlines drawn, in the EXACT order below.
+
+==============================================================================
+SHEET: Fishing tools   |   Skill: Fishing   |   Grid: 5 cols x 1 row (5 icons)
+==============================================================================
+Draw these five tools, left-to-right, each a distinct instantly-recognisable
+icon in the global style:
+
+  1. fishing_rod  — a slender tapering wooden fishing rod/pole held on the
+     diagonal (butt lower-left, tip upper-right), a thin taut line running
+     from the tip with a small red-and-white bobber and a tiny barbed hook.
+
+  2. small_net    — a small round hand landing-net: a bent wooden hoop with
+     knotted string mesh sagging in a shallow bag, on a short wooden handle
+     angled diagonally. Reads as light and one-handed.
+
+  3. big_net      — a large heavy seine/trawl net: a wide draped sheet of
+     knotted mesh gathered into folds, strung with a top row of pale round
+     cork floats and a bottom row of dark lead weights. Clearly bigger and
+     bulkier than the small net.
+
+  4. harpoon      — a wrought-iron fishing harpoon/spear held on the diagonal
+     (point to the upper-right): a long barbed leaf-shaped iron head with a
+     back-swept barb, a socketed wooden haft, and a coil of tarred throwing
+     rope looped at the base.
+
+  5. lobster_cage — a woven creel lobster pot: a rounded barrel/dome trap of
+     bent willow withies or wire bars with a funnel entrance in the front,
+     a small rope handle on top, and a fish scrap visible as bait inside.
+     Reads as a cage, not a basket of goods.
+
+INTEGRATION (after the PNG is generated):
+  - Add the sheet to tools/build_item_icons.py in the "gi"/fishing group,
+    keeping the 5-cell order above; it packs 64px cells into item-icons.
+  - Repoint the icons: fishing_rod, small_net, big_net, harpoon,
+    lobster_cage -> their new per-tool cells (drop the shared i_rod).

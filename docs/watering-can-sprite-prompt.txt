@@ -1,0 +1,37 @@
+ISLE OF EMBERFALL — WATERING CAN ICON PROMPT
+============================================
+CONTEXT: The Watering can (js/skills/farming.js, item id "watering_can") is a
+Pomiculture tool — tend a picked-bare fruit tree with it to regrow the fruit.
+It currently uses a tinted vial placeholder and needs its own icon, in the same
+style as the game's other item icons.
+
+==============================================================================
+STYLE
+==============================================================================
+A single 16-bit / 'HD-2D' pixel-art inventory icon in the look of the roguelike
+NES RPGs and classic RuneScape item sprites — matching the game's other item
+icons. One object, centred and filling most of the cell, drawn 3/4 or flat
+side-on, bold readable silhouette, thin dark outline, a limited flat palette with
+a little dithered shading, soft light from the upper-left. Fully TRANSPARENT
+background (alpha), no drop shadow, text, labels, border or frame. Drawn at
+64x64 px (downscaled to 32x32 in game) — must read clearly at 32x32.
+
+==============================================================================
+THE OBJECT — WATERING CAN
+==============================================================================
+A small metal WATERING CAN shown side-on, spout to the left. A rounded body/tank
+that tapers up to a filler opening, a long angled pour SPOUT ending in a flat
+perforated ROSE (sprinkler head), an arched carry HANDLE over the top and a
+smaller grip handle at the back. Made of weathered galvanised tin / pewter-grey
+metal with a soft bluish sheen, riveted seams, a few dents and a little rust at
+the base for an honest, well-used look. A subtle arc of tiny blue-white WATER
+DROPLETS sprinkling from the rose sells what it does (keep it small so the can
+still owns the silhouette). Sturdy, practical garden tin — not ornate.
+
+INTEGRATION (after the PNG is generated):
+  - Slice/pad to a 64px cell (transparent bg) and self-register in a small
+    js/sprites file with a FREE 2-letter key, SHEET_TILE=64:
+    SPR["i_watering_can"] = [key,0,0,{sx:0,sy:0,sw:64,sh:64}].
+  - It already repoints via ITEMS.watering_can.icon = "i_watering_can" — just
+    overwrite that SPR entry (currently the tinted-vial placeholder); load the
+    file AFTER js/skills/farming.js so the item exists.

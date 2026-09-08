@@ -1,0 +1,27 @@
+Emberfall sound effects — sources & licenses
+=============================================
+All sounds are CC0 1.0 (public domain) — no attribution required, but credited
+here anyway with thanks. Files were renamed to semantic names; originals below.
+
+Kenney.nl (https://kenney.nl, CC0):
+  RPG Audio pack        — chop, knifeSlice (swing), handleCoins (coins),
+                          cloth (forage/pickup), beltHandle/metalClick (equip),
+                          doorOpen/doorClose, creak (gate), metalLatch (latch),
+                          bookFlip (book)
+  Impact Sounds pack    — footstep_grass/concrete/snow/carpet/wood (steps),
+                          impactPunch (hit/hurt), impactSoft (kill/arrowhit),
+                          impactGeneric (arrowmiss), impactMining (mine),
+                          impactWood (chop), impactPlank (climb),
+                          impactMetal (anvil)
+  Interface Sounds pack — click, error, confirmation (craft), pluck (bow)
+  Digital Audio pack    — phaseJump (spellword/portal), zap/laser (spellcast),
+                          lowThreeTone (die), phaserUp (portal), powerUp (attune)
+  Music Jingles pack    — jingles_HIT (levelup), jingles_PIZZI (quest)
+
+OpenGameArt.org (CC0):
+  "40 CC0 water splash & slime SFX" by rubberduck
+    https://opengameart.org/content/40-cc0-water-splash-slime-sfx
+    — splash (wade/fish/splash_big), bubble (drink)
+  "7 eating crunches" by tito (Iwan Gabovitch / qubodup collection)
+    https://opengameart.org/content/7-eating-crunches
+    — crunch (eat)

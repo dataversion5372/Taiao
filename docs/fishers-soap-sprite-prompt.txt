@@ -1,0 +1,40 @@
+ISLE OF EMBERFALL — FISHER'S SOAP ICON PROMPT
+=============================================
+CONTEXT: Fisher's soap (gameplay/stink.js, item id "fishers_soap") is a cheap
+basic soap bar sold by the fishmonger — the fisherfolk's bar for scrubbing the
+reek of the catch off their hands. It currently uses a tinted i_cloth placeholder
+and needs its own icon, in the same style as the game's other inventory items.
+
+==============================================================================
+STYLE
+==============================================================================
+A single 16-bit / 'HD-2D' pixel-art inventory icon in the look of the roguelike
+NES RPGs and classic RuneScape item sprites — matching the game's other item
+icons. One object, centred and filling most of the cell, drawn 3/4 or flat
+side-on, bold readable silhouette, thin dark outline, a limited flat palette with
+a little dithered shading, soft light from the upper-left. Fully TRANSPARENT
+background (alpha), no drop shadow, text, labels, border or frame. Drawn at
+64x64 px (downscaled to 32x32 in game) — must read clearly at 32x32.
+
+==============================================================================
+THE OBJECT — FISHER'S SOAP
+==============================================================================
+A single hand-sized BAR OF SOAP, a rounded-rectangle block with softly bevelled
+edges and a slightly worn, used top. Coarse, honest, home-boiled soap — not a
+fancy perfumed cake. Colour it a pale sea-foam blue-green / grey-green with a
+faint cool sheen, so it reads as the "fish / sea" soap of the set. A small motif
+is pressed into the top face to say what it's for: a simple stamped FISH
+silhouette (or a couple of wavy sea lines) embossed into the bar. Optional tiny
+details: a few coarse salt-crystal flecks catching the light, a whisper of
+lather/soap-suds at one corner, a slightly softened melted edge. Keep it a plain,
+sturdy fisherman's bar — cheap and practical.
+
+INTEGRATION (after the PNG is generated):
+  - Slice/pad to a 64px cell (transparent bg) and self-register in a small
+    js/sprites file with a FREE 2-letter key, SHEET_TILE=64:
+    SPR["i_fishers_soap"] = [key,0,0,{sx:0,sy:0,sw:64,sh:64}].
+  - It already repoints via ITEMS.fishers_soap.icon = "i_fishers_soap" — just
+    swap that SPR entry from the tinted-cloth placeholder to the new sheet cell
+    (load the file AFTER gameplay/stink.js so the item exists).
+  - Could also serve as a base for the other soaps if a full soap sheet is made
+    later (the Chandlery soapmaking ladder, chandlery.js).

@@ -1,0 +1,56 @@
+ISLE OF EMBERFALL — PAULDRON ICON PROMPT
+========================================
+AUDIT: Smithing's tiered armour (geartiers.js ARMOR_KINDS) forges a "Pauldrons"
+piece for each of the 16 ARMOUR METALS (ids pauldrons_<metal>, offhand shoulder
+slots), but they all fall back to a single hue-tinted i_shield sprite — so all
+16 pauldrons are the same silhouette in a different colour. The chestplate, legs,
+helm and boots already have real per-metal art (assets/assorted sprites/
+armour.png); this sheet gives Pauldrons the matching per-metal line: 16 shoulder
+pieces, one per armour metal, to pair with the existing chest/legs art.
+
+==============================================================================
+GLOBAL STYLE
+==============================================================================
+Art style: 16-bit / 'HD-2D' pixel-art inventory icons in the look of the
+roguelike NES RPGs and classic RuneScape armour sprites (match the game's
+existing helm/chestplate/legs/boots armour icons). One item per cell: a matched
+PAIR of pauldrons — two articulated shoulder guards of overlapping lames with a
+domed shoulder cap, shown 3/4 and slightly angled so both read, sitting side by
+side (or one overlapping the other). Bold readable silhouette, thin dark
+outline, a limited flat palette with light dithered shading, and soft light from
+the upper-left giving the metal a domed sheen. Riveted lame edges where the metal
+calls for it; leave any heraldic field blank. Fully TRANSPARENT background
+(alpha), no drop shadows, no text, numbers, labels, borders or frames. Consistent
+scale, framing and lighting across the whole sheet so the 16 icons read as one
+matched set — every cell the SAME pauldron shape, only the METAL changing.
+
+Each cell is ONE armour metal; the pauldron shape stays IDENTICAL and only the
+metal changes, left-to-right then top-to-bottom, in this exact 16-metal order —
+each instantly tellable by its colour and finish:
+  1 Bronze — warm reddish-brown · 2 Zinc — cool blue-white · 3 Lead — dull dark
+  blue-grey · 4 Nickel — pale greenish-silver · 5 Titanium — grey with a faint
+  teal sheen · 6 Mithril — pale glowing blue · 7 Orichalcum — rose-gold ·
+  8 Starmetal — deep navy flecked with silver stars · 9 Frostiron — icy pale
+  blue-white rime · 10 Duskmetal — twilight violet-grey · 11 Dawnmetal — warm
+  gold-pink · 12 Chronite — brassy clockwork-gold · 13 Voidforged steel —
+  purple-black with a dark sheen · 14 Twilight alloy — dusky violet-grey with a
+  faint glow · 15 Nickel silver — bright white-silver · 16 Cupronickel — warm
+  pale gold-silver.
+
+Output: one PNG sprite sheet, a uniform grid of 8 columns x 2 rows, 64x64 px per
+cell (draw at 64x64; the game downscales to 32x32), one icon per cell, even
+margins, no gridlines drawn, in the EXACT order above (cells 1-8 top row,
+9-16 bottom row).
+
+INTEGRATION (after the PNG is generated):
+  - Wire the art like shield-icons-data.js: a self-registering
+    js/sprites/pauldron-icons-data.js with a FREE 2-letter key (existing: aa ab
+    ag ah al aw bi cb cf cg ch ci co cp fg fi fs ft fu hb hi jw mb mi ml ms nl
+    sh tg wg wt — e.g. "pd" or "pl"), SHEET_TILE[key]=64, slice row-major into
+    64px cells, register SPR and repoint ITEMS[pauldrons_<metal>].icon.
+  - Column/cell order = the ARMOUR_BARS roster (geartiers.js):
+    cell 0 bronze, 1 m3, 2 m4, 3 m6, 4 m11, 5 m12, 6 m13, 7 m20, 8 m22, 9 m25,
+    10 m26, 11 m30, 12 voidforged, 13 twilight, 14 nickel_silver, 15 cupronickel
+    → item id "pauldrons_" + that shortBar.
+  - Include in index.html AFTER js/skills/geartiers.js so the pauldrons_* ITEMS
+    exist; the repoint then overrides the i_shield fallback.

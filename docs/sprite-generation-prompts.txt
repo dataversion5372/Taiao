@@ -1,0 +1,1493 @@
+ISLE OF EMBERFALL — SPRITE-SHEET GENERATION PROMPTS
+Placeholder item icons still to be drawn for the new production skills.
+Auto-generated from PLACEHOLDER_SPRITES (1082 items across 39 sheets).
+
+==============================================================================
+GLOBAL STYLE (applies to every sheet below)
+==============================================================================
+Art style: 16-bit / early-3D 'HD-2D' pixel-art item icons in the look of the
+Kenney.nl roguelike packs and classic RuneScape inventory sprites. Each icon
+is a single object centred in its cell, drawn 3/4 top-down (or front-on for
+flat goods), with a bold readable silhouette, a thin dark outline, a limited
+flat palette with a little dithered shading, and a soft light from the upper-
+left. Fully TRANSPARENT background (alpha), no drop shadows, no text, numbers,
+labels, borders or frames. Consistent scale and lighting across the whole
+sheet so the icons sit together in an inventory grid.
+
+Output: one PNG sprite sheet per prompt, uniform grid, each cell 32x32 px
+(draw at 64x64 and downscale for crispness if needed), icons placed left-to-
+right then top-to-bottom in the exact order listed, one icon per cell, even
+margins, no cell gridlines drawn.
+
+------------------------------------------------------------------------------
+SHEET: Grain Seeds   |   Skill: Cerealiculture
+Grid: 8 cols x 4 rows, 32 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 32 game item icons in the
+global style above — tiny seed/grain pouches & kernels, earthy tans and golds,
+each a small distinct seed icon. 8 columns, 32x32 px per cell. Draw each item
+as a distinct, instantly recognizable icon, in this order:
+   1. Wheat seeds
+   2. Barley seeds
+   3. Rye seeds
+   4. Oats seeds
+   5. Corn seeds
+   6. Rice seeds
+   7. Millet seeds
+   8. Buckwheat seeds
+   9. Chickpeas seeds
+  10. Sorghum seeds
+  11. Spelt seeds
+  12. Quinoa seeds
+  13. Amaranth seeds
+  14. Teff seeds
+  15. Emmer seeds
+  16. Farro seeds
+  17. Fonio seeds
+  18. Triticale seeds
+  19. Durum seeds
+  20. Kamut seeds
+  21. Freekeh seeds
+  22. Moonwheat seeds
+  23. Sunmillet seeds
+  24. Frostbarley seeds
+  25. Emberrye seeds
+  26. Voidcorn seeds
+  27. Starrice seeds
+  28. Dreamoats seeds
+  29. Aethergrain seeds
+  30. Bloodmaize seeds
+  31. Shadowspelt seeds
+  32. Celestial quinoa seeds
+
+------------------------------------------------------------------------------
+SHEET: Fruit Seeds & Pips   |   Skill: Pomiculture
+Grid: 8 cols x 4 rows, 32 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 32 game item icons in the
+global style above — fruit pips, stones and seedling saplings in little pots,
+fresh greens and fruit hues. 8 columns, 32x32 px per cell. Draw each item as a
+distinct, instantly recognizable icon, in this order:
+   1. Apple seeds
+   2. Pear seeds
+   3. Cherry seeds
+   4. Plum seeds
+   5. Peach seeds
+   6. Apricot seeds
+   7. Fig seeds
+   8. Grape seeds
+   9. Orange seeds
+  10. Lemon seeds
+  11. Lime seeds
+  12. Strawberry seeds
+  13. Raspberry seeds
+  14. Blackberry seeds
+  15. Blueberry seeds
+  16. Gooseberry seeds
+  17. Melon seeds
+  18. Watermelon seeds
+  19. Pomegranate seeds
+  20. Quince seeds
+  21. Mango seeds
+  22. Papaya seeds
+  23. Pineapple seeds
+  24. Kiwi seeds
+  25. Persimmon seeds
+  26. Mulberry seeds
+  27. Elderberry seeds
+  28. Dragonfruit seeds
+  29. Starfruit seeds
+  30. Moonberry seeds
+  31. Sunapple seeds
+  32. Worldfruit seeds
+
+------------------------------------------------------------------------------
+SHEET: Vegetable Seeds   |   Skill: Olericulture
+Grid: 8 cols x 4 rows, 32 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 32 game item icons in the
+global style above — vegetable seed packets and sprouting seeds, varied garden
+colours. 8 columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Potato seeds
+   2. Cabbage seeds
+   3. Onion seeds
+   4. Carrot seeds
+   5. Turnip seeds
+   6. Parsnip seeds
+   7. Radish seeds
+   8. Beetroot seeds
+   9. Leek seeds
+  10. Garlic seeds
+  11. Celery seeds
+  12. Lettuce seeds
+  13. Spinach seeds
+  14. Kale seeds
+  15. Broccoli seeds
+  16. Cauliflower seeds
+  17. Peas seeds
+  18. Beans seeds
+  19. Cucumber seeds
+  20. Courgette seeds
+  21. Pumpkin seeds
+  22. Squash seeds
+  23. Aubergine seeds
+  24. Pepper seeds
+  25. Sweetcorn seeds
+  26. Artichoke seeds
+  27. Asparagus seeds
+  28. Yam seeds
+  29. Okra seeds
+  30. Fennel seeds
+  31. Kohlrabi seeds
+  32. Sweet potato seeds
+
+------------------------------------------------------------------------------
+SHEET: Herb Seeds   |   Skill: Herbiculture
+Grid: 8 cols x 4 rows, 32 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 32 game item icons in the
+global style above — herb seeds and seedling sprigs, muted greens. 8 columns,
+32x32 px per cell. Draw each item as a distinct, instantly recognizable icon,
+in this order:
+   1. Sageleaf seeds
+   2. Bitterroot seeds
+   3. Marshweed seeds
+   4. Tanglefern seeds
+   5. Yarrow seeds
+   6. Feverbalm seeds
+   7. Nightcap seeds
+   8. Silverthorn seeds
+   9. Kingsfoil seeds
+  10. Wolfsbane seeds
+  11. Sunpetal seeds
+  12. Mooncress seeds
+  13. Bloodthistle seeds
+  14. Frostmint seeds
+  15. Emberleaf seeds
+  16. Stormnettle seeds
+  17. Gloomshade seeds
+  18. Dreamfoil seeds
+  19. Ghostflower seeds
+  20. Ironweed seeds
+  21. Dawnrose seeds
+  22. Duskvine seeds
+  23. Starbud seeds
+  24. Voidmoss seeds
+  25. Wyrmgrass seeds
+  26. Angelica seeds
+  27. Demonfern seeds
+  28. Runeblossom seeds
+  29. Spiritsage seeds
+  30. Timewort seeds
+  31. Aethergrass seeds
+  32. Worldroot seeds
+
+------------------------------------------------------------------------------
+SHEET: Fibre-crop Seeds   |   Skill: Fibriculture
+Grid: 8 cols x 4 rows, 32 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 32 game item icons in the
+global style above — fibre-plant seeds (flax, cotton, hemp), pale naturals. 8
+columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Flax seeds
+   2. Cotton seeds
+   3. Hemp seeds
+   4. Jute seeds
+   5. Sisal seeds
+   6. Ramie seeds
+   7. Kenaf seeds
+   8. Silkgrass seeds
+   9. Spidersilk vine seeds
+  10. Aetherbloom seeds
+  11. Nettle seeds
+  12. Coir seeds
+  13. Abaca seeds
+  14. Bamboo fibre seeds
+  15. Raffia seeds
+  16. Milkweed seeds
+  17. Yucca seeds
+  18. Agave seeds
+  19. Piña seeds
+  20. Banana fibre seeds
+  21. Kapok seeds
+  22. Lotus fibre seeds
+  23. Sea silk seeds
+  24. Nettle silk seeds
+  25. Cloudthread seeds
+  26. Mistcotton seeds
+  27. Frostflax seeds
+  28. Emberhemp seeds
+  29. Voidfibre seeds
+  30. Starcotton seeds
+  31. Aetherweave seeds
+  32. Worldsilk seeds
+
+------------------------------------------------------------------------------
+SHEET: Fruit Crops   |   Skill: Pomiculture
+Grid: 8 cols x 4 rows, 28 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 28 game item icons in the
+global style above — harvested fruits, ripe and colourful. 8 columns, 32x32 px
+per cell. Draw each item as a distinct, instantly recognizable icon, in this
+order:
+   1. Apple
+   2. Pear
+   3. Cherry
+   4. Plum
+   5. Peach
+   6. Apricot
+   7. Fig
+   8. Grape
+   9. Orange
+  10. Lemon
+  11. Lime
+  12. Raspberry
+  13. Blackberry
+  14. Blueberry
+  15. Gooseberry
+  16. Watermelon
+  17. Pomegranate
+  18. Quince
+  19. Mango
+  20. Papaya
+  21. Pineapple
+  22. Kiwi
+  23. Persimmon
+  24. Mulberry
+  25. Elderberry
+  26. Moonberry
+  27. Sunapple
+  28. Worldfruit
+
+------------------------------------------------------------------------------
+SHEET: Vegetable Crops   |   Skill: Olericulture
+Grid: 6 cols x 4 rows, 21 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 21 game item icons in the
+global style above — harvested vegetables, garden-fresh colours. 6 columns,
+32x32 px per cell. Draw each item as a distinct, instantly recognizable icon,
+in this order:
+   1. Turnip
+   2. Parsnip
+   3. Radish
+   4. Celery
+   5. Lettuce
+   6. Spinach
+   7. Kale
+   8. Broccoli
+   9. Cauliflower
+  10. Peas
+  11. Beans
+  12. Cucumber
+  13. Courgette
+  14. Squash
+  15. Aubergine
+  16. Sweetcorn
+  17. Asparagus
+  18. Okra
+  19. Fennel
+  20. Kohlrabi
+  21. Sweet potato
+
+------------------------------------------------------------------------------
+SHEET: Fibre Crops   |   Skill: Fibriculture
+Grid: 6 cols x 4 rows, 22 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 22 game item icons in the
+global style above — harvested fibre plants and bundles: flax, cotton bolls,
+hemp, jute. 6 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Nettle
+   2. Coir
+   3. Abaca
+   4. Bamboo fibre
+   5. Raffia
+   6. Milkweed
+   7. Yucca
+   8. Agave
+   9. Piña
+  10. Banana fibre
+  11. Kapok
+  12. Lotus fibre
+  13. Sea silk
+  14. Nettle silk
+  15. Cloudthread
+  16. Mistcotton
+  17. Frostflax
+  18. Emberhemp
+  19. Voidfibre
+  20. Starcotton
+  21. Aetherweave
+  22. Worldsilk
+
+------------------------------------------------------------------------------
+SHEET: Cheeses   |   Skill: Cheesemaking
+Grid: 8 cols x 4 rows, 30 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 30 game item icons in the
+global style above — cheese wheels, wedges and rounds, creamy yellows, some
+rinds/moulds. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Cheese
+   2. Cottage cheese
+   3. Ricotta
+   4. Paneer
+   5. Quark
+   6. Herb cheese
+   7. Mozzarella
+   8. Feta
+   9. Cheddar
+  10. Chèvre
+  11. Gouda
+  12. Mascarpone
+  13. Edam
+  14. Halloumi
+  15. Waxed gouda
+  16. Emmental
+  17. Gruyère
+  18. Brie
+  19. Camembert
+  20. Gorgonzola
+  21. Stilton
+  22. Roquefort
+  23. Parmesan
+  24. Smoked cheese
+  25. Cave cheese
+  26. Manchego
+  27. Reserve gruyère
+  28. Truffle cheese
+  29. Moonlight brie
+  30. King's reserve cheese
+
+------------------------------------------------------------------------------
+SHEET: Baked Goods   |   Skill: Baking
+Grid: 8 cols x 4 rows, 30 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 30 game item icons in the
+global style above — loaves, rolls, pies, tarts, cakes and pastries, golden-
+baked tones. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. White loaf
+   2. Rye bread
+   3. Flatbread
+   4. Bread roll
+   5. Bun
+   6. Bagel
+   7. Pretzel
+   8. Biscuit
+   9. Cookie
+  10. Shortbread
+  11. Scone
+  12. Muffin
+  13. Pancake
+  14. Waffle
+  15. Doughnut
+  16. Croissant
+  17. Brioche
+  18. Apple pie
+  19. Fruit tart
+  20. Meat pasty
+  21. Fish pie
+  22. Quiche
+  23. Cheese tart
+  24. Gingerbread
+  25. Fruitcake
+  26. Honey cake
+  27. Sponge cake
+  28. Pudding
+  29. Custard tart
+  30. Wedding cake
+
+------------------------------------------------------------------------------
+SHEET: Brews & Drinks   |   Skill: Brewing
+Grid: 8 cols x 4 rows, 28 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 28 game item icons in the
+global style above — tankards, bottles and casks of ale, wine, cider and mead,
+varied liquids. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Pale ale
+   2. Brown ale
+   3. Bitter
+   4. Mild
+   5. Wheat beer
+   6. Lager
+   7. Porter
+   8. Stout
+   9. Imperial stout
+  10. Barley wine
+  11. Small beer
+  12. Spiced ale
+  13. Cherry ale
+  14. Ginger beer
+  15. Winter ale
+  16. Harvest ale
+  17. Festival beer
+  18. Smoked ale
+  19. Rye beer
+  20. Amber ale
+  21. Grog
+  22. Honey mead
+  23. Metheglin
+  24. Cider
+  25. Fruit wine
+  26. Red wine
+  27. White wine
+  28. Sparkling wine
+
+------------------------------------------------------------------------------
+SHEET: Coopering (Barrels & Casks)   |   Skill: Coopering
+Grid: 8 cols x 4 rows, 32 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 32 game item icons in the
+global style above — barrels, casks, kegs, tubs, buckets and vats, banded oak
+staves. 8 columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Bucket
+   2. Oak bucket
+   3. Butter churn
+   4. Wash tub
+   5. Storage tub
+   6. Water cask
+   7. Ale cask
+   8. Flour barrel
+   9. Pickle barrel
+  10. Beer barrel
+  11. Salted meat barrel
+  12. Fish barrel
+  13. Wine barrel
+  14. Reinforced cargo barrel
+  15. Charred wine barrel
+  16. Sealed export cask
+  17. Fermentation vat
+  18. Tanning vat
+  19. Ageing cask
+  20. Dye vat
+  21. Ship's cask
+  22. Brine vat
+  23. Chemical cask
+  24. Brewery tun
+  25. Polished oak cask
+  26. Large wine tun
+  27. Sealed export barrel
+  28. Carved cask
+  29. Powder keg
+  30. Silver-hooped cask
+  31. Grand brewery tun
+  32. Master cooper's cask
+
+------------------------------------------------------------------------------
+SHEET: Spun Fibres   |   Skill: Spinning
+Grid: 6 cols x 3 rows, 13 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 13 game item icons in the
+global style above — spools, hanks and skeins of yarn and thread, natural &
+dyed. 6 columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Linen thread
+   2. Cotton yarn
+   3. Hemp twine
+   4. Jute twine
+   5. Sisal twine
+   6. Ramie twine
+   7. Kenaf twine
+   8. Silkgrass thread
+   9. Spidersilk thread
+  10. Aetherbloom yarn
+  11. Fleece
+  12. Wool yarn
+  13. Waxed thread
+
+------------------------------------------------------------------------------
+SHEET: Dyes & Dyed Goods   |   Skill: Dyeing
+Grid: 8 cols x 4 rows, 25 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 25 game item icons in the
+global style above — pigment pots, dye powders, dyed yarn hanks and cloth
+swatches, vivid colours. 8 columns, 32x32 px per cell. Draw each item as a
+distinct, instantly recognizable icon, in this order:
+   1. Madder red dye
+   2. Weld yellow dye
+   3. Woad blue dye
+   4. Verdigris green dye
+   5. Walnut brown dye
+   6. Ochre dye
+   7. Crimson dye
+   8. Indigo dye
+   9. Saffron gold dye
+  10. Tyrian purple dye
+  11. Iron-gall black dye
+  12. Scarlet dye
+  13. Ember dye
+  14. Frost dye
+  15. Void black dye
+  16. Starlight dye
+  17. Dyed wool yarn
+  18. Dyed linen thread
+  19. Dyed cotton yarn
+  20. Dyed silk thread
+  21. Dyed wool cloth
+  22. Dyed linen cloth
+  23. Dyed cotton cloth
+  24. Dyed silk cloth
+  25. Dyed leather
+
+------------------------------------------------------------------------------
+SHEET: Fulled Cloth   |   Skill: Fulling
+Grid: 4 cols x 2 rows, 8 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 8 game item icons in the
+global style above — bolts and folds of felted/fulled woollen cloth, dense
+weaves. 4 columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Finished wool cloth
+   2. Finished linen cloth
+   3. Finished cotton cloth
+   4. Finished hempcloth
+   5. Finished silk cloth
+   6. Fulled felt
+   7. Finished tweed
+   8. Finished luxury cloth
+
+------------------------------------------------------------------------------
+SHEET: Garments   |   Skill: Tailoring
+Grid: 8 cols x 4 rows, 31 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 31 game item icons in the
+global style above — clothing items laid flat: tunics, robes, cloaks, hats,
+gowns, dyed cloth. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Cloth cap
+   2. Cloth tunic
+   3. Linen shirt
+   4. Hemp smock
+   5. Felt hat
+   6. Cotton dress
+   7. Wool cloak
+   8. Dyed tunic
+   9. Traveller's cloak
+  10. Padded jerkin
+  11. Tweed coat
+  12. Hooded robe
+  13. Dyed wool cloak
+  14. Fine robe
+  15. Silk gown
+  16. Embroidered gown
+  17. Cloth-of-gold mantle
+  18. Sail
+  19. Head scarf
+  20. Mittens
+  21. Stockings
+  22. Shawl
+  23. Waistcoat
+  24. Breeches
+  25. Winter coat
+  26. Cape
+  27. Doublet
+  28. Surcoat
+  29. Ball gown
+  30. Wedding dress
+  31. State robe
+
+------------------------------------------------------------------------------
+SHEET: Footwear   |   Skill: Cordwaining
+Grid: 8 cols x 4 rows, 32 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 32 game item icons in the
+global style above — shoes, boots and sandals, side/3-4 view, leather browns
+and dyed leathers. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Sandals
+   2. Slippers
+   3. Moccasins
+   4. Clogs
+   5. Espadrilles
+   6. Shoes
+   7. Buskins
+   8. Brogues
+   9. Ankle boots
+  10. Work boots
+  11. Walking boots
+  12. Court shoes
+  13. Hobnail boots
+  14. Riding boots
+  15. Dancing shoes
+  16. Thigh boots
+  17. Sea boots
+  18. Snow boots
+  19. Hunting boots
+  20. Marching boots
+  21. Jester's shoes
+  22. Noble shoes
+  23. Cavalier boots
+  24. Knee boots
+  25. Ranger boots
+  26. Fur-lined boots
+  27. Dress boots
+  28. Tall riding boots
+  29. Ceremonial shoes
+  30. Courtly boots
+  31. Royal slippers
+  32. Master's boots
+
+------------------------------------------------------------------------------
+SHEET: Saddlery & Tack   |   Skill: Saddlery
+Grid: 8 cols x 4 rows, 32 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 32 game item icons in the
+global style above — saddles, bridles, harnesses, straps and horse tack,
+tooled leather. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Leather halter
+   2. Lead rein
+   3. Reins
+   4. Bridle
+   5. Saddle girth
+   6. Stirrup leathers
+   7. Saddle blanket
+   8. Saddlebag
+   9. Crupper
+  10. Horse breastplate
+  11. Martingale
+  12. Draft harness
+  13. Pack saddle
+  14. Riding saddle
+  15. Horse collar
+  16. Cart harness
+  17. Plough harness
+  18. Hunting saddle
+  19. Side saddle
+  20. Cavalry saddle
+  21. War saddle
+  22. Leather barding
+  23. Racing saddle
+  24. Dressage saddle
+  25. Caparison
+  26. Parade harness
+  27. Jousting saddle
+  28. Gilded bridle
+  29. Royal saddle
+  30. Ceremonial barding
+  31. State harness
+  32. Master's saddle
+
+------------------------------------------------------------------------------
+SHEET: Leather Goods   |   Skill: Leatherworking
+Grid: 8 cols x 4 rows, 31 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 31 game item icons in the
+global style above — pouches, belts, bags, cases, armour pieces, tooled
+leather. 8 columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Leather strap
+   2. Leather belt
+   3. Leather pouch
+   4. Knife sheath
+   5. Coin purse
+   6. Leather cap
+   7. Waterskin
+   8. Scabbard
+   9. Satchel
+  10. Leather bracers
+  11. Quiver
+  12. Leather book cover
+  13. Leather apron
+  14. Backpack
+  15. Tool roll
+  16. Leather armguard
+  17. Leather jerkin
+  18. Holster
+  19. Map case
+  20. Leather jack
+  21. Bellows
+  22. Leather drum
+  23. Hardened leather cuirass
+  24. Leather gauntlets
+  25. Leather chaps
+  26. Leather long coat
+  27. Fine dyed pouch
+  28. Tooled belt
+  29. Embossed case
+  30. Gilded bracers
+  31. Master leather cuirass
+
+------------------------------------------------------------------------------
+SHEET: Sails & Rigging   |   Skill: Sailmaking
+Grid: 8 cols x 4 rows, 31 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 31 game item icons in the
+global style above — folded sails, canvas bolts, flags and rigging, off-white
+canvas & rope. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Lugsail
+   2. Jib
+   3. Lateen sail
+   4. Gaff sail
+   5. Staysail
+   6. Square sail
+   7. Topsail
+   8. Spanker
+   9. Topgallant sail
+  10. Foresail
+  11. Mainsail
+  12. Mizzen sail
+  13. Studding sail
+  14. Spinnaker
+  15. Storm jib
+  16. Royal sail
+  17. Rigged lugsail
+  18. Rigged mainsail
+  19. Rigged square rig
+  20. Full ship rig
+  21. Tarpaulin
+  22. Groundsheet
+  23. Kit bag
+  24. Sea sack
+  25. Oilcloth
+  26. Canvas hammock
+  27. Awning
+  28. Canvas tent
+  29. Cargo cover
+  30. Boat cover
+  31. Master mainsail
+
+------------------------------------------------------------------------------
+SHEET: Ropes & Cordage   |   Skill: Ropemaking
+Grid: 8 cols x 4 rows, 26 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 26 game item icons in the
+global style above — coils of rope, twine, cord and cable, natural fibre
+browns. 8 columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Rope
+   2. Cord
+   3. Cable
+   4. Hawser
+   5. Tarred rope
+   6. Standing rigging
+   7. Running rigging
+   8. Cargo net
+   9. Net bag
+  10. Hammock
+  11. Climbing rope
+  12. Rope ladder
+  13. Well rope
+  14. Bell rope
+  15. Lasso
+  16. Snare
+  17. Bullwhip
+  18. Dog leash
+  19. Halter
+  20. Rope mat
+  21. Rope fender
+  22. Mooring line
+  23. Tow line
+  24. Cargo sling
+  25. Anchor cable
+  26. Master hawser
+
+------------------------------------------------------------------------------
+SHEET: Carpentry   |   Skill: Carpentry
+Grid: 8 cols x 4 rows, 29 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 29 game item icons in the
+global style above — wooden furniture & fittings: stools, chests, frames,
+wheels, cabinets. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Stool
+   2. Bench
+   3. Shelf
+   4. Crate
+   5. Ladder
+   6. Bookshelf
+   7. Cupboard
+   8. Cabinet
+   9. Wardrobe
+  10. Desk
+  11. Bed frame
+  12. Cradle
+  13. Wooden door
+  14. Window frame
+  15. Fence panel
+  16. Gate
+  17. Cartwheel
+  18. Handcart
+  19. Birdhouse
+  20. Beehive box
+  21. Signpost
+  22. Easel
+  23. Loom frame
+  24. Spinning wheel
+  25. Chest
+  26. Dresser
+  27. Sideboard
+  28. Four-poster bed
+  29. Grandfather clock case
+
+------------------------------------------------------------------------------
+SHEET: Tools   |   Skill: Toolmaking
+Grid: 8 cols x 4 rows, 27 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 27 game item icons in the
+global style above — hand tools: hammers, saws, chisels, files, tongs, steel &
+wood. 8 columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Tool handle
+   2. Mallet
+   3. Hammer
+   4. Knife
+   5. Awl
+   6. Chisel
+   7. Whetstone
+   8. File
+   9. Shovel
+  10. Trowel
+  11. Saw
+  12. Hoe
+  13. Shears
+  14. Sickle
+  15. Tongs
+  16. Rake
+  17. Pliers
+  18. Plane
+  19. Scythe
+  20. Adze
+  21. Hand drill
+  22. Mattock
+  23. Crowbar
+  24. Wrench
+  25. Vice
+  26. Toolbox
+  27. Master's tool set
+
+------------------------------------------------------------------------------
+SHEET: Locks & Mechanisms   |   Skill: Locksmithing
+Grid: 8 cols x 4 rows, 32 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 32 game item icons in the
+global style above — padlocks, keys, latches, hinges and clockwork mechanisms,
+iron & brass. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Key
+   2. Hinge
+   3. Keyring
+   4. Latch
+   5. Bolt lock
+   6. Hasp
+   7. Lock mechanism
+   8. Cage lock
+   9. Padlock
+  10. Manacles
+  11. Door lock
+  12. Shackles
+  13. Chest lock
+  14. Lockbox
+  15. Warded lock
+  16. Jewellery box
+  17. Tumbler lock
+  18. Skeleton key
+  19. Strongbox
+  20. Mantrap
+  21. Gate lock
+  22. Combination lock
+  23. Music box
+  24. Warded chest
+  25. Safe
+  26. Puzzle lock
+  27. Clockwork movement
+  28. Master key
+  29. Portcullis winch
+  30. Treasure chest
+  31. Vault lock
+  32. Grand vault
+
+------------------------------------------------------------------------------
+SHEET: Wirework   |   Skill: Wire-drawing
+Grid: 8 cols x 4 rows, 32 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 32 game item icons in the
+global style above — coils of wire, chains, nails, tacks, pins, rings, drawn
+metal. 8 columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Copper wire
+   2. Iron wire
+   3. Gold wire
+   4. Silver wire
+   5. Fine gold wire
+   6. Chain
+   7. Gold chain
+   8. Silver chain
+   9. Jump rings
+  10. Needle
+  11. Pins
+  12. Fish hooks
+  13. Hook
+  14. Hairpin
+  15. Brooch pin
+  16. Fibula
+  17. Spring
+  18. Staples
+  19. Tacks
+  20. Wire mesh
+  21. Mesh sieve
+  22. Wire frame
+  23. Birdcage
+  24. Wire snare
+  25. Filigree
+  26. Gold mesh
+  27. Mail links
+  28. Lock spring
+  29. Clock spring
+  30. Harp string
+  31. Platinum wire
+  32. Master chain
+
+------------------------------------------------------------------------------
+SHEET: Smithed Goods   |   Skill: Smithing
+Grid: 8 cols x 4 rows, 28 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 28 game item icons in the
+global style above — metal wares, hardware, blades and fittings, steel & iron
+with highlights. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Iron dagger
+   2. Iron mace
+   3. Battleaxe
+   4. Warhammer
+   5. Spear
+   6. Halberd
+   7. Greatsword
+   8. Mithril sword
+   9. Iron helm
+  10. Iron greaves
+  11. Iron cuirass
+  12. Iron shield
+  13. Steel gauntlets
+  14. Steel plate armour
+  15. Mithril shield
+  16. Nails
+  17. Horseshoes
+  18. Iron bracket
+  19. Iron bolts
+  20. Iron chain
+  21. Iron grille
+  22. Ploughshare
+  23. Anvil
+  24. Iron cauldron
+  25. Iron brazier
+  26. Iron gate
+  27. Weathervane
+  28. Iron bell
+
+------------------------------------------------------------------------------
+SHEET: Assaying & Gem-cutting   |   Skill: Assaying
+Grid: 4 cols x 3 rows, 11 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 11 game item icons in the
+global style above — assayed metal bars/ingots and faceted cut gems, precious
+tones. 4 columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Fine gold
+   2. Fine silver
+   3. Fine platinum
+   4. Electrum
+   5. Cut gem
+   6. Brilliant gem
+   7. Diamond
+   8. Ruby
+   9. Sapphire
+  10. Emerald
+  11. Pearl
+
+------------------------------------------------------------------------------
+SHEET: Jewellery   |   Skill: Jewelry
+Grid: 8 cols x 4 rows, 30 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 30 game item icons in the
+global style above — rings, amulets, brooches, tiaras, earrings, gold/silver
+with gems. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Silver ring
+   2. Copper band
+   3. Beaded bracelet
+   4. Signet ring
+   5. Gem ring
+   6. Silver pendant
+   7. Glass-bead necklace
+   8. Pearl earrings
+   9. Gold bracelet
+  10. Brooch
+  11. Ruby pendant
+  12. Sapphire ring
+  13. Emerald brooch
+  14. Filigree pendant
+  15. Amulet of power
+  16. Gold torc
+  17. Silver anklet
+  18. Cufflinks
+  19. Locket
+  20. Circlet
+  21. Diadem
+  22. Diamond ring
+  23. Signet of state
+  24. Electrum amulet
+  25. Tiara
+  26. Chain of office
+  27. Platinum amulet
+  28. Royal crown
+  29. Imperial crown
+  30. Masterwork amulet
+
+------------------------------------------------------------------------------
+SHEET: Pottery Ware   |   Skill: Pottery
+Grid: 8 cols x 4 rows, 28 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 28 game item icons in the
+global style above — clay pots, bowls, jugs, urns and tiles, terracotta &
+glazed finishes. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Flowerpot
+   2. Clay bowl
+   3. Clay plate
+   4. Clay cup
+   5. Glazed mug
+   6. Clay jug
+   7. Glazed pitcher
+   8. Cooking pot
+   9. Storage jar
+  10. Glazed vase
+  11. Oil jar
+  12. Teapot
+  13. Burial urn
+  14. Amphora
+  15. Crucible
+  16. Water filter
+  17. Ceramic brazier
+  18. Censer
+  19. Planter
+  20. Birdbath
+  21. Chimney pot
+  22. Retort
+  23. Figurine
+  24. Tureen
+  25. Jardinière
+  26. Garden urn
+  27. Grand amphora
+  28. Master's vase
+
+------------------------------------------------------------------------------
+SHEET: Glassware   |   Skill: Glassblowing
+Grid: 8 cols x 4 rows, 27 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 27 game item icons in the
+global style above — glass bottles, vials, panes, beads and vessels,
+translucent tints. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Glass bottle
+   2. Glass jar
+   3. Glass flask
+   4. Drinking glass
+   5. Glass beads
+   6. Phial
+   7. Glass marbles
+   8. Window pane
+   9. Glass goblet
+  10. Glass bauble
+  11. Decanter
+  12. Carboy
+  13. Demijohn
+  14. Bell jar
+  15. Glass ornament
+  16. Prism
+  17. Lens
+  18. Blue stained glass
+  19. Magnifier
+  20. Red stained glass
+  21. Spectacles
+  22. Mirror
+  23. Terrarium
+  24. Chandelier crystal
+  25. Snow globe
+  26. Crystal goblet
+  27. Grand mirror
+
+------------------------------------------------------------------------------
+SHEET: Masonry   |   Skill: Masonry
+Grid: 8 cols x 4 rows, 27 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 27 game item icons in the
+global style above — dressed blocks, bricks, tiles, arches and carved stone,
+grey stone tones. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Cobblestone paving
+   2. Tombstone
+   3. Brick wall
+   4. Hearthstone
+   5. Stone wall
+   6. Stone well
+   7. Fireplace
+   8. Stone pillar
+   9. Chimney
+  10. Bread oven
+  11. Stone archway
+  12. Kiln
+  13. Stone column
+  14. Altar stone
+  15. Plastered wall
+  16. Cistern
+  17. Tiled floor
+  18. Fountain
+  19. Tiled roof
+  20. Marble statue
+  21. Gargoyle
+  22. Stone bridge span
+  23. Obelisk
+  24. Rampart
+  25. Aqueduct arch
+  26. Keep wall
+  27. Cathedral masonry
+
+------------------------------------------------------------------------------
+SHEET: Quarried Stone   |   Skill: Quarrying
+Grid: 8 cols x 4 rows, 27 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 27 game item icons in the
+global style above — raw stone blocks, slabs, marble and slate chunks, natural
+stone colours. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Sandstone
+   2. Granite
+   3. Slate
+   4. Flint
+   5. Chalk
+   6. Gravel
+   7. Basalt
+   8. Alabaster
+   9. Gneiss
+  10. Quartzite
+  11. Travertine
+  12. Schist
+  13. Shale
+  14. Dolomite
+  15. Soapstone
+  16. Bluestone
+  17. Porphyry
+  18. Pumice
+  19. Tuff
+  20. Obsidian
+  21. Greenstone
+  22. Red sandstone
+  23. Blackstone
+  24. Frost marble
+  25. Ember stone
+  26. Voidstone
+  27. Worldstone
+
+------------------------------------------------------------------------------
+SHEET: Candles   |   Skill: Candlemaking
+Grid: 8 cols x 4 rows, 31 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 31 game item icons in the
+global style above — candles, tapers, tallow dips and candelabra, warm wax
+tones with flame. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Candle
+   2. Rushlight
+   3. Wax taper
+   4. Tealight
+   5. Dinner candle
+   6. Beeswax candle
+   7. Votive candle
+   8. Pillar candle
+   9. Scented candle
+  10. Coloured candle
+  11. Floating candle
+  12. Altar candle
+  13. Church candle
+  14. Lantern candle
+  15. Carriage candle
+  16. Ship's candle
+  17. Storm candle
+  18. Signal candle
+  19. Chime candle
+  20. Bayberry candle
+  21. Spiral candle
+  22. Three-wick candle
+  23. Perfumed candle
+  24. Stained candle
+  25. Candelabra set
+  26. Chandelier candles
+  27. Scrying candle
+  28. Ember candle
+  29. Moon candle
+  30. Cathedral candles
+  31. Master chandler's set
+
+------------------------------------------------------------------------------
+SHEET: Soaps   |   Skill: Soapmaking
+Grid: 8 cols x 4 rows, 31 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 31 game item icons in the
+global style above — soap bars, cakes and balls, pastel and herbal colours. 8
+columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Lye soap
+   2. Tallow soap
+   3. Laundry soap
+   4. Bath soap
+   5. Oatmeal soap
+   6. Castile soap
+   7. Rose soap
+   8. Lavender soap
+   9. Honey soap
+  10. Goat's-milk soap
+  11. Charcoal soap
+  12. Clay soap
+  13. Shaving soap
+  14. Green soap
+  15. Black soap
+  16. Marseille soap
+  17. Perfumed soap
+  18. Glycerin soap
+  19. Medicinal soap
+  20. Saddle soap
+  21. Scouring soap
+  22. Cream soap
+  23. Honeycomb soap
+  24. Floral soap
+  25. Luxury soap
+  26. Sea-salt soap
+  27. Ember soap
+  28. Moon soap
+  29. Royal soap
+  30. Ambergris soap
+  31. Master soaper's bar
+
+------------------------------------------------------------------------------
+SHEET: Books & Bindings   |   Skill: Bookbinding
+Grid: 8 cols x 4 rows, 32 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 32 game item icons in the
+global style above — bound books, tomes, ledgers and scrolls, leather & cloth
+covers with gilt. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Scroll
+   2. Sealed letter
+   3. Pamphlet
+   4. Chapbook
+   5. Notebook
+   6. Sketchbook
+   7. Journal
+   8. Diary
+   9. Ledger
+  10. Almanac
+  11. Songbook
+  12. Book
+  13. Hardback book
+  14. Folio
+  15. Map
+  16. Herbal
+  17. Bestiary
+  18. Sea chart
+  19. Codex
+  20. Dictionary
+  21. Atlas
+  22. Missal
+  23. Psalter
+  24. Tome
+  25. Grimoire
+  26. Encyclopedia
+  27. Spellbook
+  28. Illuminated manuscript
+  29. Great bible
+  30. Royal atlas
+  31. Jewelled bible
+  32. Master's grand tome
+
+------------------------------------------------------------------------------
+SHEET: Papermaking & Stationery   |   Skill: Papermaking
+Grid: 6 cols x 3 rows, 13 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 13 game item icons in the
+global style above — paper sheets, parchment, scrolls, ink pots, quills, wax
+seals. 6 columns, 32x32 px per cell. Draw each item as a distinct, instantly
+recognizable icon, in this order:
+   1. Paper pulp
+   2. Paper
+   3. Fine paper
+   4. Cardstock
+   5. Parchment
+   6. Vellum
+   7. Papyrus
+   8. Ink
+   9. Iron-gall ink
+  10. Gold ink
+  11. Hide glue
+  12. Sealing wax
+  13. Quill pen
+
+------------------------------------------------------------------------------
+SHEET: Boats & Hulls   |   Skill: Shipwrighting
+Grid: 8 cols x 4 rows, 29 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 29 game item icons in the
+global style above — small boats and ship hulls from above/3-4 view: rafts,
+skiffs, dories, cogs. 8 columns, 32x32 px per cell. Draw each item as a
+distinct, instantly recognizable icon, in this order:
+   1. Raft
+   2. Log raft
+   3. Coracle
+   4. Punt
+   5. Skiff
+   6. Rowboat
+   7. Dinghy
+   8. Dory
+   9. Catboat
+  10. Fishing smack
+  11. Sloop
+  12. Barge
+  13. Cutter
+  14. Ketch
+  15. Cog
+  16. Longship
+  17. Junk
+  18. Caravel
+  19. Schooner
+  20. Carrack
+  21. Brig
+  22. Brigantine
+  23. Galley
+  24. Barque
+  25. Galleon
+  26. Frigate
+  27. Clipper
+  28. Dhow
+  29. Man-o'-war
+
+------------------------------------------------------------------------------
+SHEET: Intermediate Goods   |   Skill: various
+Grid: 8 cols x 4 rows, 27 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 27 game item icons in the
+global style above — half-made stock: timber beams, laths, planks, yarn,
+cloth, malt sacks. 8 columns, 32x32 px per cell. Draw each item as a distinct,
+instantly recognizable icon, in this order:
+   1. Wooden boards
+   2. Oak boards
+   3. Oak staves
+   4. Seasoned oak staves
+   5. Wood offcuts
+   6. Iron hoops
+   7. Pale malt
+   8. Dark malt
+   9. Malt grist
+  10. Dark grist
+  11. Bran
+  12. Ale
+  13. Dark ale
+  14. Barrel of ale
+  15. Timber beam
+  16. Laths
+  17. Seasoned boards
+  18. Seasoned planks
+  19. Seasoned beam
+  20. Rough yarn
+  21. Fine yarn
+  22. Rough cloth
+  23. Fine woven cloth
+  24. Crystal malt
+  25. Wheat malt
+  26. Rye malt
+  27. Smoked malt
+
+------------------------------------------------------------------------------
+SHEET: Raw Materials & By-products   |   Skill: various
+Grid: 8 cols x 6 rows, 41 icons, 32x32 px cells
+------------------------------------------------------------------------------
+PROMPT:
+A transparent-background pixel-art sprite sheet of 41 game item icons in the
+global style above — raw resources & by-products: milk, eggs, honey, tallow,
+clay, sand, charcoal, lime, ash, pitch, glue. 8 columns, 32x32 px per cell.
+Draw each item as a distinct, instantly recognizable icon, in this order:
+   1. Milk
+   2. Egg
+   3. Feathers
+   4. Honey
+   5. Beeswax
+   6. Tallow
+   7. Butter
+   8. Cooked egg
+   9. Cake
+  10. Mead
+  11. Down cloak
+  12. Curds
+  13. Whey
+  14. Limestone
+  15. Building stone
+  16. Marble
+  17. Clay
+  18. Sand
+  19. Charcoal
+  20. Wood tar
+  21. Wood ash
+  22. Pitch
+  23. Quicklime
+  24. Slaked lime
+  25. Hydraulic lime
+  26. Mortar
+  27. Hydraulic mortar
+  28. Lime plaster
+  29. Whitewash
+  30. Grout
+  31. Dressed stone
+  32. Dressed marble
+  33. Bricks
+  34. Roof tiles
+  35. Floor tiles
+  36. Glaze
+  37. Oil lamp
+  38. Frit
+  39. Glass
+  40. Candle wick
+  41. Lye
+

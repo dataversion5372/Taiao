@@ -1,0 +1,102 @@
+ISLE OF EMBERFALL — TIERED GEAR ICON PROMPTS
+=============================================
+AUDIT: every tiered weapon, tool, armour piece, jewel, bar and arrow icon
+is currently a hue-rotated clone of ONE base sprite (geartiers.js /
+content.js defineIcon) — ~450 items sharing a dozen silhouettes. These
+sheets replace them with real per-metal art. Integration follows the "gi"
+sheet pattern (tools/build_item_icons.py -> item-icons-data.js): slice,
+pack 64px cells, repoint ITEMS[id].icon.
+
+==============================================================================
+GLOBAL STYLE (paste above every sheet prompt)
+==============================================================================
+Art style: 16-bit / 'HD-2D' pixel-art inventory icons in the look of the
+roguelike NES RPGs and classic RuneScape item sprites. One object
+per cell, centred, 3/4 or flat side-on view, bold silhouette, thin dark
+outline, limited flat palette with light dithered shading, soft upper-left
+light. Fully TRANSPARENT background, no shadows, text or frames. Output:
+one PNG per prompt, uniform grid of 64x64 px cells, items in the exact
+order listed. Within a sheet the SHAPE stays identical between cells —
+only the METAL changes, and each metal must be tellable by colour/finish.
+
+==============================================================================
+METAL ROSTERS (16 cells per sheet, always in this order)
+==============================================================================
+WEAPON/TOOL METALS (dull -> legendary):
+  1 Iron (grey) · 2 Cobalt (blue-grey) · 3 Tool steel (bright steel) ·
+  4 Tungsten (gunmetal) · 5 Ferrotitanium (silver-brown) · 6 Adamantite
+  (deep green) · 7 Darksteel (near-black) · 8 Meteorite (pitted brown-
+  black, orange flecks) · 9 Damasteel (rippled water pattern) · 10 Runite
+  (cyan-teal) · 11 Dragonite (dark red) · 12 Dragonsteel (red-gold) ·
+  13 Voidsteel (purple-black) · 14 Bloodiron (crimson) · 15 Emberite
+  (glowing orange cracks) · 16 Stormsteel (electric blue sheen)
+
+ARMOUR METALS: 1 Bronze · 2 Zinc · 3 Lead · 4 Nickel · 5 Titanium ·
+  6 Mithril (pale blue) · 7 Orichalcum (rose-gold) · 8 Starmetal
+  (star-flecked navy) · 9 Frostiron (icy) · 10 Duskmetal (twilight
+  purple) · 11 Dawnmetal (warm gold-pink) · 12 Chronite (brassy, clock-
+  like) · 13 Voidforged steel · 14 Twilight alloy · 15 Nickel silver ·
+  16 Cupronickel
+
+JEWELRY METALS: 1 Tin · 2 Brass · 3 Pewter · 4 Silver · 5 Sterling
+  silver · 6 Gold · 7 Rose gold · 8 Giltsilver · 9 Platinum · 10 White
+  gold · 11 Aetherium (pale glow) · 12 Celestium (sky-blue) · 13 Skysteel ·
+  14 Infernium (ember) · 15 Eternium (white-gold blaze) · 16 Chronesteel
+
+==============================================================================
+SHEETS (each: "Grid: 4 cols x 4 rows, 16 icons, one per metal in roster order")
+==============================================================================
+WEAPONS — one sheet per kind, WEAPON/TOOL METALS roster:
+  SHEET Daggers      — slim double-edged dagger, point up
+  SHEET Shortswords  — compact one-handed sword
+  SHEET Spears       — leaf-bladed spear on a wooden haft, diagonal
+  SHEET Maces        — flanged mace, wooden grip
+  SHEET Longswords   — knightly cruciform longsword
+  SHEET Greatswords  — massive two-hander, wide guard
+  SHEET Battleaxes   — bearded single-bit axe on dark haft
+  SHEET Warhammers   — heavy block-headed maul
+  SHEET Halberds     — axe blade + spike on a long pole, diagonal
+
+TOOLS — one sheet per kind, WEAPON/TOOL METALS roster:
+  SHEET Pickaxes · SHEET Axes (felling) · SHEET Hammers ·
+  SHEET Hoes · SHEET Shovels · SHEET Sickles
+
+ARMOUR — one sheet per kind, ARMOUR METALS roster:
+  SHEET Helms       — full-face great helm, front view
+  SHEET Chestplates — cuirass with pauldron stubs, front view
+  SHEET Leg armour  — paired greaves/cuisses
+  SHEET Boots       — paired armoured sabatons
+
+JEWELRY — one sheet per kind, JEWELRY METALS roster:
+  SHEET Rings — plain band with a small distinct crown per metal
+  SHEET Bracelets — open bangle
+  SHEET Necklaces — chain with a teardrop pendant
+
+------------------------------------------------------------------------------
+SHEET: Metal Bars   |   Grid: 8 cols x 4 rows, 32 icons
+------------------------------------------------------------------------------
+PROMPT: ...global style... — 32 smelted ingots, IDENTICAL loaf-shaped bar
+silhouette in every cell, only the metal's colour/finish changing, in this
+order: Copper, Tin, Iron, Zinc, Lead, Silver, Nickel, Cobalt, Gold,
+Platinum, Tungsten, Titanium, Mithril, Orichalcum, Adamantite, Darksteel,
+Meteorite, Runite, Dragonite, Voidsteel, Starmetal, Bloodiron, Frostiron,
+Emberite, Stormsteel, Duskmetal, Dawnmetal, Aetherium, Celestium,
+Infernium, Chronite, Eternium.
+(A second 16-cell sheet can cover the alloy bars — Bronze, Brass, Pewter,
+Tool steel, Damasteel, Dragonsteel, Sterling silver, Rose gold, White
+gold, Giltsilver, Nickel silver, Cupronickel, Voidforged steel, Twilight
+alloy, Skysteel, Chronesteel — same bar silhouette.)
+
+------------------------------------------------------------------------------
+SHEET: Ammunition & Ranged/Magic Weapons   |   Grid: 8 cols x 3 rows, 23 icons
+------------------------------------------------------------------------------
+PROMPT: ...global style... in this order:
+  1-16: metal-tipped arrows (three fletched arrows in a fan), WEAPON/TOOL
+        METALS roster order — arrowhead colour carries the metal
+  17. Shortbow (small curved wooden bow, strung)
+  18. Longbow (tall elegant bow, strung)
+  19. Pine bow (springy pale-green wood, strung)
+  20. Wand (slim carved wooden wand, glowing tip)
+  21. Pine wand (pale wood, brighter glow)
+  22. Staff (gnarled tall staff, rune-carved head)
+  23. Pine staff (pale tall staff, radiant crystal head)

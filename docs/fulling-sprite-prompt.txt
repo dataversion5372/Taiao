@@ -1,0 +1,110 @@
+ISLE OF EMBERFALL — FULLING ICON PROMPT
+=======================================
+AUDIT: the Fulling skill (js/skills/textiles.js) has one "Full <cloth>" recipe
+for every one of the 32 woven cloths (content.js TEXTILE_NAMES) — so its
+progression guide is 32+ rungs — but they all finish into just 8 shared
+"finished cloth" items grouped by material class, every one sharing a single
+tinted i_cloth placeholder. So most guide rows show the same handful of icons.
+This sheet gives Fulling a full per-cloth line: 32 distinct FULLED cloths, one
+for each woven cloth, each a bolt of that fabric washed and fulled dense,
+napped and weatherproof — so every guide entry has its own icon.
+
+==============================================================================
+GLOBAL STYLE
+==============================================================================
+Art style: 16-bit / 'HD-2D' pixel-art inventory icons in the look of the
+roguelike NES RPGs and classic RuneScape item sprites. One cloth per cell,
+centred and filling most of the cell: a short BOLT of finished cloth — a neatly
+folded/rolled stack of fabric shown 3/4, a couple of layers thick with a soft
+fold or rolled end so it reads as finished yardage, NOT a garment, NOT loose
+yarn, NOT a flat swatch. Each is washed and fulled — dense, slightly napped,
+weatherproof. Bold readable silhouette, thin dark outline, limited flat palette
+with a little dithered shading, soft light from the upper-left. Fully
+TRANSPARENT background (alpha), no drop shadows, no text, numbers, labels,
+borders or frames. Consistent bolt scale, framing and lighting across the whole
+sheet so the 32 icons read as one matched set of finished cloth — every cell a
+DIFFERENT fabric, tellable at a glance by colour, weave and surface finish.
+
+TIER GRADIENT (top-left plain -> bottom-right opulent/magical): the early bolts
+are humble utility cloth in naturals and earth tones; the middle bolts are fine
+patterned and lustrous fabrics; the last bolts are metallic, jewelled and
+enchanted — add sheen, shimmer or a faint glow to the high-tier ones so a glance
+down the sheet reads as a rising value curve. Keep any glow subtle so the folded
+bolt still carries the silhouette.
+
+Output: one PNG sprite sheet, a uniform grid of 8 columns x 4 rows, 64x64 px per
+cell (draw at 64x64; the game downscales to 32x32), one icon per cell, even
+margins, no gridlines drawn, in the EXACT left-to-right / top-to-bottom order
+below.
+
+==============================================================================
+SHEET: Fulled cloths   |   Skill: Fulling   |   Grid: 8 cols x 4 rows (32 icons)
+==============================================================================
+ROW 1 (humble utility cloth)
+   1. Fulled cotton cloth — bright off-white, smooth tight plain weave, soft.
+   2. Fulled rough burlap — coarse tan hessian, very rough open weave, frayed.
+   3. Fulled linen        — cool pale grey-beige, crisp even weave, faint slub.
+   4. Fulled wool cloth   — warm cream/oatmeal napped wool, cosy and matte.
+   5. Fulled hempcloth    — olive-tan, coarse open weave, sturdy.
+   6. Fulled canvas       — heavy natural ecru duck, tight rugged weave.
+   7. Fulled jute weave   — golden-brown coarse ribbed jute.
+   8. Fulled twill        — grey-brown fabric with clear diagonal twill lines.
+
+ROW 2 (mats, felts and first fine cloths)
+   9. Fulled felt         — dense matted NON-woven wool, muted grey-brown, thick
+      solid edge, NO weave lines.
+  10. Fulled gauze        — sheer pale-white open mesh, translucent and light.
+  11. Fulled sisal mat    — stiff creamy-tan woven leaf-fibre, rigid.
+  12. Fulled damask       — silver-grey with a subtle tonal woven floral figure.
+  13. Fulled velvet       — deep rich red plush pile with a soft shadowed sheen.
+  14. Fulled ramie cloth  — glossy white-green, crisp fine weave.
+  15. Fulled brocade      — ornate gold-and-crimson raised figured weave.
+  16. Fulled satin        — glossy smooth ivory with a bright highlight sheen.
+
+ROW 3 (fine, sheer and exotic silks)
+  17. Fulled kenaf weave  — reddish-brown coarse bast-fibre weave.
+  18. Fulled lace         — delicate white openwork with a scalloped edge.
+  19. Fulled tweed        — heathered brown-green woollen twill flecked with
+      tiny multicolour slubs.
+  20. Fulled chiffon      — sheer blush-pastel, floaty and translucent.
+  21. Fulled silkgrass weave — pale silvery-green, fine and lightly sheeny.
+  22. Fulled taffeta      — crisp shot blue-green silk with a shimmer and stiff
+      folds.
+  23. Fulled samite       — heavy medieval deep-wine silk shot with gold thread.
+  24. Fulled spidersilk   — pale grey gossamer, translucent with a faint sheen.
+
+ROW 4 (metallic, jewelled and enchanted cloths)
+  25. Fulled cloth-of-silver — woven bright metallic silver, reflective threads.
+  26. Fulled cloth-of-gold   — woven radiant metallic gold, opulent.
+  27. Fulled shadowweave  — deep black-violet cloth that drinks light, a dark haze.
+  28. Fulled frostlinen   — icy pale-blue linen rimed with frost crystals.
+  29. Fulled emberweave   — dark cloth veined with glowing orange embers, a wisp
+      of smoke.
+  30. Fulled aethercloth  — iridescent rainbow-shimmering, weightless, aglow.
+  31. Fulled moonshroud   — pale silver-white cloth with a soft moonlit glow.
+  32. Fulled worldweave   — the ultimate bolt: deep green-and-gold cloth threaded
+      with veins of living golden light.
+
+INTEGRATION (after the PNG is generated):
+  - DATA CHANGE FIRST (mirrors the Malting per-grain refactor): in
+    js/skills/textiles.js the Fulling loop collapses all 32 source cloths into 8
+    class outputs (FIN[finClass(nm)]). Instead give each woven cloth its own
+    fulled item — e.g. ids fulled_0 .. fulled_31, names "Fulled <cloth>", value
+    scaling by weave req, prov:"batch" — and set each "full_<src>" recipe's `out`
+    to fulled_<i>. Keep the 2 felting recipes producing the fulled Felt (i=8) and
+    fulled Wool cloth (i=3). Then repoint the few consumers of the old 8 class
+    items onto specific fulled cloths so nothing breaks:
+      finished_wool_cloth   -> fulled_3  (Wool cloth)   [winter_coat, surcoat, down_cloak]
+      finished_linen_cloth  -> fulled_2  (Linen)        [wedding_dress]
+      finished_luxury_cloth -> fulled_25 (Cloth-of-gold)[state_robe]
+      finished_felt         -> fulled_8  (Felt)         [leathercraft flag "f"]
+    then drop the now-orphaned finished_* class items.
+  - Then wire the art like malt-icons-data.js / herb-icons-data.js: a
+    self-registering js/sprites/fulling-icons-data.js with a FREE 2-letter key
+    (existing: aa ab ag ah al aw bi cb cf cg ch ci co cp fg fi fs ft hb hi jw mb
+    mi ml ms nl sh tg wg wt — e.g. "fu" or "fl"), SHEET_TILE[key]=64, slice
+    row-major into 64px cells, register SPR and repoint ITEMS[fulled_<i>].icon.
+  - Cell index i (row-major, 0..31) = TEXTILE_NAMES[i]'s fulled cloth, matching
+    TEXTILE_NAMES order (Cotton cloth=0 .. Worldweave=31) exactly.
+  - Include the script in index.html AFTER js/skills/textiles.js so the fulled
+    ITEMS exist and the repoint overrides the placeholder tint.

@@ -1,0 +1,160 @@
+ISLE OF EMBERFALL — LEATHER ARMOUR MATRIX PROMPTS (two sheets, 160 icons)
+=========================================================================
+The full tiered leather-armour set (js/skills/leathercraft.js, "TIERED LEATHER
+ARMOUR"): a 5-piece set for EACH of the 32 leather tiers = 160 inventory icons.
+Laid out as a MATRIX: one ROW per armour PIECE (5), COLUMNS = the LEATHER TIER,
+tier 1 -> N left to right. Within a row the piece SHAPE/CUT is identical; only
+the leather's colour + finish changes across the row.
+
+Because 32 columns is too wide for one legible sheet, split at the tier midpoint
+into TWO sheets, each 16 columns x 5 rows = 80 icons (matches the shield sheets):
+  • SHEET 1 = leather tiers  1..16  (Rabbit … Croc)
+  • SHEET 2 = leather tiers 17..32  (Ape … Leviathan)
+Cells are 64x64 px (downscaled to 32x32 in game). Rows are ALWAYS in this order,
+top to bottom: 1 COIF, 2 BODY, 3 CHAPS, 4 GLOVES, 5 BRACERS.
+
+FINISH FAMILIES (applies to the tint, NOT the cut — the garment shape per row is
+identical across all 32 tiers):
+  • FURRED pelts (rabbit/rat/cat/fox/goat/sheep/badger/wolf/elk/hyena/ape/bear/
+    lion/tiger/polar-bear/werewolf/yeti/owlbear): supple matte leather with a
+    soft napped/furry trim at the edges and seams.
+  • HIDE leathers (boar/deer/cow/zebra/camel/rhino/hippo): smooth worked leather,
+    faint grain.
+  • SCALED hides (croc/chimera/manticore/hydra/wyrm/dragon/leviathan): fine
+    reptilian scale texture with a glossy sheen; the exotic top tiers may carry a
+    faint magical glow but keep the same silhouette.
+
+THE 32 LEATHER TIERS (column order; same order both sheets, sheet 2 continues at 17):
+   1 Rabbit    — soft warm tan / pale beige, furry trim
+   2 Rat       — dull grey-brown, scruffy
+   3 Cat       — muted slate-grey, faint tabby mottle
+   4 Fox       — warm russet-orange
+   5 Boar      — mid chestnut brown (the "default" leather look)
+   6 Goat      — pale sandy fawn
+   7 Sheep     — creamy off-white fleece-leather
+   8 Cow       — classic reddish-brown cowhide
+   9 Badger    — dark grey-brown with a silvery cast
+  10 Wolf      — steely blue-grey
+  11 Elk       — deep warm walnut brown
+  12 Zebra     — off-white with faint dark banding
+  13 Hyena     — dusty tan with darker mottling
+  14 Camel     — golden sand-tan
+  15 Croc      — olive-green SCALED leather, glossy
+  16 Ape       — dark umber brown
+  17 Bear      — rich dark chocolate brown
+  18 Lion      — tawny gold
+  19 Tiger     — burnt orange with faint dark striping
+  20 Polar bear— bright cream-white, frosty
+  21 Rhino     — heavy slate-grey, thick and plated
+  22 Hippo     — dark grey with a pinkish undertone
+  23 Werewolf  — coarse dark grey-brown, faint feral sheen
+  24 Yeti      — icy white with a pale blue tint, shaggy
+  25 Owlbear   — mottled brown with a dark feathered cast
+  26 Chimera   — patchwork tan-and-gold with a reddish tint, faintly SCALED
+  27 Manticore — deep blood-red leather, dark sheen
+  28 Hydra     — teal-green SCALED hide, wet gloss
+  29 Wyrmhide  — deep bronze-green SCALED, metallic sheen
+  30 Dragonhide— vivid crimson-red SCALED, glossy with an ember-warm glow
+  31 Leviathan — abyssal blue-black SCALED, oily iridescent sheen
+  (sheet 2 columns 1..16 = tiers 17..32 above)
+
+
+##############################################################################
+PROMPT 1 — LEATHER ARMOUR, TIERS 1–16   (Grid: 16 cols x 5 rows = 80 icons)
+##############################################################################
+
+A transparent-background pixel-art sprite sheet of 80 leather-armour inventory
+icons in 16-bit / 'HD-2D' pixel-art style — the look of roguelike NES RPGs and
+classic RuneScape item sprites. Uniform grid of 16 columns x 5 rows, 64x64 px per
+cell, one armour piece per cell, even margins, NO gridlines drawn. Each piece is
+drawn FRONT-ON (a hair of 3/4 so the form reads), centred and filling most of its
+cell, with a bold readable silhouette, a thin dark outline, a limited flat palette
+with light dithered shading, soft light from the upper-left, and visible stitched
+seams and buckles/laces where the piece calls for it. Fully transparent
+background, no drop shadows, text, numbers, labels or frames.
+
+Each ROW is ONE armour piece; the CUT stays IDENTICAL across that row and only the
+LEATHER changes, left to right, in this exact 16-tier order — each instantly
+tellable by its colour and finish (furred pelts have a soft napped trim, worked
+hides are smooth, scaled hides show fine glossy scales):
+  1 Rabbit — soft warm tan · 2 Rat — dull grey-brown · 3 Cat — muted slate-grey
+  with faint tabby · 4 Fox — warm russet-orange · 5 Boar — mid chestnut brown ·
+  6 Goat — pale sandy fawn · 7 Sheep — creamy off-white fleece · 8 Cow — reddish-
+  brown cowhide · 9 Badger — dark grey-brown, silvery cast · 10 Wolf — steely
+  blue-grey · 11 Elk — deep walnut brown · 12 Zebra — off-white, faint dark
+  banding · 13 Hyena — dusty tan, dark mottling · 14 Camel — golden sand-tan ·
+  15 Croc — olive-green glossy scales · 16 Ape — dark umber brown.
+
+The five rows, top to bottom:
+  ROW 1 — COIF: a leather head-cap / hood — a close-fitting skullcap with short
+    cheek and neck flaps and a laced or buckled chin strap, front-on.
+  ROW 2 — BODY: a sleeved leather cuirass / jerkin — a torso body-armour covering
+    the chest, both shoulders (small shoulder guards) and both upper arms, with a
+    laced or buckled front and a belt at the waist. The largest, most detailed
+    piece; fills the cell.
+  ROW 3 — CHAPS: leather leg armour — a matched pair of thigh-to-shin leggings
+    (chaps / greaves) shown side by side, buckled straps down the sides.
+  ROW 4 — GLOVES: a matched pair of leather gauntlets / gloves shown side by side,
+    stitched fingers and a short flared wrist cuff.
+  ROW 5 — BRACERS: a matched pair of leather wrist bracers / vambraces shown side
+    by side, laced across the front, narrower and simpler than the gloves.
+
+
+##############################################################################
+PROMPT 2 — LEATHER ARMOUR, TIERS 17–32   (Grid: 16 cols x 5 rows = 80 icons)
+##############################################################################
+
+A transparent-background pixel-art sprite sheet of 80 leather-armour inventory
+icons in 16-bit / 'HD-2D' pixel-art style — the look of roguelike NES RPGs and
+classic RuneScape item sprites. Uniform grid of 16 columns x 5 rows, 64x64 px per
+cell, one armour piece per cell, even margins, NO gridlines drawn. Same drawing
+rules, cuts and five ROWS as sheet 1 (COIF / BODY / CHAPS / GLOVES / BRACERS, top
+to bottom) — the piece shapes are IDENTICAL to sheet 1; ONLY the leather changes.
+These are the higher, more exotic tiers: several are SCALED, glossy or faintly
+magical. Keep the same silhouettes; let the tint, sheen and (for scaled hides)
+fine scale texture carry the tier. Fully transparent background, no drop shadows,
+text, numbers, labels or frames.
+
+The 16 columns, left to right, in this exact tier order — each instantly tellable:
+  1 Ape — dark umber brown · 2 Bear — rich dark chocolate brown · 3 Lion — tawny
+  gold · 4 Tiger — burnt orange with faint dark striping · 5 Polar bear — bright
+  frosty cream-white · 6 Rhino — heavy plated slate-grey · 7 Hippo — dark grey
+  with a pinkish undertone · 8 Werewolf — coarse dark grey-brown, feral sheen ·
+  9 Yeti — icy white with a pale blue tint, shaggy · 10 Owlbear — mottled brown,
+  dark feathered cast · 11 Chimera — patchwork tan-and-gold with a reddish tint,
+  faintly scaled · 12 Manticore — deep blood-red, dark sheen · 13 Hydra — teal-
+  green wet-glossy scales · 14 Wyrmhide — deep bronze-green metallic scales ·
+  15 Dragonhide — vivid crimson-red glossy scales with an ember-warm glow ·
+  16 Leviathan — abyssal blue-black scales with an oily iridescent sheen.
+
+The five rows, top to bottom (identical cuts to sheet 1):
+  ROW 1 — COIF: close-fitting leather skullcap with cheek/neck flaps and a chin
+    strap.
+  ROW 2 — BODY: sleeved leather cuirass/jerkin covering chest, shoulders and upper
+    arms, laced/buckled front, waist belt — the largest piece.
+  ROW 3 — CHAPS: matched pair of thigh-to-shin leggings, side buckles.
+  ROW 4 — GLOVES: matched pair of leather gauntlets, stitched fingers, flared
+    wrist cuff.
+  ROW 5 — BRACERS: matched pair of laced wrist bracers/vambraces.
+
+
+##############################################################################
+INTEGRATION
+##############################################################################
+Slice each sheet row-major into 64px cells and repoint the placeholder icons the
+generator makes (i_<kind>_<leatherId>) to real atlas cells. Item ids follow
+<kind>_<leatherId>, where kind is one of coif/body/chaps/gloves/bracers and
+leatherId is "leather" for tier 5 (Boar, i=4) or "leather_<i>" otherwise
+(i = 0..31, the content.js/HIDES order = the column order above).
+
+  ROWS  (top→bottom): 0 coif, 1 body, 2 chaps, 3 gloves, 4 bracers
+  SHEET 1 columns c=0..15  -> tier i = c        (leatherId: i===4?"leather":"leather_"+i)
+  SHEET 2 columns c=0..15  -> tier i = c + 16    (leatherId: "leather_"+i)
+
+So cell (row r, col c) on sheet 1 = SPR key for ITEMS["<ROWS[r]>_<leatherId(c)>"].icon,
+and sheet 2 the same with i=c+16. Register both sheets in js/sprites (a new
+leather-armour-icons-data.js, mirroring shield-icons-data.js) and set each item's
+.icon after leathercraft.js/geartiers.js have defined the items (load order per
+index.html). The two mi-icons hooks that currently point body_leather and
+body_leather_31 at mx_leather_body / mx_master_cuirass can be dropped once these
+dedicated icons exist.

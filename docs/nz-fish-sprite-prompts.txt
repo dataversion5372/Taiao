@@ -1,0 +1,119 @@
+ISLE OF EMBERFALL — NEW ZEALAND FISH ICON PROMPTS (two sheets: raw + cooked)
+===========================================================================
+AUDIT: Fishing levels 1-24 (content.js FISH_NAMES indices 0-23) are Aotearoa /
+New Zealand catches, ordered river-mouth/estuary -> open ocean by tier. Their
+icons still reuse hue-tinted monster-sheet cells (FISH_SPRS). These two sheets
+give the 24 species real art: SHEET A = the RAW catch (raw_fish for #1,
+raw_f1..raw_f23), SHEET B = the COOKED dish (cooked_fish for #1, fish_1..fish_23).
+Levels 25-32 (fantastical fish) are unchanged and keep their placeholders.
+
+Both sheets share the SAME 24 species in the SAME order (row-major), so raw cell
+N and cooked cell N are the same fish. Gear/spot per species (flavour only):
+  net, shore:  1 Whitebait · 2 Yellow-eyed mullet · 3 Flounder · 7 Blue mackerel
+  pot, shore:  4 Kōura · 5 Shortfin eel
+  rod, shore:  6 Kahawai · 8 Red gurnard · 9 Trevally · 10 Tarakihi
+  rod, deep:   11 Snapper · 12 Blue cod · 13 John dory · 14 Barracouta ·
+               19 Kingfish · 20 Hāpuku · 21 Bluenose
+  big net, deep: 15 Hoki · 16 Ling · 17 Gemfish · 18 Silver warehou
+  harpoon, deep: 22 Albacore tuna · 23 Southern bluefin tuna · 24 Broadbill
+
+==============================================================================
+GLOBAL STYLE (both sheets)
+==============================================================================
+16-bit / 'HD-2D' pixel-art inventory icons in the look of the roguelike NES RPGs
+and classic RuneScape fish sprites. One item per cell, centred and filling most
+of the cell, shown SIDE-ON (facing left), bold readable silhouette, thin dark
+outline, a limited flat palette with light dithered shading, soft light from the
+upper-left. Fully TRANSPARENT background (alpha), no drop shadows, text, numbers,
+labels, plates, borders or frames. Consistent scale, framing and lighting across
+the sheet so the 24 read as one matched set; each species must be tellable at
+32x32 from its shape and colour. Output: one PNG, a uniform grid of 8 columns x
+3 rows, 64x64 px per cell (drawn at 64x64, downscaled to 32x32 in game), one icon
+per cell, even margins, no gridlines, in the EXACT order below.
+
+==============================================================================
+PROMPT A — RAW NZ FISH   (Grid: 8 cols x 3 rows = 24 icons)
+==============================================================================
+Fresh, raw, just-caught specimens — glistening wet, natural colours. Row-major:
+ROW 1
+  1. Whitebait — NOT one fish: a small cluster/handful of tiny slender
+     translucent silvery īnanga whitebait bunched together.
+  2. Yellow-eyed mullet — slim silvery torpedo fish with a bright yellow eye,
+     forked tail.
+  3. Flounder — flat oval bottom fish lying flat, both eyes on the upper side,
+     speckled olive-brown top, pale underside.
+  4. Kōura — a whole freshwater crayfish: dark greenish-brown, TWO small pincer
+     claws, long antennae, a segmented tail fan.
+  5. Shortfin eel — long smooth dark olive-brown eel, rounded snout; its dorsal
+     fin is short (starts back near the tail).
+  6. Kahawai — streamlined silver sea fish, blue-green back, faint spot rows, a
+     deeply forked tail.
+  7. Blue mackerel — torpedo fish with an iridescent blue-green back marked with
+     dark wavy bars, silver belly, small finlets before the tail.
+  8. Red gurnard — vivid red-orange armoured head with big wing-like blue-edged
+     pectoral fins spread out, spiny; unmistakable.
+ROW 2
+  9. Trevally — silvery deep-bodied jack with a blue-green sheen and a small dark
+     spot on the gill cover, forked tail.
+ 10. Tarakihi — silver oval fish with a bold BLACK band across the nape just
+     behind the head.
+ 11. Snapper — iconic pink-red sea bream flecked with pale-blue spots along the
+     back, deep body.
+ 12. Blue cod — thick blue-green mottled body, pale belly, big blunt head; a
+     chunky bottom fish.
+ 13. John dory — tall thin olive oval fish with a big dark round EYE-SPOT on its
+     side, long trailing dorsal spines, a downturned protrusible mouth.
+ 14. Barracouta — long slim silver predator, big fanged mouth, a single long low
+     dorsal fin.
+ 15. Hoki — very long tapering blue-silver deep-water fish with a whip-like
+     pointed tail.
+ 16. Ling — long eel-like brown-mottled fish with a single long dorsal fin and a
+     small barbel on the chin.
+ROW 3
+ 17. Gemfish — elongated slender steel-blue fish with a forked tail.
+ 18. Silver warehou — deep bright-silver oval fish, small head, dark bluish back.
+ 19. Kingfish — long powerful silver-blue yellowtail with a yellow lateral stripe
+     and a yellow forked tail.
+ 20. Hāpuku — a massive grey-brown groper, big broad head and mouth, heavy body;
+     clearly a large fish.
+ 21. Bluenose — deep-bodied dark blue-grey fish with a steep blunt blue-tinged
+     snout and a large eye.
+ 22. Albacore tuna — torpedo body, dark metallic-blue back, silver belly, very
+     LONG sabre-like pectoral fins, crescent tail.
+ 23. Southern bluefin tuna — huge torpedo body, metallic blue-black back, silver
+     belly, a row of small yellow finlets before the crescent tail.
+ 24. Broadbill swordfish — dark steely body with a long flat SWORD-like bill, a
+     tall crescent tail and a big eye.
+
+==============================================================================
+PROMPT B — COOKED NZ FISH   (Grid: 8 cols x 3 rows = 24 icons)
+==============================================================================
+Same 24 species in the SAME order and grid, but each shown COOKED and ready to
+eat — warm golden-brown seared/grilled skin, faint grill marks, flaky opaque
+flesh where it shows, appetising and steaming (no raw wet sheen, no
+plate/utensils/background). Each should still read as its species by overall
+shape and a hint of its raw colour, just cooked. Special cases:
+  • 1. Whitebait — a golden-brown round WHITEBAIT FRITTER (egg-bound patty with
+    little whitebait showing through), the classic Kiwi form.
+  • 4. Kōura — a cooked freshwater crayfish turned bright orange-red, tail fan
+    curled, antennae intact.
+  • 5. Shortfin eel — a glossy browned CUT OF SMOKED EEL (traditional kai), dark
+    lacquered skin.
+  • 12. Blue cod — the classic golden cooked BLUE COD FILLET (flaky white flesh),
+    the iconic Kiwi fish-and-chips fish.
+  • 20 Hāpuku, 22 Albacore tuna, 23 Southern bluefin tuna, 24 Broadbill — thick
+    cooked STEAKS/fillets rather than a whole fish.
+All others (mullet, flounder, kahawai, mackerel, gurnard, trevally, tarakihi,
+snapper, john dory, barracouta, hoki, ling, gemfish, warehou, kingfish, bluenose)
+— a whole cooked fish with browned skin and cooked flesh.
+
+INTEGRATION (after both PNGs are generated):
+  - Wire like herb-icons-data.js: a self-registering js/sprites/fish-icons-data.js
+    with TWO free 2-letter keys (existing: aa ab ag ah al aw bi cb cf cg ch ci co
+    cp fg fi fs ft fu hb hi jw mb mi ml ms nl pd sh tg wg wt — e.g. "fr" raw / "fk"
+    cooked), SHEET_TILE=64, slice both sheets row-major into 64px cells.
+  - Repoint by cell index i (0..23): raw  -> ITEMS[i===0?"raw_fish":"raw_f"+i].icon
+    ; cooked -> ITEMS[i===0?"cooked_fish":"fish_"+i].icon. Item IDs are index-based,
+    so the macron names (Kōura, Hāpuku) don't affect them.
+  - Include in index.html AFTER content.js so the fish ITEMS exist; the repoint
+    overrides the hue-tinted FISH_SPRS placeholders. Leave levels 25-32 untouched.

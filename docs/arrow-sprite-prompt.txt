@@ -1,0 +1,65 @@
+ISLE OF EMBERFALL — "ARROWS & ARROWHEADS" REFERENCE SHEET PROMPT
+Covers the 16 metals used by the Weapons/Toolmaking roster (geartiers.js),
+in level order (Iron = lowest tier, Stormsteel = highest). Matches the exact
+visual convention of Tools.png / weapons.png / armour.png / ingots.png
+(assets/assorted sprites/) so it can be extracted with the same pipeline.
+
+------------------------------------------------------------------------------
+PROMPT (paste as one block):
+------------------------------------------------------------------------------
+A single pixel-art reference sprite sheet on a solid black background, in the
+style of a game-asset wiki chart. Title text at the top in bold white pixel
+font: "ARROWS & ARROWHEADS (16x16)".
+
+Below the title, a 4-column x 4-row grid of 16 material groups (one per
+metal, in this exact order, left-to-right then top-to-bottom):
+  1. Iron        5. Ferrotitanium   9. Damasteel      13. Voidsteel
+  2. Cobalt      6. Adamantite     10. Runite         14. Bloodiron
+  3. Tool steel  7. Darksteel      11. Dragonite      15. Emberite
+  4. Tungsten    8. Meteorite      12. Dragonsteel    16. Stormsteel
+
+Each group is its own labelled block: the metal's name centred above, in
+small white pixel-font text, and below the label two 16x16 pixel-art icons
+side by side on transparent black:
+  - LEFT icon: a complete fletched arrow, angled diagonally (point to the
+    upper-right at roughly 45 degrees), wooden shaft, feather fletching at
+    the base, and a metal arrowhead at the tip rendered in that row's metal.
+  - RIGHT icon: just the arrowhead alone — a small leaf/diamond-shaped
+    blade with a short tang/socket, no shaft, same metal and finish as the
+    arrow beside it.
+
+Render each metal in its own established material palette so the sheet
+reads as a coherent tier progression, low tier to high tier:
+  Iron — plain matte grey steel.
+  Cobalt — deep cobalt blue metal with a faint sheen.
+  Tool steel — cool blue-grey steel, slightly darker than Iron.
+  Tungsten — dark charcoal-grey, dense and matte.
+  Ferrotitanium — grey with a subtle teal-blue metallic tint.
+  Adamantite — deep green metal with a hard, glossy shine.
+  Darksteel — near-black obsidian-dark metal with sharp light glints.
+  Meteorite — mottled grey metal flecked with tiny white/silver sparkle.
+  Damasteel — grey-blue steel with fine wavy Damascus-pattern banding.
+  Runite — vivid emerald-green metal, smooth and gleaming.
+  Dragonite — deep red metal with a warm inner glow along the edges.
+  Dragonsteel — blended red-and-green metal (a Dragonite/Runite alloy look),
+    olive-gold sheen.
+  Voidsteel — dark purple-black metal with a faint violet shimmer.
+  Bloodiron — deep crimson-red metal with a dull matte finish.
+  Emberite — burnt orange metal that looks faintly hot, with small ember/
+    glow speckles.
+  Stormsteel — steel-blue metal crackling with tiny white-blue electric
+    arcs along its edges.
+
+Every icon: 16x16 pixel art, 3/4 top-down game-item-icon style, bold
+readable silhouette, thin dark outline, limited flat palette with a little
+dithered shading, soft light from the upper-left, fully transparent
+background (no drop shadows). Consistent scale and lighting across all 32
+icons so they sit together in an inventory grid. No gridlines drawn between
+cells; leave even black margins between the 16 groups instead, matching the
+reference sheets' layout.
+
+At the very bottom of the sheet, add a small legend row: two labelled
+16x16 icons — one arrow, one arrowhead — captioned "Arrow" and "Arrowhead"
+underneath, confirming the left/right column order used in every group
+above (same legend-row convention as the Tools.png sheet).
+------------------------------------------------------------------------------

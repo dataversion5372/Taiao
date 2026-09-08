@@ -1,0 +1,35 @@
+# ── OS / editor cruft ──────────────────────────────────────────────
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# ── Python build tooling ───────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Moved to ../RPG-archive (parked / dev-only, never shipped) ──────
+/backup/
+/tools/npc_brain/
+/assets/venv_app/
+/assets/sprite_review_tool/
+
+# ── Heavy binary SOURCE assets (dev-only sprite pipeline inputs) ────
+# The game ships only external sheets under assets/sheets/ + assets/sfx/.
+# Everything else in assets/ is offline build-pipeline source material.
+/assets/*
+!/assets/sfx/
+!/assets/sheets/
+!/assets/objects.json
+!/assets/mobs.png
+!/assets/mobs_directional.png
+
+# Large offline source sprite libraries (dev-only, not fetched at runtime)
+/tilesheets/
+/tiny-creatures/
+
+# Node build tooling (added during optimization phase)
+/node_modules/
+
+# Secrets — never commit
+/api.txt

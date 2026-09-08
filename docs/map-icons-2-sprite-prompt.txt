@@ -1,0 +1,140 @@
+MAP ICON SPRITESHEET #2 — image generation prompt
+==================================================
+Purpose: NEW dedicated world-map marker icons for the shops and specialised
+crafting stations that currently have no icon of their own. Today they fall
+back to a generic glyph — e.g. every fletcher's bench, sawmill, cooperage,
+tailor's bench and bindery shows the plain "workbench" icon; brewery, dyeworks,
+creamery and soap works all show the "cauldron"; malthouse, pottery kiln, glass
+furnace, lime kiln, charcoal clamp and assay furnace all show the "furnace";
+masons' yard, toolsmith, locksmith, drawbench all show the "anvil"; leather /
+cobbler / saddler benches all show the "tanning rack"; and every named shop on
+the map shows the same "store" pouch. This sheet gives each its own silhouette.
+
+Same pipeline and art style as docs/map-icons-sprite-prompt.txt (the "mi" sheet):
+one combined spritesheet, extracted by fixed grid position afterward — do NOT
+rely on labels for identification. Rendered at 18x18px on the map and 10x10px on
+the minimap, so every icon must read as a bold chunky silhouette when tiny.
+
+-------------------------------------------------------------------------
+PROMPT (send as one single image-generation request)
+-------------------------------------------------------------------------
+
+Create ONE flat 2D game-icon spritesheet: a precise 6-column by 7-row grid of
+42 equal square cells, with generous even padding between cells so nothing
+touches or overlaps its neighbors. Every cell has the exact same flat, solid,
+uniform magenta background color (#FF00FF) with zero gradient, texture, or
+shadow in the background — this magenta is a chroma-key color to be removed
+later, so it must NOT appear anywhere in the icon artwork itself. Do not draw
+grid lines, cell borders, labels, numbers, or captions anywhere in the image.
+
+Art style for every icon: simple, bold, flat-shaded fantasy RPG minimap/
+world-map marker icon, similar to OSRS-style map icons — chunky readable
+silhouette, thick clean black outline (this outline is important, keep it
+consistent on every icon), 3-6 flat solid colors per icon (no gradients, no
+soft shading, no photorealism), designed to stay legible when scaled down to
+18x18 pixels. Every icon centered in its cell and sized consistently relative
+to the others (similar visual weight/scale, none tiny and none overflowing).
+
+Fill the 42 cells, reading left-to-right then top-to-bottom, with exactly these
+icons in exactly this order:
+
+Row 1 — woodworking stations: (1) FLETCHER'S BENCH: a half-carved wooden bow
+with a white feathered arrow and a small knife/shaving curl. (2) SAWMILL: a
+circular-ish crosscut hand saw with a grey blade and brown handle biting into a
+brown log. (3) COOPERAGE: a brown wooden barrel with two grey metal hoop bands
+and a couple of curved staves leaning beside it. (4) ROPEWALK: a neat coil of
+tan/brown twisted rope. (5) SAIL LOFT: a triangular cream ship's sail on a
+short brown spar/boom. (6) SHIPYARD: the curved wooden ribbed hull of a boat
+under construction on a slipway.
+
+Row 2 — textile & leather stations: (7) SPINNING WHEEL: a brown spinning wheel
+with visible spokes and a small spindle, a wisp of cream thread. (8) DYEWORKS: a
+squat open vat with brightly colored dye (split so it reads as two colors, e.g.
+blue and red) and a couple of drips down the side. (9) FULLING MILL: a wooden
+trough/tub with folded pale cloth being pressed, a trickle of water. (10)
+TAILOR'S BENCH: a spool of thread with a large silver sewing needle stuck
+through it and a short trailing thread. (11) LEATHER BENCH: a folded tan hide/
+piece of leather with a curved awl or half-moon leather knife on top. (12)
+COBBLER'S BENCH: a single brown leather boot/shoe on a small last, with a tiny
+hammer.
+
+Row 3 — leather & husbandry: (13) SADDLER'S BENCH: a brown horse saddle in
+profile with a visible stirrup. (14) BARN (husbandry): a red barn building with
+a peaked roof and a pale X-braced double door. (15) CREAMERY: a wooden butter
+churn (tall tapering tub) with a plunger handle sticking out the top, a small
+white milk splash. (16) CHANDLERY (candle maker): two upright cream candles,
+one with a small orange flame, dipped from a rack. (17) SOAP WORKS: a stack of
+two or three cream/pale soap bars with a few round white bubbles. (18) PAPER
+MILL: a stacked sheaf of pale cream paper sheets, top sheet lifting/curling.
+
+Row 4 — heat & fire stations (make each clearly distinct from the plain grey
+furnace on the first sheet): (19) MALTHOUSE: a low kiln floor with pale golden
+grain/barley heaped on it and a soft warm glow beneath. (20) BREWERY: a wooden
+beer barrel with a tap/spigot and a foaming tankard beside it. (21) CHARCOAL
+CLAMP: a rounded black earthen charcoal mound with thin grey smoke wisps and a
+small dull-orange glow at its base. (22) LIME KILN: a stout stone bottle-shaped
+kiln with an arched mouth and a pale-orange glow inside, a puff of white smoke.
+(23) POTTERY KILN: a rounded brick kiln with a terracotta clay pot visible in
+its glowing mouth. (24) GLASS FURNACE: a furnace mouth with a glowing molten
+orange glass blob on the end of a long grey blowpipe.
+
+Row 5 — metal & stone stations (make each clearly distinct from the plain grey
+anvil on the first sheet): (25) ASSAY FURNACE: a small crucible tipping a stream
+of bright molten gold, with one gold bar/ingot. (26) DRAWBENCH: a long bench
+drawing a thin silver metal wire through a die-plate, the wire spooling. (27)
+JEWELLER'S BENCH: a gold ring set with a bright blue faceted gem, plus tiny
+sparkle. (28) TOOLSMITH: a crossed grey hammer and a pair of pincers/tongs. (29)
+LOCKSMITH BENCH: a brass padlock with a gold key crossing over it. (30) MASONS'
+YARD: a squared grey stone block with a chisel and mallet resting on it.
+
+Row 6 — named SHOP markers (each a small shop stall/awning silhouette themed by
+trade, so they read as shops rather than stations): (31) WOODCUTTER'S SHOP: a
+market stall with a brown-striped awning displaying an axe. (32) MINING
+SUPPLIES: a market stall awning displaying a pickaxe. (33) FISHMONGER: a market
+stall awning displaying a blue fish (fish on a slab). (34) ARMOURY: a market
+stall awning displaying a grey chestplate/breastplate of armour. (35) SEED
+MERCHANT: a market stall awning displaying a small brown sack spilling pale
+seeds. (36) TIMBER YARD: a market stall awning displaying a stack of cut brown
+planks/boards.
+
+Row 7 — spares: (37) leave completely empty, (38) leave completely empty, (39)
+leave completely empty, (40) leave completely empty, (41) leave completely
+empty, (42) leave completely empty (each nothing but the plain magenta
+background).
+
+-------------------------------------------------------------------------
+Notes for whoever runs this (not part of the prompt itself)
+-------------------------------------------------------------------------
+- This is a SECOND sheet, complementary to the existing "mi" sheet (see
+  docs/map-icons-sprite-prompt.txt / js/sprites/map-icon-atlas-data.js). It
+  does NOT replace it; it adds art for markers that currently reuse a generic
+  glyph. Suggested atlas key: "mi2".
+- The 30 icons map 1:1 to these station/shop keys, in order:
+  Stations (STATION_ICON in js/gameplay/world.js — all currently reuse a
+  generic icon):
+    1 fletchers_bench   2 sawmill        3 cooperage      4 ropewalk
+    5 sail_loft         6 shipyard       7 spinning_wheel 8 dyeworks
+    9 fulling_mill     10 tailors_bench 11 leather_bench 12 cobblers_bench
+   13 saddlers_bench   14 barn          15 creamery      16 chandlery
+   17 soap_works       18 paper_mill    19 malthouse     20 brewery
+   21 charcoal_clamp   22 lime_kiln     23 pottery_kiln  24 glass_furnace
+   25 assay_furnace    26 drawbench     27 jewelers_bench 28 toolsmith
+   29 locksmith_bench  30 masons_yard
+  Shops (SHOP_TYPES in js/skills/market.js — currently all draw the generic
+  "store" pouch on the map):
+   31 woodcutter  32 mining  33 fishmonger  34 armoury  35 seedsman
+   36 timberwright
+  (The other named shops already have near-enough art on the first sheet:
+   weaponsmith≈swordshop, herbalist≈herbshop, jeweller≈gemshop,
+   clothier≈clothesshop, provisioner≈foodshop, general=store.)
+- Wiring after extraction:
+  * Repoint STATION_ICON[...] for the 30 station keys above from their generic
+    fallback to their own new "mi2" icon type, and add the 30 new types to
+    MAP_ICON_TYPES so iconImgs/build hydrate them.
+  * For shops: villageForMap()/iconsNearForMap() currently push type:"store"
+    for every b.job==="trader"; extend that to look up a SHOP_ICON[shopType]
+    (store as the default) so the 6 new shop icons appear per building.
+- Extraction: same border-flood-fill magenta->alpha technique as the first
+  sheet; magenta (#FF00FF) chosen because it appears in none of the 36 icon
+  descriptions above. Cells 37-42 are spare/blank on purpose (36 icons used of
+  a 42-cell grid).

@@ -1,0 +1,119 @@
+ISLE OF EMBERFALL — CULTURAL GARMENT ICONS (one sheet, 48 icons)
+===============================================================
+Inventory icons for the 48 cultural garments of the Tailoring wardrobe
+(js/skills/garments.js) — the soft-cloth clothing worn across the 223-character
+roster (docs/player-character-outfits.txt). ONE garment per cell, laid out as a
+uniform 8-COLUMN x 6-ROW grid of 64x64 px cells (downscaled to 32x32 in game),
+even margins, NO gridlines. Row-major reading order EXACTLY matches the item
+order below so the sheet can be sliced and repointed onto i_<id> mechanically.
+
+STYLE: 16-bit / 'HD-2D' pixel-art, the look of roguelike NES RPGs and classic
+RuneScape item sprites. Each garment is drawn as a neat FRONT-ON "flat-lay"
+inventory icon (a hair of 3/4 where it helps read), centred and filling most of
+its cell, with a bold readable silhouette, a thin dark outline, a limited flat
+palette with light dithered shading and soft light from the upper-left. Show
+stitched seams, hems, trim, buttons, laces and folds where the piece calls for
+it. Fully transparent background — no drop shadows, mannequins, bodies, text,
+numbers, labels or frames (garments hang/lay empty, no wearer).
+
+The 48 cells, row-major (8 per row):
+
+ROW 1 — HEADWEAR
+  1  Wizard's hat — a tall pointed wide-brimmed wizard hat, midnight-blue felt.
+  2  Flat cap — a simple soft flat cloth cap, muted brown.
+  3  Cloth hood — a plain draped pointed hood, undyed grey-brown.
+  4  Cowl — a monk's cowl/hood with a shoulder drape, coarse tan wool.
+  5  Cloth coif — a close-fitting cloth coif tied under the chin, off-white linen.
+  6  Turban — a wound cloth turban, cream with a jewelled front pin.
+  7  Desert head-wrap — a keffiyeh/tagelmust head-and-face wrap, indigo-and-tan.
+  8  Feathered war-bonnet — a Plains-style eagle-feather headdress, white feathers
+     tipped brown with a beaded browband.
+
+ROW 2 — ROBES & VESTMENTS (torso)
+  9  Mage's robe — long sleeved arcane robe with a sash, deep blue with star trim.
+  10 Sorcerer's robe — dark high-collared robe with a gold throat-clasp, black-purple.
+  11 Cleric's vestments — white-and-gold priestly robe with a stole and holy trim.
+  12 Scholar's robe — layered muted-teal academic robe with wide sleeves.
+  13 Traveller's robe — plain hooded roughspun robe, earth-brown, belted.
+  14 Ceremonial robe — opulent floor-length silk robe, crimson with heavy gold brocade.
+  15 Djinn's robe — flowing genie robe with a sash, teal-and-gold, airy sleeves.
+  16 Monk's robe — simple wrapped ascetic robe, saffron/ochre with a cloth belt.
+
+ROW 3 — TUNICS · COATS · DRESSES (torso)
+  17 Tunic — a plain short belted tunic, undyed tan.
+  18 Cloth jerkin — a sleeveless quilted cloth jerkin, grey-brown, laced front.
+  19 Quilted vest — a padded diamond-quilted vest, warm russet.
+  20 Frock coat — a long fitted buttoned coat with cuffs, deep green.
+  21 Greatcoat — a heavy double-breasted long coat with a broad collar, charcoal wool.
+  22 Linen dress — a simple long linen dress, pale cream.
+  23 Peasant dress — a plain roughspun work dress with an apron-front, dull blue.
+  24 Tabard — a sleeveless heraldic-blank tabard over-garment, red with white edging.
+
+ROW 4 — CULTURAL WEAR (torso)
+  25 Kimono — a wrapped Japanese kimono with a wide obi sash, indigo with sakura motif.
+  26 Hanbok — a Korean hanbok: short jeogori jacket + full skirt, jade-green and white.
+  27 Hanfu — a flowing Tang-style hanfu with long draping sleeves, teal-and-lilac.
+  28 Poncho — a woven Andean poncho with geometric bands, red/orange/earth.
+  29 Boubou — a flowing West-African grand boubou robe, deep green with gold embroidery.
+  30 Fur parka — a hooded fur-lined winter parka, tan hide with white fur trim.
+  31 Buckskin dress — a fringed tan buckskin dress with beadwork.
+  32 Sari — a draped Indian sari with a decorative pallu, magenta with gold border.
+
+ROW 5 — OVER-SHOULDER (cape slot)
+  33 Cloak — a plain hooded travelling cloak with a clasp, forest green.
+  34 Mantle — a short shoulder mantle/capelet, blue with a fur-lined collar.
+  35 Stole — a long narrow draped silk stole/scarf, cream with gold ends.
+  36 Feathered cloak — a Māori-style feather cloak (korowai), brown-and-black plumage.
+  37 Fur mantle — a heavy fur shoulder mantle, shaggy grey-brown pelt.
+  38 Moss cloak — a druid's cloak of living moss and leaves, mottled green.
+  39 Hooded cloak — a heavy hooded winter cloak with a clasp, deep slate wool.
+  40 Half-cape — a short one-shoulder half-cape, burgundy with a gold pin.
+
+ROW 6 — LOWER · WAIST · WRAPS
+  41 Kilt — a pleated tartan kilt, green-and-blue plaid.
+  42 Skirt — a simple long cloth skirt, dusty rose.
+  43 Leggings — a pair of cloth leggings/hose, grey.
+  44 Loincloth — a simple wrapped loincloth, undyed tan.
+  45 Arm wraps — a pair of wrapped cloth forearm bindings, off-white.
+  46 Sash — a long tied waist sash, crimson with tasselled ends.
+  47 Cloth belt — a simple woven cloth belt, brown.
+  48 Cloth apron — a plain work apron with a neck loop and ties, natural linen.
+
+
+##############################################################################
+INTEGRATION
+##############################################################################
+Single sheet, 8 cols x 6 rows, 64px cells, row-major. Slice into 64px cells and
+repoint each item's placeholder icon (i_<id>, made by garments.js/defineIcon) to
+its cell. The item ids in row-major order are exactly:
+
+  wizard_hat, flat_cap, hood, cowl, cloth_coif, turban, desert_headwrap, feather_headdress,
+  mage_robe, sorcerer_robe, cleric_vestment, scholar_robe, travelers_robe, ceremonial_robe, djinn_robe, monk_robe,
+  tunic, cloth_jerkin, quilted_vest, frock_coat, greatcoat, linen_dress, peasant_dress, tabard,
+  kimono, hanbok, hanfu, poncho, boubou, parka, buckskin_dress, sari,
+  cloak, mantle, stole, feathered_cloak, fur_mantle, moss_cloak, hooded_cloak, half_cape,
+  kilt, skirt, leggings, loincloth, arm_wraps, sash, cloth_belt, cloth_apron
+
+Register the sheet in a new js/sprites/garment-icons-data.js that self-registers
+its key in SHEET_KEYS/SHEET_TILE (tile 64) and ASSET_DATA, then sets
+SPR["i_"+id] = [sheet,0,0,{sx:(k%8)*64, sy:Math.floor(k/8)*64, sw:64, sh:64}] for
+each id at row-major index k — exactly the flow used by
+js/sprites/leather-armour-icons-data.js. Source art on a black background should
+be border-flood-filled to transparent, gridded and resampled to 64px cells first.
+
+
+##############################################################################
+ADDENDUM — ALTERNATE-OUTFIT GARMENTS (2 extra icons)
+##############################################################################
+Two more garments come from the alternate outfits under assets/families_source/
+(the Patupaiarehe flax cloaks + the base-layer underwear). They are NOT on the
+48-cell sheet above and currently use placeholder tints. When generating art,
+add these as a small strip (2 cells, 64x64, same style/rules as above) and wire
+them into js/sprites/garment-icons-data.js by setting SPR["i_"+id] to the cell.
+
+  1  flax_cloak    — a Māori woven-flax cloak (kākahu / muka): a full shoulder
+     cloak of pale golden-tan dressed-flax fibre with a woven taniko border,
+     hanging strands along the hem. (Distinct from the feathered korowai on the
+     main sheet.)
+  2  smallclothes  — plain base-layer underclothes: a simple wrapped chest band /
+     short chemise and briefs in undyed off-white linen.

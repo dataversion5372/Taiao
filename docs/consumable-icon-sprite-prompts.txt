@@ -1,0 +1,403 @@
+ISLE OF EMBERFALL — CONSUMABLE / MATERIAL ICON PROMPTS
+=======================================================
+AUDIT: the 32-tier core ladders below still use hue-rotated clones of one
+base sprite each (content.js defineIcon) — a potion ladder that is the
+same flask 32 times in shifting colours, etc. The "gi" production sheet
+does NOT cover these. Same integration pattern as the gi sheet
+(tools/build_item_icons.py style: 64px cells, repoint ITEMS[id].icon).
+
+==============================================================================
+GLOBAL STYLE (paste above every sheet prompt)
+==============================================================================
+Art style: 16-bit / 'HD-2D' pixel-art inventory icons in the look of the
+Kenney.nl roguelike packs and classic RuneScape item sprites. One object
+per cell, centred, bold silhouette, thin dark outline, limited flat
+palette with light dithering, soft upper-left light. Fully TRANSPARENT
+background, no shadows, text or frames. One PNG per prompt, uniform grid
+of 64x64 px cells, items in the exact order listed.
+
+------------------------------------------------------------------------------
+SHEET: Herbs   |   Grid: 8 cols x 4 rows, 32 icons
+------------------------------------------------------------------------------
+PROMPT: ...global style... — 32 distinct picked herbs (sprigs, leaves,
+blossoms — vary the PLANT SHAPE per herb, not just the colour), in this
+order: Sageleaf, Bitterroot, Marshweed, Tanglefern, Yarrow, Feverbalm,
+Nightcap, Silverthorn, Kingsfoil, Wolfsbane, Sunpetal, Mooncress,
+Bloodthistle, Frostmint, Emberleaf, Stormnettle, Gloomshade, Dreamfoil,
+Ghostflower, Ironweed, Dawnrose, Duskvine, Starbud, Voidmoss, Wyrmgrass,
+Angelica, Demonfern, Runeblossom, Spiritsage, Timewort, Aethergrass,
+Worldroot.
+
+------------------------------------------------------------------------------
+SHEET: Potions   |   Grid: 8 cols x 4 rows, 32 icons
+------------------------------------------------------------------------------
+PROMPT: ...global style... — 32 corked potion bottles brewed from the 32
+herbs above, in the SAME order. Vary the GLASS SHAPE in a repeating cycle
+(round flask, tall vial, square bottle, teardrop) and let the liquid's
+colour/glow echo its herb (Sageleaf potion soft green ... Worldroot
+potion deep radiant gold). Later tiers look more ornate and luminous.
+
+------------------------------------------------------------------------------
+SHEET: Raw Fish   |   Grid: 8 cols x 4 rows, 32 icons
+------------------------------------------------------------------------------
+PROMPT: ...global style... — 32 whole raw fish/seafood, silvery and
+distinct in shape and size per species, in this order: Shrimp, Sardine,
+Anchovy, Herring, Mackerel, Trout, Pike, Perch, Bream, Carp, Bass, Cod,
+Salmon, Haddock, Eel, Catfish, Lobster, Snapper, Flounder, Tuna,
+Monkfish, Halibut, Swordfish, Sturgeon, Lanternfish, Icefish, Sunfish,
+Moonfish, Voidfish, Stormfish, Goldfish royal, Leviathan fry.
+(A matching "Cooked Fish" sheet: same order, same shapes, golden-browned
+on a simple plate or skewer.)
+
+------------------------------------------------------------------------------
+SHEET: Hides & Leathers   |   Grid: 8 cols x 4 rows, 32 icons (x2 sheets)
+------------------------------------------------------------------------------
+PROMPT (Hides): ...global style... — 32 folded raw animal hides, tier 1
+plain buff hide rising to exotic pelts (striped, spotted, scaled, frost-
+white, ember-glowing, void-black) — vary pattern and edge shape, not just
+hue.
+PROMPT (Leathers): matching sheet of 32 tanned leather rolls/squares in
+the same tier order, cleaner and more refined at higher tiers.
+
+------------------------------------------------------------------------------
+SHEET: Cloth Bolts   |   Grid: 8 cols x 4 rows, 32 icons
+------------------------------------------------------------------------------
+PROMPT: ...global style... — 32 folded cloth bolts for the textile ladder
+(Cotton cloth, Rough burlap, Linen, Wool cloth, Hempcloth, Canvas, and
+onward to silks and mythical weaves) — early bolts rough and undyed,
+later ones rich, patterned, shimmering.
+
+------------------------------------------------------------------------------
+SHEET: Dyeing + Weaving + Papermaking  |  Grid: 8 cols x 8 rows, 58 icons
+(last 6 cells BLANK/transparent). One sheet covering every placeholder/duplicate
+icon across the three skills. Read L-to-R, top-to-bottom, in the EXACT order
+below. Groups: A) 16 dye pigments  B) 8 dyed textiles  C) 21 fibre cloths
+D) 13 paper goods.
+Integration: 64px cells, new sheet key e.g. "tp" (SHEET_TILE["tp"]=64). Repoint:
+ A dyes  -> ITEMS[madder_dye,weld_dye,woad_dye,verdigris_dye,walnut_dye,
+    ochre_dye,crimson_dye,indigo_dye,saffron_dye,tyrian_dye,irongall_dye,
+    scarlet_dye,ember_dye,frost_dye,void_dye,starlight_dye]  (cells 1-16)
+ B dyed  -> [dyed_wool_yarn,dyed_linen_thread,dyed_cotton_yarn,dyed_silk_thread,
+    dyed_wool_cloth,dyed_linen_cloth,dyed_cotton_cloth,dyed_silk_cloth] (17-24)
+ C cloths-> cloth_yarn_fibriculture_crop_10 .. _30 sorted (25-45)
+ D paper -> [pulp,paper,fine_paper,cardstock,parchment,vellum,papyrus,ink,
+    iron_gall_ink,gold_ink,hide_glue,sealing_wax,quill]  (46-58)
+------------------------------------------------------------------------------
+PROMPT: ...global style... — 58 crafting icons for a fantasy dyer/weaver/paper-
+maker, in this exact order (cells 59-64 left empty/transparent):
+
+GROUP A — DYE PIGMENTS. Each is a small shallow clay/ceramic dish heaped with
+coloured dye powder or paste, with a scrap of its raw dyestuff resting beside it
+so the sources read differently; vary the mound shape slightly. Vivid, saturated,
+matte (the magical last four glow):
+ 1 Madder red dye — a dish of deep brick-red madder powder, a gnarled madder root beside it
+ 2 Weld yellow dye — a dish of bright lemon-yellow powder, a sprig of yellow weld flowers
+ 3 Woad blue dye — a dish of soft powder-blue pigment, two blue-green woad leaves
+ 4 Verdigris green dye — a dish of blue-green verdigris crystals, a faint copper-tarnish sheen
+ 5 Walnut brown dye — a dish of warm chocolate-brown husk dye, a cracked walnut beside it
+ 6 Ochre dye — a dish of earthy yellow-orange mineral powder, a lump of raw ochre clay
+ 7 Crimson dye — a dish of rich glossy cochineal-crimson powder, deep and jewel-like
+ 8 Indigo dye — a pressed cake of dense indigo-blue pigment with a dark violet edge
+ 9 Saffron gold dye — a dish of glowing saffron-gold powder, a few red saffron threads on top
+ 10 Tyrian purple dye — a tiny precious pot of royal purple dye, a spiral murex shell beside it
+ 11 Iron-gall black dye — a dish of wet, inky blue-black iron-gall pigment
+ 12 Scarlet dye — a dish of vivid fiery scarlet powder, brighter and hotter than the crimson
+ 13 Ember dye — a dish of glowing ember-orange pigment with faint drifting sparks and inner heat
+ 14 Frost dye — a dish of icy pale-blue pigment dusted with tiny frost crystals, cold vapour
+ 15 Void black dye — a dish of matte void-black pigment with a violet sheen and a dark aura
+ 16 Starlight dye — a dish of luminous white-gold pigment flecked with sparkling pinpoint stars
+
+GROUP B — DYED TEXTILES. Richly coloured spun/woven goods; yarns as balls or
+wound spools, cloths as neatly folded bolts. Give each a DIFFERENT rich dye
+colour and let the fibre's character show (wool matte & fuzzy, linen crisp,
+cotton soft, silk lustrous):
+ 17 Dyed wool yarn — a plump fuzzy ball of deep-red dyed wool yarn, a loose end trailing
+ 18 Dyed linen thread — a wooden spool wound with golden-yellow dyed linen thread, crisp strands
+ 19 Dyed cotton yarn — a soft round ball of sky-blue dyed cotton yarn
+ 20 Dyed silk thread — a glossy spool of rich-purple dyed silk thread catching a highlight
+ 21 Dyed wool cloth — a thick matte folded bolt of crimson-dyed wool cloth
+ 22 Dyed linen cloth — a crisp folded bolt of indigo-dyed linen cloth, sharp fold line
+ 23 Dyed cotton cloth — a soft-draping folded bolt of green-dyed cotton cloth
+ 24 Dyed silk cloth — a lustrous folded bolt of Tyrian-purple dyed silk with sheen highlights
+
+GROUP C — FIBRE CLOTHS. Each a neatly folded bolt of woven cloth, coloured and
+textured to its source fibre (coarse open weaves for rough fibres, fine tight
+weaves for silks); the last several glow or turn magical:
+ 25 Nettle cloth — a coarse folded bolt of greenish-grey nettle weave, rustic slubby texture
+ 26 Coir cloth — a stiff folded mat of rusty-brown coconut-coir weave, very fibrous and bristly
+ 27 Abaca cloth — a crisp stiff folded bolt of pale-tan abaca (manila) weave, strong and rigid
+ 28 Bamboo cloth — a smooth folded bolt of pale bamboo-fibre weave with a subtle silky sheen
+ 29 Raffia cloth — a loose folded bolt of straw-coloured raffia weave, open basketry-like texture
+ 30 Milkweed cloth — a soft downy folded bolt of silky off-white milkweed weave
+ 31 Yucca cloth — a coarse folded bolt of creamy stiff yucca-fibre weave, visible thick threads
+ 32 Agave cloth — a wiry folded bolt of blue-green agave weave, fibrous and springy
+ 33 Piña cloth — a sheer fine folded bolt of translucent ivory pineapple-silk weave
+ 34 Banana cloth — a gently draping folded bolt of soft tan banana-fibre weave
+ 35 Kapok cloth — a puffy light folded bolt of fluffy pale-gold kapok weave
+ 36 Lotus cloth — a delicate ethereal folded bolt of pale-pink lotus-fibre weave, very fine
+ 37 Sea silk cloth — a shimmering folded bolt of golden-bronze sea-silk weave with a metallic sheen
+ 38 Nettle silk cloth — a soft-lustre folded bolt of silvery-green nettle-silk weave
+ 39 Cloudthread cloth — a folded bolt of wispy glowing-white cloudthread weave in a soft luminous haze
+ 40 Mistcotton cloth — a folded bolt of pale blue-grey mistcotton weave wreathed in faint drifting mist
+ 41 Frostflax cloth — a folded bolt of icy pale-blue frostflax weave rimed with frost crystals
+ 42 Emberhemp cloth — a dark folded bolt of emberhemp weave threaded with glowing ember-orange lines
+ 43 Voidfibre cloth — a matte-black folded bolt of voidfibre weave with a violet void sheen
+ 44 Starcotton cloth — a white folded bolt of starcotton weave flecked with sparkling starlight
+ 45 Aetherweave cloth — a folded bolt of prismatic iridescent aetherweave with a shifting rainbow sheen
+
+GROUP D — PAPER GOODS. A papermaker's outputs and materials; vary the form
+(sheets, stacks, scrolls, bottles, pots):
+ 46 Paper pulp — a rectangular wooden papermaking mould/deckle holding wet grey pulp, water dripping off
+ 47 Paper — a neat stack of plain cream paper sheets with the top corner slightly curled
+ 48 Fine paper — a single crisp bright-white smooth sheet of fine paper, clean edges
+ 49 Cardstock — a thick rigid stack of heavy pale card, chunky visible edges
+ 50 Parchment — a rolled tan parchment scroll with slightly uneven edges, tied with a cord
+ 51 Vellum — a fine smooth rolled pale-cream vellum, softer and more translucent than parchment
+ 52 Papyrus — a golden papyrus sheet showing the cross-hatched woven reed strips
+ 53 Ink — a corked round glass/clay bottle of glossy black ink, a drip running down the side
+ 54 Iron-gall ink — a stoppered slim bottle of translucent blue-black iron-gall ink
+ 55 Gold ink — a small ornate pot of shimmering liquid gold ink with a bright metallic sheen
+ 56 Hide glue — a small open pot holding a glossy amber-brown cake of hide glue, a brush resting on the rim
+ 57 Sealing wax — a stick of deep-red sealing wax beside a pressed round wax seal with an emblem
+ 58 Quill pen — a white feather quill pen with a sharpened dark nib, a bead of ink at the tip
+
+------------------------------------------------------------------------------
+SHEET: Logs (Woodcutting / Sawing raw material)   |   Grid: 8x4, 32 icons
+Integration: 64px cells, new sheet key e.g. "lg" (SHEET_TILE["lg"]=64), same
+self-registering data-file pattern as forage-icons-data.js. Repoint by the
+core log ladder sorted by tier: iterate ITEMS where d.log is set, EXCLUDE the
+NZ-native "rakau_*" variants and the wood_offcuts / charcoal byproducts, sort
+by d.logTier (0..31), and point that item's .icon at cell N. (Ids are NOT a
+clean sequence — tier0 = "logs", tiers 1-3 = log_1..log_3, tier4 = "pine_logs",
+tiers 5-31 = log_5..log_31 — so map by the sorted list, not the id string.)
+Read left-to-right, top-to-bottom.
+------------------------------------------------------------------------------
+PROMPT: ...global style... — 32 stacks of cut LOGS, one per tree species. Each
+icon is one or two short chunky cut logs / billets showing the species' BARK on
+the side and the pale END-GRAIN rings on the sawn face (classic inventory-log
+look). Vary the bark texture and wood colour per species; the last tiers turn
+magical / luminous. In this exact order:
+ 1 Logs — generic pale-brown log, tan bark, cream end-grain rings
+ 2 Oak — sturdy log, greyish-brown ridged bark, warm oak wood
+ 3 Birch — white papery bark with black flecks, pale wood
+ 4 Alder — smooth grey bark, faintly orange-tinted wood
+ 5 Pine — reddish flaky bark, pale-yellow resinous wood
+ 6 Willow — slender log, grey furrowed bark, pale wood
+ 7 Cedar — reddish stringy bark, aromatic red-brown wood
+ 8 Poplar — smooth pale-grey bark, whitish wood
+ 9 Maple — light grey bark, pale golden wood
+ 10 Cherry — smooth reddish bark with horizontal lenticels, warm red wood
+ 11 Ash — pale grey bark, cream straight-grained wood
+ 12 Beech — smooth grey bark, pale pinkish-cream wood
+ 13 Walnut — dark furrowed bark, rich chocolate-brown wood
+ 14 Cypress — stringy red-brown bark, pale tan wood
+ 15 Fir — grey resin-blistered bark, pale wood
+ 16 Teak — golden-brown bark, rich oily golden-brown wood
+ 17 Juniper — shreddy grey-brown bark, reddish wood
+ 18 Hazel — smooth coppery-brown bark, pale wood
+ 19 Rowan — smooth silvery-grey bark, pale wood
+ 20 Mahogany — reddish-brown bark, deep lustrous red-brown wood
+ 21 Ebony — near-black bark, dense jet-black wood
+ 22 Yew — flaky red-brown bark, orange-red heartwood
+ 23 Redwood — thick fibrous red bark, deep red wood, massive
+ 24 Ironbark — dark deeply-furrowed bark, grey-brown iron-hard wood
+ 25 Frostbark — pale frost-blue bark rimed with ice, icy wood
+ 26 Silverleaf — silvery-white shimmering bark, pale luminous wood
+ 27 Duskwood — dark purple-grey bark, shadowy twilight wood
+ 28 Bloodwood — deep crimson bark, blood-red wood
+ 29 Starwood — dark bark flecked with starlight, wood sparkling with tiny stars
+ 30 Magic tree — glowing turquoise bark, luminous cyan runic wood
+ 31 Elderwood — ancient gnarled silver-grey bark, softly glowing golden wood
+ 32 Worldtree sapling — radiant golden-white bark, divine glowing cosmic wood
+
+------------------------------------------------------------------------------
+SHEET: Grain Flours (Milling)   |   Grid: 8 cols x 4 rows, 32 icons
+Integration: 64px cells, new sheet key e.g. "ml" (SHEET_TILE["ml"]=64), same
+self-registering data-file pattern as forage-icons-data.js. Repoint by the
+sorted Milling flour ladder: iterate RECIPES.milling, KEEP only the grain-flour
+recipes (skip the 2 malt grists — outputs "malt_grist"/"dark_grist"), sort by
+req (1..32), and point ITEMS[recipe.out].icon at cell N. (Cell 1 = the base
+"flour" item; cells 2-32 = the i_gflour1..i_gflour31 items.) Read L-to-R, top-
+to-bottom. (The 2 malt grists keep their own icons — not part of this sheet.)
+------------------------------------------------------------------------------
+PROMPT: ...global style... — 32 piles of milled GRAIN FLOUR. Each icon is an
+open burlap/hessian sack or a mounded heap of fine flour/meal with a few loose
+kernels of that cereal beside it (so near-identical powders stay
+distinguishable); vary the flour's COLOUR/texture per grain, and let the last
+tiers glow / turn magical. Powdery, soft, matte — no liquids. In this exact
+order:
+ 1 Flour — pale cream wheat flour, a couple of wheat kernels
+ 2 Barley flour — soft tan barley flour, plump barley grains
+ 3 Rye flour — greyish-brown rye flour, slim dark rye grains
+ 4 Oats flour — pale oat meal, rolled-oat flecks
+ 5 Corn flour — bright yellow cornmeal, a few corn kernels
+ 6 Rice flour — bright white rice flour, white rice grains
+ 7 Millet flour — pale yellow millet flour, tiny round seeds
+ 8 Buckwheat flour — grey-flecked flour, dark triangular groats
+ 9 Chickpeas flour — golden gram flour, a chickpea
+ 10 Sorghum flour — reddish-tan sorghum flour
+ 11 Spelt flour — warm tan spelt flour, spelt grains
+ 12 Quinoa flour — pale ivory flour, tiny quinoa seeds
+ 13 Amaranth flour — light beige flour, minute seeds
+ 14 Teff flour — very fine dark-brown teff flour, dust-fine
+ 15 Emmer flour — rustic tan flour, long emmer grains
+ 16 Farro flour — nutty light-brown farro flour
+ 17 Fonio flour — pale straw flour, tiny grains
+ 18 Triticale flour — tan-grey triticale flour
+ 19 Durum flour — golden coarse semolina, yellow grains
+ 20 Kamut flour — rich golden flour, large amber kernels
+ 21 Freekeh flour — greenish-tan roasted flour, faint smoke
+ 22 Moonwheat flour — pale silver-blue glowing flour
+ 23 Sunmillet flour — warm golden radiant flour, soft halo
+ 24 Frostbarley flour — icy pale-blue flour with frost sparkle
+ 25 Emberrye flour — dark flour laced with ember-orange glow
+ 26 Voidcorn flour — dark violet-black flour, faint void sheen
+ 27 Starrice flour — white flour flecked with sparkling starlight
+ 28 Dreamoats flour — soft lilac dreamy flour, hazy
+ 29 Aethergrain flour — prismatic shimmering flour
+ 30 Bloodmaize flour — deep crimson-red flour, dark red kernels
+ 31 Shadowspelt flour — smoky charcoal-grey shadowed flour
+ 32 Celestial quinoa flour — radiant gold-white flour, celestial glow
+
+------------------------------------------------------------------------------
+SHEET: Spun Yarns & Threads (Spinning)   |   Grid: 8x4, 32 icons
+Integration: 64px cells, new sheet key e.g. "sp" (SHEET_TILE["sp"]=64). NOTE the
+game currently REUSES two generic items ("Rough yarn"/"Fine yarn", ic_rough_yarn
+/ic_fine_yarn) for Spinning tiers 12-32, so only ~13 distinct spun items exist.
+To attach all 32 icons 1:1, give each Spinning recipe its OWN distinct output
+item (one spun product per tier, named after its fibre) and point ITEMS[out]
+.icon at cell N by the RECIPES.spinning list sorted by req. Read L-to-R, top-to-
+bottom. (Tier order below matches the sorted recipes: reqs 1-10 are the named
+threads incl. cotton+wool both at req2; tiers 12-32 are the fibriculture_crop_10
+..crop_30 fibres nettle..aetherweave. Worldsilk is NOT spun.)
+------------------------------------------------------------------------------
+PROMPT: ...global style... — 32 SPUN YARNS / THREADS ready for weaving. Each
+icon is a ball of yarn, a wound spool/bobbin, or a tied hank/skein of thread —
+CYCLE the form (ball, spool, hank, skein) so neighbours differ, and colour each
+to its source fibre; the last tiers glow / turn magical. In this exact order:
+ 1 Linen thread — off-white/greige fine linen thread (from flax)
+ 2 Cotton yarn — soft white cotton yarn ball
+ 3 Wool yarn — cream fluffy wool yarn ball
+ 4 Hemp twine — coarse greenish-tan hemp twine
+ 5 Jute twine — golden-brown jute twine
+ 6 Sisal twine — stiff creamy sisal twine
+ 7 Ramie twine — glossy white ramie twine
+ 8 Kenaf twine — reddish-brown kenaf twine
+ 9 Silkgrass thread — pale silky thread
+ 10 Spidersilk thread — grey shimmering ultra-fine thread
+ 11 Aetherbloom yarn — pale luminous glowing yarn
+ 12 Nettle yarn — green-tinged nettle yarn
+ 13 Coir twine — coarse rusty-brown coir twine
+ 14 Abaca twine — stiff pale manila twine
+ 15 Bamboo yarn — smooth pale bamboo yarn
+ 16 Raffia twine — straw-coloured raffia twine
+ 17 Milkweed yarn — silky white milkweed yarn
+ 18 Yucca twine — creamy yucca twine
+ 19 Agave twine — blue-green agave twine
+ 20 Pina thread — fine ivory pineapple-silk thread
+ 21 Banana yarn — soft tan banana yarn
+ 22 Kapok yarn — fluffy pale-gold kapok yarn
+ 23 Lotus thread — delicate pale-pink lotus thread
+ 24 Sea silk thread — golden-bronze shimmering thread
+ 25 Nettle silk thread — silvery-green silk thread
+ 26 Cloudthread yarn — wispy white glowing yarn
+ 27 Mistcotton yarn — pale blue-grey misty yarn
+ 28 Frostflax thread — icy pale-blue thread with frost
+ 29 Emberhemp twine — dark twine laced with ember-orange glow
+ 30 Voidfibre yarn — matte-black yarn with a violet sheen
+ 31 Starcotton yarn — white yarn flecked with sparkling starlight
+ 32 Aetherweave thread — prismatic iridescent shimmering thread
+
+------------------------------------------------------------------------------
+SHEET: Fibre Crops (Fibriculture)   |   Grid: 8 cols x 4 rows, 32 icons
+Integration: 64px cells, new sheet key e.g. "fb" (SHEET_TILE["fb"]=64), same
+self-registering data-file pattern as forage-icons-data.js. Repoint the
+harvested-product icon of each Fibriculture crop, IN LEVEL ORDER: iterate CROPS
+where c.skill==="Fibriculture", sort by c.req (1..32), and point ITEMS[c.item]
+.icon at cell N. (The item ids are NOT a clean sequence — reqs 1-12 reuse the
+base FIBERS ids like flax/cotton/hemp, reqs 13-32 are "fibriculture_crop_12".."
+fibriculture_crop_31" — so map by the sorted crop list, not by id string.)
+Read left-to-right, top-to-bottom.
+------------------------------------------------------------------------------
+PROMPT: ...global style... — 32 RAW HARVESTED PLANT FIBRES (retted/dressed
+bundles, hanks, tied skeins or bolls of loose fibre ready for spinning — NOT
+woven cloth, NOT the growing plant). Vary the FORM and colour per fibre; the
+ladder grows finer and more luminous/magical toward the end. In this exact
+order:
+ 1 Flax — tied bundle of slender golden retted flax stalks
+ 2 Cotton — fluffy white cotton bolls on a twig
+ 3 Hemp — bundle of tall coarse green-grey hemp fibre
+ 4 Jute — hank of golden-brown jute fibre, tied at the middle
+ 5 Sisal — stiff creamy sisal leaf-fibre bundle
+ 6 Ramie — glossy white ramie fibre skein
+ 7 Kenaf — reddish-brown coarse fibre bundle
+ 8 Silkgrass — pale silky grass-fibre tuft
+ 9 Spidersilk vine — grey webby vine fibre with a faint sheen
+ 10 Aetherbloom — pale luminous fibre teased from a glowing bloom
+ 11 Nettle — bundle of green nettle stalks with stripped fibre
+ 12 Coir — coarse rusty-brown coconut-husk coir fibre
+ 13 Abaca — stiff pale banana-leaf (manila) fibre bundle
+ 14 Bamboo fibre — smooth pale bamboo fibre hank beside a bamboo node
+ 15 Raffia — ribbon-like straw-coloured raffia strands
+ 16 Milkweed — silky white milkweed floss spilling from a pod
+ 17 Yucca — spiky creamy yucca leaf fibre
+ 18 Agave — blue-green agave leaf-fibre bundle
+ 19 Piña — fine ivory pineapple-leaf fibre
+ 20 Banana fibre — soft tan banana-stem fibre hank
+ 21 Kapok — fluffy pale-gold kapok down bursting from a pod
+ 22 Lotus fibre — delicate pale lotus-stem threads, a hint of pink
+ 23 Sea silk — shimmering golden-bronze sea-silk skein
+ 24 Nettle silk — refined silvery-green nettle-silk skein
+ 25 Cloudthread — wispy white cloud-like thread with a soft glow
+ 26 Mistcotton — pale blue-grey misty cotton wreathed in faint haze
+ 27 Frostflax — icy pale-blue flax bundle rimed with frost crystals
+ 28 Emberhemp — dark hemp fibre threaded with glowing ember-orange strands
+ 29 Voidfibre — matte-black fibre with a violet void sheen
+ 30 Starcotton — white cotton flecked with sparkling starlight
+ 31 Aetherweave — prismatic iridescent shimmering fibre
+ 32 Worldsilk — radiant golden-white divine silk skein
+
+------------------------------------------------------------------------------
+SHEET: Foraged Goods (Foraging)   |   Grid: 8 cols x 4 rows, 32 icons
+Integration: 64px cells, new sheet key e.g. "fg" (SHEET_TILE["fg"]=64);
+repoint ITEMS[id].icon for the 32 forageables in this exact order — ids are
+"berries" (cell 1) then "forage_1" .. "forage_31" (content.js FORAGE_NAMES /
+FORAGE). Read left-to-right, top-to-bottom.
+------------------------------------------------------------------------------
+PROMPT: ...global style... — 32 distinct foraged wild foods. Vary the SHAPE
+per item (berry clusters, nuts in husks, mushrooms of different cap forms,
+leafy alliums, fruit), not just the colour; the ladder should grow stranger
+and more luminous toward the end (glowing/frost/void/celestial). In this
+exact order:
+ 1 Berries — small red berry cluster on a sprig
+ 2 Blackberries — glossy blue-black aggregate berries
+ 3 Elderberries — umbel of tiny dark-purple berries
+ 4 Hazelnuts — pair of brown nuts in a ragged green husk
+ 5 Wild garlic — white star-flowered garlic greens with a pale bulb
+ 6 Chestnuts — glossy brown chestnuts in a spiky green husk
+ 7 Gooseberries — translucent pale-green striped berries
+ 8 Morel — tan honeycomb-pitted conical mushroom
+ 9 Wild leek — ramps: broad green leaves with a slim white bulb
+ 10 Chanterelle — golden trumpet/funnel mushroom, wavy edge
+ 11 Truffle — knobbly dark earthy tuber
+ 12 Sloes — dusky blue-black small wild plums with bloom
+ 13 Acorn flour nuts — brown acorns in cupped caps
+ 14 Rosehips — plump red-orange rose fruit
+ 15 Walnuts — round wrinkled brown nuts, one cracked open
+ 16 Porcini — fat pale-stemmed brown-capped bolete
+ 17 Cloudberries — amber raspberry-like berry cluster
+ 18 Juniper berries — dusty blue-purple berries among green needles
+ 19 King bolete — large sturdy brown bolete mushroom
+ 20 Winterberries — bright red berries on a bare dark twig
+ 21 Firecap — ember-red mushroom with a faint inner glow
+ 22 Frostcap — icy pale-blue mushroom rimed with frost
+ 23 Glowcap — bioluminescent teal mushroom, soft glow
+ 24 Duskberries — twilight-purple berries with a faint glow
+ 25 Sunberries — golden radiant berry cluster, warm halo
+ 26 Moonberries — pale silver-blue glowing berries
+ 27 Spirit morel — ghostly translucent morel, faint white shimmer
+ 28 Voidtruffle — matte-black tuber with a violet void sheen
+ 29 Starfruit — five-point star-shaped yellow fruit, sparkling
+ 30 Dragonberries — fiery red-orange scaled berries, ember flecks
+ 31 Aethercap — prismatic iridescent mushroom, shifting rainbow sheen
+ 32 Ambrosia berries — divine golden-white berries, radiant glow

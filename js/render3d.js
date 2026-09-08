@@ -1,0 +1,4912 @@
+// ===== HD-2D renderer: 3D world, billboard pixel sprites (three.js) =====
+// Game logic stays on the 2D grid; this layer only draws it in 3D and maps
+// mouse picks back to tiles. Effects (splats, floats, HP bars, projectiles)
+// are drawn on a 2D overlay canvas using projected positions.
+"use strict";
+
+// Callers (3):
+//  main.js:27,28 main/assets.js:36
+const R3D = (() => {
+  let renderer, scene, camera, ready = false;
+  let overlay, octx, overlayCssW = 0, overlayCssH = 0;
+  let _candleKey;   // resolved candle object sprite for placed village candles (day/night)
+  let _bioLights = [];   // per-frame glow points for bioluminescent-biome decor (mushrooms/trees/rocks)
+  let atlas; // { canvas, tex, cells: {key:{cx,cy}}, cols, rows, mat }
+  let sharedMat, geomCache = {}, shadowMat, shadowGeom;
+  // ---- snow cover shading (weather.js snowNow) ----
+  // One shared uniform frosts the whole world as snow settles: every surface
+  // that faces UP — terrain tiers, bridge decks, roofs, wall tops — whitens
+  // (flat-face normal from screen-space derivatives), and billboard objects
+  // (trees, rocks, furniture) whiten from the crown down. Patched into the
+  // shared materials at creation via onBeforeCompile: zero rebakes, the
+  // uniform just rises and falls with the cover integral. Water keeps its
+  // blue (blue-dominance mask) and the sea backdrop plane is left unpatched;
+  // ground quads carry an aSnow vertex attribute so INTERIOR floors (inside
+  // a building footprint) never frost — geometry without the attribute
+  // defaults to 0, which only ever affects vertical faces anyway.
+  const snowUni = { value: 0 };
+  // ---- colour temperature (sun position → light colour) ----
+  // uTint multiplies every world material's final colour: neutral white under
+  // a high sun, golden as the sun sinks toward the horizon (grazing light —
+  // which the seasonal sun geometry makes PERMANENT through subarctic winter
+  // days and under the Fullday Pole's midnight sun), and the cool blue hour
+  // once the sun is down. Shares the snow patches where they exist; creature
+  // sprites, the sea backdrop and the sky/fog get a tint-only patch so the
+  // whole outside world sits in one light. Applied AFTER the snow mix, so
+  // snowfields glow gold at sunset like the real thing.
+  const tintUni = { value: new THREE.Color(1, 1, 1) };
+  const TINT_GLSL = "\n      gl_FragColor.rgb *= uTint;";
+  function tintPatch(mat) {
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.uTint = tintUni;
+      sh.fragmentShader = sh.fragmentShader
+        .replace("#include <common>", "#include <common>\nuniform vec3 uTint;")
+        .replace("#include <dithering_fragment>", "#include <dithering_fragment>" + TINT_GLSL);
+    };
+  }
+  function snowPatchUp(mat, forceAttr1) {
+    // aSnowOff is an EXCLUSION mask (1 = never frost): geometry that doesn't
+    // carry the attribute (roofs, skirts, structure faces — they share
+    // sharedMat) defaults to 0 and frosts normally; only the chunk ground
+    // mesh sets it, to keep INTERIOR floors bare.
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.uSnow = snowUni;
+      sh.uniforms.uTint = tintUni;
+      sh.vertexShader = sh.vertexShader
+        .replace("#include <common>", "#include <common>\nattribute float aSnowOff;\nvarying vec3 vSnowP;\nvarying float vSnowA;")
+        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvSnowP = (modelMatrix * vec4(position, 1.0)).xyz;\nvSnowA = " + (forceAttr1 ? "1.0" : "1.0 - aSnowOff") + ";");
+      sh.fragmentShader = sh.fragmentShader
+        .replace("#include <common>", "#include <common>\nvarying vec3 vSnowP;\nvarying float vSnowA;\nuniform float uSnow;\nuniform vec3 uTint;")
+        .replace("#include <dithering_fragment>", `#include <dithering_fragment>
+      vec3 snN = normalize(cross(dFdx(vSnowP), dFdy(vSnowP)));
+      float snUp = smoothstep(0.55, 0.85, abs(snN.y));
+      float snWet = smoothstep(0.03, 0.15, gl_FragColor.b - max(gl_FragColor.r, gl_FragColor.g));
+      float snA = uSnow * snUp * vSnowA * (1.0 - 0.9 * snWet);
+      gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.93, 0.95, 1.0), snA * 0.85);` + TINT_GLSL);
+    };
+  }
+  function snowPatchTop(mat) {   // billboards: unit plane, local y -0.5..+0.5
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.uSnow = snowUni;
+      sh.uniforms.uTint = tintUni;
+      sh.vertexShader = sh.vertexShader
+        .replace("#include <common>", "#include <common>\nvarying float vSnowT;")
+        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvSnowT = position.y + 0.5;");
+      sh.fragmentShader = sh.fragmentShader
+        .replace("#include <common>", "#include <common>\nvarying float vSnowT;\nuniform float uSnow;\nuniform vec3 uTint;")
+        .replace("#include <dithering_fragment>", `#include <dithering_fragment>
+      float snA = uSnow * smoothstep(0.35, 0.9, vSnowT);
+      gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.94, 0.96, 1.0), snA * 0.7);` + TINT_GLSL);
+    };
+  }
+  const meshes = new Map();   // id -> mesh (nodes: "n"+id, monsters: "m"+i, etc.)
+  const camPos = new THREE.Vector3();
+  const camTarget = new THREE.Vector3();
+  const _v = new THREE.Vector3();
+  // smoothed follow point (separate from the orbit so rotation is a clean arc,
+  // never a chord that dips toward the player) and the shared billboard orientation
+  let followX = null, followZ = null, followY = 0;
+  // nearest of the 8 sprite directions to the *smoothed* camera angle, so directional
+  // frames flip in sync with the visible rotation instead of snapping to the target
+  // step the instant a key is pressed (which read as billboards lagging the ground).
+  let camDir = 0;
+  const _up = new THREE.Vector3(0, 1, 0);
+  const _tiltAxis = new THREE.Vector3();
+  const _qYaw = new THREE.Quaternion(), _qTilt = new THREE.Quaternion(), _bbQuat = new THREE.Quaternion();
+  const SKY = 0x87b5d4;
+  const CELL = 33, CSZ = 32; // atlas cell pitch / drawable size (32px for painted tiles)
+  const FLAT_DECOR = new Set(["lily", "lily2", "lily3", "stepstone", "tilled_soil"]);
+  // pixellab masonry props that happen to start with "wall_" but are free-standing
+  // billboards (rubble piles, brick/plaster sections, a wall bracket) — not the
+  // structural wall_wood/wall_stone blocks the maze/ruins bake flat. Let these
+  // fall through to objForKey so they show their real art.
+  const BILLBOARD_WALL = new Set(["wall_brick", "wall_keep", "wall_plaster", "wall_rubble", "wall_bracket"]);
+  // ---- real 3D structures (buildings / city walls) ----
+  // Building walls, roofs, doors, gates and ladders are true tile-edge-aligned
+  // geometry built by the structure system (see "structural geometry" section),
+  // NOT billboards. Wall decor tiles carrying a "#dir" side tag are therefore
+  // skipped by the chunk mesh; only bare wall decor (maze/ruins rubble) renders
+  // as a small stand-alone wall block.
+  const STOREY_H = 1.8;    // wall band height per storey
+  const FLOOR_T = 0.06;    // plinth slab height (buildings sit above the terrain)
+  const DOOR_H = 1.25;     // door leaf / opening height (lintel band above)
+  const CITYWALL_H = 2.4;  // city wall ring height (plus merlons)
+  const RIPPLE_FRAMES = ["rippleF0", "rippleF1", "rippleF2", "rippleF3"];
+
+  // ---------- atlas ----------
+  function drawSprTo(c2, key, dx, dy) {
+    const def = SPR[key];
+    if (!def) return;
+    const [sheet, c, r, extra] = def;
+    const img = IMGS[sheet];
+    if (!img || !img.complete || img.naturalWidth === 0) return;
+    const st = SHEET_TILE[sheet] || 16;
+    c2.save();
+    if (extra && extra.filter) c2.filter = extra.filter;
+    if (extra && extra.rot) {
+      c2.translate(dx + CSZ / 2, dy + CSZ / 2);
+      c2.rotate(extra.rot * Math.PI / 180);
+      c2.translate(-(dx + CSZ / 2), -(dy + CSZ / 2));
+    }
+    const sx = extra && extra.sx != null ? extra.sx : c * (SHEET_NOPAD.has(sheet) ? st : st + 1);
+    const sy = extra && extra.sy != null ? extra.sy : r * (SHEET_NOPAD.has(sheet) ? st : st + 1);
+    const sw = extra && extra.sw ? extra.sw : st;
+    const sh = extra && extra.sh ? extra.sh : st;
+    if (SHEET_NOPAD.has(sheet)) {
+      if (SHEET_COLORKEY.has(sheet)) {
+        // color-key solid black → transparent (RGB sheets only)
+        const tmp = document.createElement("canvas");
+        tmp.width = CSZ; tmp.height = CSZ;
+        const tc = tmp.getContext("2d");
+        tc.imageSmoothingEnabled = false;
+        tc.drawImage(IMGS[sheet], sx, sy, sw, sh, 0, 0, CSZ, CSZ);
+        const id = tc.getImageData(0, 0, CSZ, CSZ);
+        const d = id.data;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i] < 12 && d[i + 1] < 12 && d[i + 2] < 12) d[i + 3] = 0;
+        }
+        tc.putImageData(id, 0, 0);
+        c2.drawImage(tmp, dx, dy);
+      } else {
+        c2.drawImage(IMGS[sheet], sx, sy, sw, sh, dx, dy, CSZ, CSZ);
+      }
+    } else {
+      c2.drawImage(IMGS[sheet], sx, sy, sw, sh, dx, dy, CSZ, CSZ);
+    }
+    c2.restore();
+  }
+
+  function buildAtlas() {
+    // Embedded data URIs should keep the canvas origin-clean. This guard remains
+    // for bad or stale asset data and skips at_* keys if taint is detected.
+    let atlasOk = false;
+    try {
+      if (IMGS["a"] && IMGS["a"].complete && IMGS["a"].naturalWidth > 0) {
+        const t = document.createElement("canvas"); t.width = t.height = 2;
+        const tc = t.getContext("2d");
+        tc.drawImage(IMGS["a"], 0, 0, 2, 2);
+        tc.getImageData(0, 0, 2, 2); // throws SecurityError if tainted
+        atlasOk = true;
+      }
+    } catch (e) { /* atlas sheet unavailable; at_* tiles will use bg_* terrain tiles */ }
+
+    const keys = Object.keys(SPR).filter(k => atlasOk || !k.startsWith("at_"));
+    const composites = { ply: ["body_player", "shirt_green", "hair_brown"], npc0: ["body_npc", "shirt_orange", "hat_white"] };
+    VILLAGER_LOOKS.forEach((layers, i) => { composites["vill" + i] = layers.map(l => l[0]); });
+    for (const kind in MONSTERS) {
+      composites["mon_" + kind] = MONSTERS[kind].spr.map(l => l[0]);
+      if (MONSTERS[kind].dirSpr) {
+        // "_v" GIANTS (and "_baby" young) reuse their base creature's 8-dir sprite —
+        // the monster's own scale (giant x1.5 / baby x0.5) sizes them. No dedicated
+        // giant/baby sheet needed; buffalo_v etc. no longer render blank.
+        const base = kind.replace(/(_v)?(_baby)?$/, "");
+        for (const d of DIR8) composites["mon_" + kind + "_" + d] = ["mcd_" + base + "_" + d];
+      }
+    }
+    const all = [...keys, ...Object.keys(composites), ...RIPPLE_FRAMES, "tilled_soil"];
+    const cols = 62, rows = Math.ceil(all.length / cols); // 62*33 = 2046 <= 2048
+    const canvas = document.createElement("canvas");
+    canvas.width = 2048;
+    canvas.height = Math.pow(2, Math.ceil(Math.log2(rows * CELL)));
+    const c2 = canvas.getContext("2d");
+    c2.imageSmoothingEnabled = false;
+    const cells = {};
+    all.forEach((key, i) => {
+      const cx = (i % cols) * CELL, cy = Math.floor(i / cols) * CELL;
+      cells[key] = { cx, cy };
+      if (composites[key]) {
+        for (const layer of composites[key]) drawSprTo(c2, layer, cx, cy);
+      } else if (RIPPLE_FRAMES.includes(key)) {
+        // Procedural water-swirl: concentric rings that expand and fade, phased
+        // across the 4 frames so the animation reads as ripples spreading out.
+        // Drawn fairly opaque over a transparent cell (the shared material
+        // alpha-tests at 0.5, dropping the faint edges) — no more white square.
+        const S = CSZ, ox = cx + S / 2, oy = cy + S / 2, RMAX = S * 0.46;
+        const ph = RIPPLE_FRAMES.indexOf(key) / RIPPLE_FRAMES.length;
+        c2.save();
+        for (let k = 0; k < 3; k++) {
+          const t = (ph + k / 3) % 1;                    // this ring's progress 0..1
+          const a = 1 - t * 1.15;                        // bright when new, gone when wide
+          if (a <= 0.05) continue;
+          c2.beginPath();
+          c2.arc(ox, oy, RMAX * (0.12 + t * 0.88), 0, Math.PI * 2);
+          c2.strokeStyle = "rgba(214,238,255," + a.toFixed(3) + ")";
+          c2.lineWidth = Math.max(1.2, S * 0.08 * (1 - t * 0.5));
+          c2.stroke();
+        }
+        c2.fillStyle = "rgba(235,248,255,0.85)";         // disturbed-water glint
+        c2.beginPath(); c2.arc(ox, oy, S * 0.05, 0, Math.PI * 2); c2.fill();
+        c2.restore();
+      } else if (key === "tilled_soil") {
+        // hoed earth: a filled brown cell with darker ploughed furrow rows,
+        // laid flat on the ground under a crop-ready plot
+        const S = CSZ;
+        c2.fillStyle = "#6b4a2c"; c2.fillRect(cx, cy, S, S);
+        c2.strokeStyle = "#4e341d"; c2.lineWidth = Math.max(1, S * 0.06);
+        for (let ry = 1; ry < 5; ry++) {
+          const yy = cy + (S * ry) / 5;
+          c2.beginPath(); c2.moveTo(cx + 1, yy); c2.lineTo(cx + S - 1, yy); c2.stroke();
+        }
+        c2.strokeStyle = "rgba(120,86,52,0.7)"; c2.lineWidth = 1;
+        for (let ry = 0; ry < 5; ry++) {
+          const yy = cy + (S * ry) / 5 + S / 10;
+          c2.beginPath(); c2.moveTo(cx + 1, yy); c2.lineTo(cx + S - 1, yy); c2.stroke();
+        }
+      } else {
+        drawSprTo(c2, key, cx, cy);
+      }
+    });
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    atlas = { canvas, tex, cells };
+    sharedMat = new THREE.MeshBasicMaterial({
+      map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide,
+    });
+    snowPatchUp(sharedMat);   // terrain/decks frost under snow cover (aSnow attr)
+  }
+
+  function setUV(geom, key) {
+    const { cx, cy } = atlas.cells[key];
+    const W = atlas.canvas.width, H = atlas.canvas.height;
+    const u0 = (cx + 0.04) / W, u1 = (cx + CSZ - 0.04) / W;
+    const v1 = 1 - (cy + 0.04) / H, v0 = 1 - (cy + CSZ - 0.04) / H;
+    const uv = geom.attributes.uv;
+    // PlaneGeometry uv order: (0,1) (1,1) (0,0) (1,0)
+    uv.setXY(0, u0, v1); uv.setXY(1, u1, v1);
+    uv.setXY(2, u0, v0); uv.setXY(3, u1, v0);
+    uv.needsUpdate = true;
+    return geom;
+  }
+  function geomFor(key) {
+    if (!geomCache[key]) geomCache[key] = setUV(new THREE.PlaneGeometry(1, 1), key);
+    return geomCache[key];
+  }
+
+  // ---------- chunked world meshes (built on demand, disposed when far) ----------
+  const chunkMeshes = new Map(); // "cx,cy" -> THREE.Group
+  const meshLog = []; // rolling per-chunk mesh build times (perf triage)
+  const warmRows = new Map(); // "cx,cy" -> next groundY row to pre-warm
+  // ---- road-network warm worker ----
+  // A cold city road link runs a multi-second A* the first time any chunk in
+  // its region generates — a total freeze on the main thread. The worker
+  // computes the same deterministic routes in the background ahead of the
+  // player; finished cells inject into the road cache so chunk generation
+  // finds hits. Falls back silently (roadWorker = false) where workers are
+  // unavailable — behaviour is then exactly as before.
+  let roadWorker = null;
+  let roadWarmX = Infinity, roadWarmY = Infinity;
+  function syncRoadWorker() {
+    if (roadWorker === false) return;
+    if (roadWorker === null) {
+      if (typeof Worker === "undefined" || !world._roadCellInject || !world._workerInit) { roadWorker = false; return; }
+      try {
+        roadWorker = new Worker("js/world/roadworker.js");
+        roadWorker.onmessage = e => world._roadCellInject(e.data.key, e.data.out);
+        roadWorker.onerror = err => {
+          console.warn("road worker unavailable:", err.message || err);
+          try { roadWorker.terminate(); } catch (e2) { /* already dead */ }
+          roadWorker = false;
+        };
+        roadWorker.postMessage({ type: "init", ...world._workerInit });
+      } catch (e) { roadWorker = false; return; }
+    }
+    // re-warm when the player has moved a decent distance; the worker skips
+    // cells it has already finished, so repeat requests only cost new ground
+    if (Math.abs(player.x - roadWarmX) > 96 || Math.abs(player.y - roadWarmY) > 96) {
+      roadWarmX = player.x; roadWarmY = player.y;
+      // pad 16 cells ≥ roadsNear's ROAD_SCAN reach for every chunk the mesh
+      // pipeline can touch around the player
+      roadWorker.postMessage({ type: "warm", mx: player.x / 2, my: player.y / 2, pad: 16 });
+    }
+  }
+  let sea = null;
+
+  function buildChunkMesh(cx, cy) {
+    const CS = world.CHUNK;
+    const ch = world.getChunk(cx, cy);
+    const group = new THREE.Group();
+    const pos = [], uvs = [], idx = [], snw = [];
+    let n = 0;
+    const AW = atlas.canvas.width, AH = atlas.canvas.height;
+    function quad(x, z, key, y, sn) {
+      let cell = atlas.cells[key];
+      if (!cell && key.startsWith("at_")) {
+        // atlas.png not usable in WebGL (file:// taint); fall back to biomes.png with regional personality
+        const parts = key.split("_");
+        const pers = world.personalityAt(x, z);
+        cell = atlas.cells[`bg_${parts[1]}_${pers}`];
+      }
+      if (!cell) return;
+      const { cx: acx, cy: acy } = cell;
+      const u0 = (acx + 0.5) / AW, u1 = (acx + CSZ - 0.5) / AW;
+      const v1 = 1 - (acy + 0.5) / AH, v0 = 1 - (acy + CSZ - 0.5) / AH;
+      pos.push(x, y, z, x + 1, y, z, x, y, z + 1, x + 1, y, z + 1);
+      uvs.push(u0, v1, u1, v1, u0, v0, u1, v0);
+      // snow exclusion: interior floors never frost (sn 0 → aSnowOff 1)
+      const s = sn === 0 ? 1 : 0;
+      snw.push(s, s, s, s);
+      idx.push(n, n + 2, n + 1, n + 1, n + 2, n + 3);
+      n += 4;
+    }
+    const bx = cx * CS, by = cy * CS;
+    // stepped terrain: every tile sits flat on its half-block tier
+    const gys = new Float32Array(CS * CS);
+    for (let z = 0; z < CS; z++)
+      for (let x = 0; x < CS; x++) {
+        const gy = groundY(bx + x, by + z);
+        gys[z * CS + x] = gy;
+        const gk = ch.ground[z * CS + x];
+        quad(bx + x, by + z, gk, gy,
+          (typeof gk === "string" && gk.startsWith("floor") && insideB(bx + x, by + z)) ? 0 : 1);
+        const d = ch.decor[z * CS + x];
+        if (d && FLAT_DECOR.has(d)) quad(bx + x, by + z, d, gy + 0.015);
+        // bridge deck: one flat stone slab across the whole crossing (bank
+        // top to bank top). It lives in the ground mesh so clicks land on it.
+        // (piers inside a building footprint carry the building's own slab —
+        // no deck quad of their own)
+        if (d && d.startsWith("stone_bridge") && !insideB(bx + x, by + z))
+          quad(bx + x, by + z, "floor_stone", bridgeDeckY(bx + x, by + z) + FLOOR_T);
+      }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+    g.setAttribute("aSnowOff", new THREE.Float32BufferAttribute(snw, 1));
+    g.setIndex(idx);
+    const mesh = new THREE.Mesh(g, sharedMat);
+    mesh.matrixAutoUpdate = false;
+    group.add(mesh);
+    group.userData.groundGeom = g;
+    group.userData.groundMesh = mesh; // picking raycasts against this
+    // cliff skirts: a shaded vertical face wherever a neighbour tier is lower
+    // (each chunk draws the faces of its OWN higher tiles, so no doubles)
+    const extraGeoms = group.userData.extraGeoms = [];
+    const recShim = { geoms: extraGeoms };
+    const skirt = newSB();
+    for (let z = 0; z < CS; z++)
+      for (let x = 0; x < CS; x++) {
+        const gy = gys[z * CS + x];
+        const wx2 = bx + x, wz2 = by + z;
+        // resolve the tile art the same way quad() does (at_* biome-atlas keys
+        // fall back to the bg_* terrain tiles); cliffs reuse the tile's own art
+        let key2 = ch.ground[z * CS + x];
+        if (!atlas.cells[key2] && key2.startsWith("at_"))
+          key2 = `bg_${key2.split("_")[1]}_${world.personalityAt(wx2, wz2)}`;
+        if (!atlas.cells[key2]) key2 = "dirt";
+        const nb = [
+          [wx2, wz2 + 1, wx2, wz2 + 1, wx2 + 1, wz2 + 1, SH_S],
+          [wx2, wz2 - 1, wx2 + 1, wz2, wx2, wz2, SH_N],
+          [wx2 - 1, wz2, wx2, wz2, wx2, wz2 + 1, SH_W],
+          [wx2 + 1, wz2, wx2 + 1, wz2 + 1, wx2 + 1, wz2, SH_E],
+        ];
+        for (const [nx, nz, ax, az, bx3, bz3, shd] of nb) {
+          const ng = (nx >= bx && nx < bx + CS && nz >= by && nz < by + CS)
+            ? gys[(nz - by) * CS + (nx - bx)] : groundY(nx, nz);
+          if (ng < gy - 0.01) sbWallFace(skirt, key2, ax, az, bx3, bz3, ng, gy, shd * 0.55);
+        }
+      }
+    // ---- bridges: parapets, fascia and support piers around the deck ----
+    // The flat deck slab itself is in the ground mesh (pickable); here its 3D
+    // dressing. Sides facing off the span (open water, or the bank slope the
+    // deck floats above) get a parapet above deck level and a fascia lip
+    // below; sides meeting the bank top get a small stone fill down to the
+    // road. "stone_bridge#p" tiles are solid 1-tile support piers rising from
+    // the riverbed to the deck (blocked in gameplay — boats steer between).
+    for (let z = 0; z < CS; z++)
+      for (let x = 0; x < CS; x++) {
+        const d0 = ch.decor[z * CS + x];
+        if (typeof d0 !== "string" || !d0.startsWith("stone_bridge")) continue;
+        const wx2 = bx + x, wz2 = by + z;
+        // piers under a river-spanning building rise to that building's slab
+        // and get no parapets (the building provides the walls above)
+        const inB = insideB(wx2, wz2);
+        const deck = (inB ? rawStep(inB.x0 + (inB.w >> 1), inB.y0 + (inB.h >> 1))
+                          : bridgeDeckY(wx2, wz2)) + FLOOR_T;
+        if (d0 === "stone_bridge#p") {
+          const y0 = gys[z * CS + x] - 0.4; // riverbed under the water surface
+          sbWallFace(skirt, "wall_stone", wx2, wz2, wx2 + 1, wz2, y0, deck, SH_N * 0.9);
+          sbWallFace(skirt, "wall_stone", wx2, wz2 + 1, wx2 + 1, wz2 + 1, y0, deck, SH_S * 0.9);
+          sbWallFace(skirt, "wall_stone", wx2, wz2, wx2, wz2 + 1, y0, deck, SH_W * 0.9);
+          sbWallFace(skirt, "wall_stone", wx2 + 1, wz2, wx2 + 1, wz2 + 1, y0, deck, SH_E * 0.9);
+        }
+        if (inB) continue; // no parapets/fascia inside a building undercroft
+        const sides = [
+          [wx2, wz2 + 1, wx2, wz2 + 1, wx2 + 1, wz2 + 1, SH_S],
+          [wx2, wz2 - 1, wx2 + 1, wz2, wx2, wz2, SH_N],
+          [wx2 - 1, wz2, wx2, wz2, wx2, wz2 + 1, SH_W],
+          [wx2 + 1, wz2, wx2 + 1, wz2 + 1, wx2 + 1, wz2, SH_E],
+        ];
+        for (const [nx, nz, ax, az, bx3, bz3, shd] of sides) {
+          if ((world.getDecor(nx, nz) || "").startsWith("stone_bridge")) continue; // span continues
+          const ng = world.isWater(nx, nz) ? null : groundY(nx, nz);
+          if (ng == null || ng < deck - 0.6) {
+            sbWallFace(skirt, "wall_stone", ax, az, bx3, bz3, deck, deck + 0.5, shd);
+            sbWallFace(skirt, "wall_stone", ax, az, bx3, bz3, deck - 0.4, deck, shd * 0.75);
+          } else if (ng < deck - 0.01) {
+            sbWallFace(skirt, "wall_stone", ax, az, bx3, bz3, ng, deck, shd * 0.8);
+          }
+        }
+      }
+    // pickable too: pointing at a terrace riser must select the tile at its
+    // base — without this the pick ray passes through the cliff face into
+    // the hill and lands far beyond the crest (cursor popping uphill)
+    group.userData.skirtMesh = sbMesh(skirt, sharedMat, recShim, group);
+    // upright decor billboards. Building/city walls and roofs are NOT drawn
+    // here any more — the structure system builds them as real geometry from
+    // the building/village records; wall decor with a "#dir" side tag belongs
+    // to a structure and is skipped entirely.
+    const decorObjs = group.userData.decorObjs = [];
+    // shadow casters, baked into direction-specific meshes by buildChunkShadow
+    // (rebuilt when the camera/sun rotates): sprite silhouettes + solid blocks
+    const shSprites = group.userData.shSprites = []; // {key, cx, cz, len}
+    const shBlocks = group.userData.shBlocks = [];   // {x0, z0, x1, z1, len}
+    // static wall blocks (bare maze/ruins wall decor) share the atlas material,
+    // so their quads are appended straight into a second baked geometry
+    const wpos = [], wuvs = [], widx = [];
+    let wn = 0;
+    const wallQuad = (key, ax, ay, az, bx2, by2, bz2, cx2, cy2, cz2, dx2, dy2, dz2) => {
+      const cell = atlas.cells[key];
+      if (!cell) return;
+      const u0 = (cell.cx + 0.5) / AW, u1 = (cell.cx + CSZ - 0.5) / AW;
+      const v1 = 1 - (cell.cy + 0.5) / AH, v0 = 1 - (cell.cy + CSZ - 0.5) / AH;
+      wpos.push(ax, ay, az, bx2, by2, bz2, cx2, cy2, cz2, dx2, dy2, dz2);
+      wuvs.push(u0, v0, u1, v0, u1, v1, u0, v1);
+      widx.push(wn, wn + 1, wn + 2, wn, wn + 2, wn + 3);
+      wn += 4;
+    };
+    for (let z = 0; z < CS; z++)
+      for (let x = 0; x < CS; x++) {
+        const d = ch.decor[z * CS + x];
+        if (!d || FLAT_DECOR.has(d)) continue;
+        if (d.startsWith("stone_bridge")) continue; // real deck/parapet/pier geometry above
+        const dk = d.includes('#') ? d.split('#')[0] : d; // strip the n/s/e/w side tag
+        const tgy = gys[z * CS + x];
+        if (dk.startsWith("wall_") && !BILLBOARD_WALL.has(dk)) {
+          if (d.includes('#')) continue; // structural wall — drawn by the structure system
+          // free-standing ruin/maze wall: a low solid block on the tile
+          const key = dk === "wall_stone" ? "wall_stone" : "wall_wood";
+          const wx0 = bx + x, wz0 = by + z, y0 = tgy, wh = tgy + 1.0;
+          wallQuad(key, wx0, y0, wz0 + 1, wx0 + 1, y0, wz0 + 1, wx0 + 1, wh, wz0 + 1, wx0, wh, wz0 + 1); // S
+          wallQuad(key, wx0 + 1, y0, wz0, wx0, y0, wz0, wx0, wh, wz0, wx0 + 1, wh, wz0);                 // N
+          wallQuad(key, wx0, y0, wz0, wx0, y0, wz0 + 1, wx0, wh, wz0 + 1, wx0, wh, wz0);                 // W
+          wallQuad(key, wx0 + 1, y0, wz0 + 1, wx0 + 1, y0, wz0, wx0 + 1, wh, wz0, wx0 + 1, wh, wz0 + 1); // E
+          wallQuad(key, wx0, wh, wz0 + 1, wx0 + 1, wh, wz0 + 1, wx0 + 1, wh, wz0, wx0, wh, wz0);         // top
+          shBlocks.push({ x0: wx0 + 0.1, z0: wz0 + 0.1, x1: wx0 + 0.9, z1: wz0 + 0.9, len: 1.1 });
+          continue;
+        }
+        // decor with a matching packed object renders as a dynamic 8-directional
+        // billboard (placed per-frame by syncDecor) rather than a baked flat sprite.
+        const ov = objForKey(dk);
+        if (ov) { decorObjs.push({ wx: bx + x + 0.5, wz: by + z + 0.5, idx: ov.idx, scale: ov.scale }); continue; }
+        const isPine = dk === "tree_pine";
+        const m = new THREE.Mesh(geomFor(d), sharedMat);
+        if (isPine) {
+          m.position.set(bx + x + 0.5, tgy + 0.65, by + z + 0.5);
+          m.scale.set(1, 1.3, 1);
+        } else {
+          m.position.set(bx + x + 0.5, tgy + 0.5, by + z + 0.5);
+        }
+        m.rotation.x = -0.42;
+        m.matrixAutoUpdate = false;
+        m.updateMatrix();
+        group.add(m);
+        // the sprite silhouette (length = its drawn height) casts the shadow,
+        // baked for the current sun direction by buildChunkShadow
+        shSprites.push({ key: d, cx: bx + x + 0.5, cz: by + z + 0.5, len: isPine ? 1.3 : 1.0 });
+      }
+    if (wn) {
+      const wg = new THREE.BufferGeometry();
+      wg.setAttribute("position", new THREE.Float32BufferAttribute(wpos, 3));
+      wg.setAttribute("uv", new THREE.Float32BufferAttribute(wuvs, 2));
+      wg.setIndex(widx);
+      const wmesh = new THREE.Mesh(wg, sharedMat);
+      wmesh.matrixAutoUpdate = false;
+      group.add(wmesh);
+      group.userData.wallGeom = wg;
+    }
+    buildChunkShadow(group);
+    scene.add(group);
+    return group;
+  }
+
+  // (Re)build a chunk's baked shadow meshes for the current sun direction.
+  // Two meshes: textured sprite silhouettes and gradient decor blocks. Called
+  // on chunk create and whenever the camera (hence the sun) rotates.
+  function buildChunkShadow(group) {
+    for (const old of group.userData.shadowMeshes || []) { group.remove(old); old.geometry.dispose(); }
+    group.userData.shadowMeshes = [];
+    if (!SHADOWS || !sunState.up) return;              // night: no cast shadows
+    const [sdx, sdz] = sunDir();
+    const SL = sunState.len;                           // sun-elevation length multiplier
+    const yOf = (tx, tz) => groundY(tx, tz) + 0.025;
+    const sil = newSB();
+    for (const s of group.userData.shSprites || [])
+      bakeSil(sil, s.key, s.cx, s.cz, s.len * SL, 0.5, sdx, sdz, yOf);
+    const silM = sbMesh(sil, shadowMatFor(sharedMat), { geoms: [] }, group);
+    if (silM) { silM.renderOrder = 2; group.userData.shadowMeshes.push(silM); }
+    const shb = newSH();
+    for (const b of group.userData.shBlocks || [])
+      bakeBlockShadow(shb, b.x0, b.z0, b.x1, b.z1, b.len * SL, sdx, sdz, yOf);
+    const blkM = shMesh(shb, null, group);
+    if (blkM) { blkM.renderOrder = 2; group.userData.shadowMeshes.push(blkM); }
+  }
+
+  // (Re)build a structure's baked ground shadow for the current sun direction.
+  // Each shadowFoot is a footprint rect stretched by its height; group-relative
+  // heights drape over terrain steps. Called on create and on sun rotation.
+  function buildStructShadow(rec) {
+    for (const old of rec.shadowMeshes || []) { rec.group.remove(old); old.geometry.dispose(); }
+    rec.shadowMeshes = [];
+    if (!SHADOWS || !sunState.up) return;              // night: no cast shadows
+    const [sdx, sdz] = sunDir();
+    const SL = sunState.len;
+    const yOf = (tx, tz) => groundY(tx, tz) - rec.baseTier + 0.02;
+    const sh = newSH();
+    for (const f of rec.shadowFeet || [])
+      bakeBlockShadow(sh, f.x0, f.z0, f.x1, f.z1, f.len * SL, sdx, sdz, yOf);
+    const m = shMesh(sh, null, rec.group);
+    if (m) { m.renderOrder = 2; rec.shadowMeshes.push(m); }
+  }
+
+  // How far (in tiles, from the player) the ground actually reaches the screen
+  // corners at the current zoom — measured empirically as ~18.4*camZoom+13, so
+  // the loaded world always covers the view with a small margin.  A floor keeps
+  // the near-zoom draw distance at least as generous as the old fixed radii.
+  function viewRadius() { return Math.max(48, 19 * (typeof camZoom !== "undefined" ? camZoom : 1) + 20); }
+  // chunks to build each side: enough that the axis-aligned 5x5..NxN square
+  // contains that reach even with the player at the far edge of their chunk.
+  function chunkRadius() { return Math.min(8, Math.max(2, Math.ceil((viewRadius() + 4) / 32))); }
+
+  function syncChunks() {
+    syncRoadWorker();
+    const CS = world.CHUNK;
+    const pcx = Math.floor(player.x / CS), pcy = Math.floor(player.y / CS);
+    const R = chunkRadius(); // loaded neighborhood grows with zoom-out so the
+                             // world fills the screen to the edges (no void)
+    const want = new Set();
+    const missing = [];
+    for (let cy = pcy - R; cy <= pcy + R; cy++)
+      for (let cx = pcx - R; cx <= pcx + R; cx++) {
+        const key = cx + "," + cy;
+        want.add(key);
+        if (!chunkMeshes.has(key))
+          missing.push({ cx, cy, key, d: Math.max(Math.abs(cx - pcx), Math.abs(cy - pcy)) });
+      }
+    // Amortized building. Walking across a chunk border used to stack five
+    // ~100ms mesh builds (plus inline data generation) into a single frame —
+    // the "new region" hitch. Now, per frame, the outer ring advances ONE
+    // step of a three-stage pipeline per chunk, nearest-first (fog hides the
+    // edge, so the staggering is invisible):
+    //   1. generate the chunk's 3x3 DATA neighbourhood (one chunk per frame —
+    //      groundY probes reach into the margins);
+    //   2. pre-warm the fresh groundY pass a ~6ms slice per frame (it was
+    //      the expensive half of every build);
+    //   3. build the mesh, which now only pays for geometry.
+    // Chunks under/beside the player still build immediately (boot,
+    // teleports — a hole there is visible).
+    missing.sort((a, b) => a.d - b.d);
+    let built = 0, worked = false;
+    for (const m of missing) {
+      if (m.d > 1 && (built || worked)) break;
+      if (m.d > 1) {
+        // stage 1: data neighbourhood
+        if (world.chunks) {
+          let need = null;
+          n3: for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++)
+              if (!world.chunks.has((m.cx + dx) + "," + (m.cy + dy))) { need = [m.cx + dx, m.cy + dy]; break n3; }
+          if (need) { world.getChunk(need[0], need[1]); worked = true; break; }
+        }
+        // stage 2: groundY warm slice
+        let row = warmRows.get(m.key) || 0;
+        if (row < CS) {
+          const t0 = performance.now();
+          while (row < CS && performance.now() - t0 < 6) {
+            for (let x = 0; x < CS; x++) groundY(m.cx * CS + x, m.cy * CS + row);
+            row++;
+          }
+          if (row < CS) { warmRows.set(m.key, row); worked = true; break; }
+        }
+        warmRows.delete(m.key);
+      }
+      // stage 3 (or adjacent-to-player immediate): the mesh itself.
+      // quarantine failures: a bad chunk must render as a hole, not
+      // re-throw every frame (which freezes the whole renderer)
+      let g;
+      const _t0 = performance.now();
+      try { g = buildChunkMesh(m.cx, m.cy); }
+      catch (e) {
+        console.error("chunk mesh build failed at", m.key, e);
+        g = new THREE.Group();
+        g.userData.groundGeom = new THREE.BufferGeometry();
+        scene.add(g);
+      }
+      meshLog.push({ key: m.key, ms: Math.round(performance.now() - _t0) });
+      if (meshLog.length > 200) meshLog.splice(0, 100);
+      chunkMeshes.set(m.key, g);
+      built++;
+    }
+    // Data prefetch: on fully idle frames, pre-generate the DATA of one chunk
+    // a ring beyond the mesh radius, so the pipeline above rarely finds a
+    // missing neighbourhood in the first place.
+    if (!built && !worked && world.chunks) {
+      prefetch: for (let r = 0; r <= R + 1; r++)
+        for (let cy = pcy - r; cy <= pcy + r; cy++)
+          for (let cx = pcx - r; cx <= pcx + r; cx++) {
+            if (Math.max(Math.abs(cx - pcx), Math.abs(cy - pcy)) !== r) continue;
+            if (world.chunks.has(cx + "," + cy)) continue;
+            world.getChunk(cx, cy);
+            break prefetch;
+          }
+    }
+    for (const [key, group] of chunkMeshes) {
+      if (want.has(key)) continue;
+      scene.remove(group);
+      group.userData.groundGeom.dispose();
+      if (group.userData.wallGeom) group.userData.wallGeom.dispose();
+      for (const sm of group.userData.shadowMeshes || []) sm.geometry.dispose();
+      for (const eg of group.userData.extraGeoms || []) eg.dispose();
+      chunkMeshes.delete(key);
+    }
+    // sea floor follows the player so the horizon is never void (ocean/river
+    // tiles sit at -STEP_H, so the backdrop plane sits just beneath them;
+    // ponds and springs float higher, at their own banks)
+    sea.position.set(WX(player.px), -STEP_H - 0.12, WX(player.py));
+  }
+
+  function initSea() {
+    const seaMat = new THREE.MeshBasicMaterial({ color: 0x3c7c9e });
+    tintPatch(seaMat);   // the sea backdrop reflects the sky's temperature
+    sea = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), seaMat);
+    sea.rotation.x = -Math.PI / 2;
+    sea.position.y = -STEP_H - 0.12;
+    scene.add(sea);
+  }
+
+  // ---------- dynamic mesh helpers ----------
+  function getMesh(id, key, opts = {}) {
+    let m = meshes.get(id);
+    if (m && m.userData.isObj) { scene.remove(m); if (m.userData.shadow) scene.remove(m.userData.shadow); meshes.delete(id); m = null; }
+    if (!m) {
+      m = new THREE.Mesh(geomFor(key), opts.ownMat ? sharedMat.clone() : sharedMat);
+      m.userData.key = key;
+      scene.add(m);
+      if (opts.shadow && SHADOWS) {
+        const s = new THREE.Mesh(m.geometry, shadowMatFor(sharedMat));
+        s.renderOrder = 2;   // after the ground in the transparent pass, or the chunk mesh can overdraw it
+        m.userData.shadow = s;
+        scene.add(s);
+      }
+      meshes.set(id, m);
+    }
+    if (m.userData.key !== key) {
+      m.geometry = geomFor(key);
+      m.userData.key = key;
+    }
+    m.userData.seen = true;
+    m.visible = true;
+    return m;
+  }
+  const TILT = -0.42; // lean billboards toward the tilted camera (HD-2D look)
+
+  // ---- stepped terrain altitude (retired prototype half-block style) ----
+  // Elevation is quantized to half-block tiers using the same curve the LC
+  // engine bridge used (round(pow(rel,1.15)*18) tiers). Water sits at a
+  // per-body surface level (waterLevelAt): big bodies one half step below the
+  // coast so rivers carve visible channels, small patches just below their own
+  // banks. Terrain under a building footprint (+1 ring) is flattened to the
+  // building's centre tier.
+  const STEP_H = 0.5;
+  const groundYCache = new Map();
+  // per-section time accumulators for the fresh-tile groundY pass (perf triage)
+  const gyPerf = { water: 0, bld: 0, bank: 0, terr: 0, gate: 0, n: 0 };
+  // memoized: the elevation noise behind heightAt is the single hottest call
+  // in a fresh chunk's groundY pass (bankStep alone samples 8 neighbours per
+  // tile). Terrain is static per seed, so entries never invalidate.
+  const rawStepCache = new Map();
+  function rawStep(wx, wy) {
+    const k = wx + "," + wy;
+    let v = rawStepCache.get(k);
+    if (v !== undefined) return v;
+    const e = world.heightAt(wx, wy);
+    const rel = Math.max(0, (e - world.LAND_ELEVATION) / (1 - world.LAND_ELEVATION));
+    // one half-block tier per 2% of the displayed altitude (Alt% = rel*100)
+    v = Math.round(rel * 50) * STEP_H;
+    if (rawStepCache.size > 200000) rawStepCache.clear();
+    rawStepCache.set(k, v);
+    return v;
+  }
+  // memoized world.insideBuilding: bldAt walks a 3x3 chunk neighbourhood per
+  // call, and groundY probes a 3x3 TILE ring per fresh tile — 81 chunk-map
+  // walks a tile without this. Buildings are static per seed.
+  const bldAtCache = new Map();
+  function insideB(x, y) {
+    const k = x + "," + y;
+    let v = bldAtCache.get(k);
+    if (v === undefined) {
+      v = world.insideBuilding(x, y);
+      if (bldAtCache.size > 200000) bldAtCache.clear();
+      bldAtCache.set(k, v);
+    }
+    return v;
+  }
+  // buildings whose river-terracing / door forecourts can reach a 16x16-tile
+  // cell — one allocation per cell instead of two per fresh tile. Superset of
+  // the old per-tile buildingsNear queries; the distance checks in groundY do
+  // the real filtering either way.
+  const bldsCellCache = new Map();
+  function buildingsNearCell(wx, wy) {
+    const k = (wx >> 4) + "," + (wy >> 4);
+    let v = bldsCellCache.get(k);
+    if (v === undefined) {
+      v = world.buildingsNear(((wx >> 4) << 4) + 8, ((wy >> 4) << 4) + 8, 24);
+      if (bldsCellCache.size > 20000) bldsCellCache.clear();
+      bldsCellCache.set(k, v);
+    }
+    return v;
+  }
+
+  // per-chunk water mask for fast neighbourhood scans: 0 = land, 1 = water at
+  // sea-level elevation (ocean/lakes), 2 = water carved through land (rivers
+  // and erosion-basin ponds — raw elevation is above the coast line), 3 =
+  // water under a stone_bridge deck (incl. "#p" piers), 4 = land under a
+  // stone_bridge deck (the approach span over the bank slope)
+  const waterBitsCache = new Map(); // "cx,cy" -> Uint8Array(CHUNK*CHUNK)
+  function waterBitsFor(cx, cy) {
+    const key = cx + "," + cy;
+    let bits = waterBitsCache.get(key);
+    if (!bits) {
+      const CS = world.CHUNK;
+      const ch = world.getChunk(cx, cy);
+      bits = new Uint8Array(CS * CS);
+      bits.br = false; // any bridge tile in this chunk (fast gate for scans)
+      bits.cw = false; // any carved water (bits 2/3) — fast gate for bankStep
+      bits.pure1 = true; // nothing but open sea-level water (fast waterLevelAt)
+      for (let i = 0; i < CS * CS; i++) {
+        const bridge = typeof ch.decor[i] === "string" && ch.decor[i].startsWith("stone_bridge");
+        if (bridge) bits.br = true;
+        if (isWaterKey(ch.ground[i])) {
+          if (bridge) { bits[i] = 3; bits.cw = true; }
+          else {
+            const e = world.heightAt(cx * CS + (i % CS), cy * CS + (i / CS | 0));
+            bits[i] = e >= world.LAND_ELEVATION ? 2 : 1;
+            if (bits[i] === 2) bits.cw = true;
+          }
+        } else if (bridge) bits[i] = 4;
+        if (bits[i] !== 1) bits.pure1 = false;
+      }
+      if (waterBitsCache.size > 256) waterBitsCache.clear();
+      waterBitsCache.set(key, bits);
+    }
+    return bits;
+  }
+  function waterBit(wx, wy) {
+    const CS = world.CHUNK, cx = Math.floor(wx / CS), cy = Math.floor(wy / CS);
+    return waterBitsFor(cx, cy)[(wy - cy * CS) * CS + (wx - cx * CS)];
+  }
+  // any bridge decor within the 17x17 box around (wx,wy)? — cheap chunk-flag
+  // gate so the terrace scan doesn't run for every land tile in the world
+  function bridgeInBox(wx, wy) {
+    const CS = world.CHUNK;
+    const cx0 = Math.floor((wx - 8) / CS), cx1 = Math.floor((wx + 8) / CS);
+    const cy0 = Math.floor((wy - 8) / CS), cy1 = Math.floor((wy + 8) / CS);
+    for (let cy = cy0; cy <= cy1; cy++)
+      for (let cx = cx0; cx <= cx1; cx++)
+        if (waterBitsFor(cx, cy).br) return true;
+    return false;
+  }
+
+  // Water surface level per connected body. Small patches (springs, puddles,
+  // ponds — including inland erosion basins whose raw elevation is high) sit
+  // one half step below the lowest land tile on their rim, so they no longer
+  // plunge to sea level. Anything whose fill overruns the caps (ocean, lakes,
+  // rivers) keeps the carved-channel level one half step below the coast.
+  const POND_CAP = 400, POND_R = 24;
+  const wlPerf = { fills: 0, crawlMs: 0, tiles: 0 }; // fill-cost triage
+  const waterLevelCache = new Map(); // "x,y" -> surface y
+  // ---- river flood (weather.js floodNow) ----
+  // floodLvl is the QUANTIZED flood bucket the world is currently baked at:
+  // carved water (rivers/ponds, waterBit 2/3) rides up to +0.35 above its
+  // resting surface, banks re-terrace to the higher line, and the affected
+  // chunk meshes rebuild a couple per frame when the bucket moves (see the
+  // frame() hook). The open sea never rises.
+  let floodLvl = 0;
+  const _floodRebuild = [];
+  function waterLevelAt(wx, wy) {
+    const v = waterLevelBase(wx, wy);
+    if (floodLvl > 0) {
+      const b = waterBit(wx, wy);
+      if (b === 2 || b === 3) return v + floodLvl * 0.35;
+    }
+    return v;
+  }
+  function waterLevelBase(wx, wy) {
+    const key = wx + "," + wy;
+    let v = waterLevelCache.get(key);
+    if (v !== undefined) return v;
+    // deep-sea shortcut: when the tile's 3x3 chunk neighbourhood is nothing
+    // but open sea-level water, the flood fill below provably overruns the
+    // pond cap with no carved tiles in reach — the level is exactly -½. Sea
+    // chunks used to spend ~120ms re-crawling overlapping fills for this.
+    {
+      const CSc = world.CHUNK;
+      const ccx = Math.floor(wx / CSc), ccy = Math.floor(wy / CSc);
+      let pure = true;
+      for (let dy = -1; dy <= 1 && pure; dy++)
+        for (let dx = -1; dx <= 1; dx++)
+          if (!waterBitsFor(ccx + dx, ccy + dy).pure1) { pure = false; break; }
+      if (pure) {
+        waterLevelCache.set(key, -STEP_H);
+        return -STEP_H;
+      }
+    }
+    const _w0 = performance.now(); wlPerf.fills++;
+    // numeric visit keys: the crawl touches up to ~2000 tiles and string keys
+    // dominated its cost in profiles (open-sea chunks were ~150ms each)
+    const NK = (x, y) => x * 1048576 + y;
+    const seen = new Set([NK(wx, wy)]);
+    const queue = [[wx, wy]];
+    const tiles = [[wx, wy]]; // water tiles only (queue also crawls bridge decks)
+    let minLand = Infinity, big = false;
+    let anyCarved = waterBit(wx, wy) >= 2;
+    for (let i = 0; i < queue.length; i++) {
+      const [tx, ty] = queue[i];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = tx + dx, ny = ty + dy, nk = NK(nx, ny);
+        if (seen.has(nk)) continue;
+        const outside = Math.abs(nx - wx) > POND_R || Math.abs(ny - wy) > POND_R;
+        const nb = waterBit(nx, ny);
+        if (nb >= 1 && nb <= 3) {
+          if (nb >= 2) anyCarved = true;
+          if (tiles.length >= POND_CAP || outside) { big = true; continue; }
+          seen.add(nk);
+          queue.push([nx, ny]);
+          tiles.push([nx, ny]);
+        } else if (world.getGround(nx, ny) === "floor_wood") {
+          // bridge deck / pier: water flows under it — crawl through so a
+          // bridge doesn't split a river into two bodies, and don't let the
+          // deck count as a rim land tile
+          if (!outside) { seen.add(nk); queue.push([nx, ny]); }
+        } else {
+          const s = rawStep(nx, ny);
+          if (s < minLand) minLand = s;
+        }
+      }
+    }
+    const base = big || minLand === Infinity ? -STEP_H : minLand - STEP_H;
+    if (waterLevelCache.size > 50000) waterLevelCache.clear();
+    // open sea / big natural lakes with no carved tiles in the batch: every
+    // tile sits at exactly base (-½) — the source ramps, cache reconciliation
+    // and relaxation below would all be no-ops, and they were the bulk of a
+    // sea chunk's build time
+    wlPerf.crawlMs += performance.now() - _w0;
+    wlPerf.tiles += tiles.length;
+    if (big && !anyCarved) {
+      for (const [tx, ty] of tiles) waterLevelCache.set(tx + "," + ty, base);
+      return base;
+    }
+    // Near a spring the water surface climbs back up to ground level: level
+    // rises one half step per 2 tiles of arc distance from the source, capped
+    // just below the spring's own ground tier. Adjacent water tiles then sit
+    // on different half-block tiers, and the cliff-skirt pass draws the steps
+    // between them in the water's own art — a stepped cascade.
+    const lvl = new Map();
+    for (const [tx, ty] of tiles) {
+      let lv = base;
+      if (waterBit(tx, ty) >= 2 && world.riverSourceAt) {
+        const s = world.riverSourceAt(tx, ty);
+        if (s) {
+          const top = rawStep(s.sx, s.sy) - STEP_H;
+          const ramp = top - Math.floor(s.d / 2) * STEP_H;
+          if (ramp > lv) lv = ramp;
+        }
+      }
+      lvl.set(tx + "," + ty, lv);
+    }
+    // Smooth the cascade: the surface never drops more than half a step
+    // between adjacent tiles (arc-distance quirks in the source ramp could
+    // jump a full tier where the polyline bends). Big bodies (rivers) also
+    // reconcile against already-cached neighbouring fill batches of the same
+    // river — first lift tiles to within half a step of a higher cached
+    // neighbour, then cap everything downward. Small fills (ponds) never
+    // consult the cache, so a pond stays perched above the channel it feeds.
+    if (big)
+      for (const [tx, ty] of tiles) {
+        const k2 = tx + "," + ty;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nk = (tx + dx) + "," + (ty + dy);
+          if (lvl.has(nk)) continue;
+          const nl = waterLevelCache.get(nk);
+          if (nl !== undefined && nl - STEP_H > lvl.get(k2)) lvl.set(k2, nl - STEP_H);
+        }
+      }
+    for (let pass = 0; pass < 16; pass++) {
+      let changed = false;
+      for (const [tx, ty] of tiles) {
+        const k2 = tx + "," + ty;
+        let cap = Infinity;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nk = (tx + dx) + "," + (ty + dy);
+          let nl = lvl.get(nk);
+          if (nl === undefined && big) nl = waterLevelCache.get(nk);
+          if (nl !== undefined && nl + STEP_H < cap) cap = nl + STEP_H;
+        }
+        if (cap < lvl.get(k2)) { lvl.set(k2, cap); changed = true; }
+      }
+      if (!changed) break;
+    }
+    for (const [k2, lv] of lvl) waterLevelCache.set(k2, lv);
+    return waterLevelCache.get(key);
+  }
+
+  // River banks: land near water that was carved through the terrain steps
+  // down toward the water surface over BANK_R tiles (a terraced slope) instead
+  // of dropping in one sheer cliff skirt. Only carved water (bit 2) ramps —
+  // coastal cliffs over the sea keep their sheer faces — and ponds sitting
+  // just below their own banks barely move the terrain at all.
+  const BANK_R = 6;
+  function bankStep(wx, wy, raw) {
+    // fast path: no carved water (bits 2/3) in any chunk overlapping the scan
+    // box → the tile keeps its raw tier. The unconditional 13x13 waterBit
+    // scan below was the single hottest loop in fresh-chunk building; away
+    // from rivers (most of the world) it never needs to run at all.
+    const CS = world.CHUNK;
+    const cx0 = Math.floor((wx - BANK_R) / CS), cx1 = Math.floor((wx + BANK_R) / CS);
+    const cy0 = Math.floor((wy - BANK_R) / CS), cy1 = Math.floor((wy + BANK_R) / CS);
+    let near = false;
+    for (let cy = cy0; cy <= cy1 && !near; cy++)
+      for (let cx = cx0; cx <= cx1; cx++)
+        if (waterBitsFor(cx, cy).cw) { near = true; break; }
+    if (!near) return raw;
+    let best = raw;
+    for (let dy = -BANK_R; dy <= BANK_R; dy++)
+      for (let dx = -BANK_R; dx <= BANK_R; dx++) {
+        const wb2 = (dx || dy) ? waterBit(wx + dx, wy + dy) : 0;
+        if (wb2 === 2 || wb2 === 3) {
+          const wY = waterLevelAt(wx + dx, wy + dy);
+          if (wY >= raw - STEP_H) continue; // already at bank level
+          const d = Math.max(Math.abs(dx), Math.abs(dy));
+          const v2 = wY + (raw - wY) * d / (BANK_R + 1);
+          if (v2 < best) best = v2;
+        }
+      }
+    // quantize back onto half-block tiers, staying above the water surface
+    return best === raw ? raw : Math.ceil(best / STEP_H - 1e-4) * STEP_H;
+  }
+  // Deck altitude for a bridge tile: ONE flat level for the whole crossing —
+  // the highest raw tier over the connected bridge component (water span AND
+  // the bank-slope approaches), i.e. the higher bank top. Component-based →
+  // deterministic across chunk borders (any seed floods the same component).
+  // A span over SEA-level water (a strait/bay overpass) additionally gets a
+  // clearance floor: open-sea shores sit at tier ~0 so bank-top alone would
+  // lay the deck on the surface — the floor lifts it so boats sail under
+  // (passable() needs > 1.01 world units of air over the water at -0.5).
+  // The floor RISES WITH SPAN LENGTH: short hops stay a low footbridge, long
+  // strait crossings arch up to SEA_DECK_MAX so tall ships (boatClearance —
+  // a man-o'-war needs ~2.4 of air) pass beneath. Stepped every SEA_SPAN_STEP
+  // sea tiles of the component (~30 tiles of crossing at the ~3-wide deck),
+  // and capped so the shore terracing ramp (8 tiles, ½ block per tile) can
+  // still climb the approaches.
+  const SEA_DECK_MIN = 2 * STEP_H, SEA_DECK_MAX = 6 * STEP_H, SEA_SPAN_STEP = 90;
+  const deckYCache = new Map();
+  function bridgeDeckY(wx, wy) {
+    const key = wx + "," + wy;
+    let v = deckYCache.get(key);
+    if (v !== undefined) return v;
+    const seen = new Set([key]);
+    const tiles = [[wx, wy]];
+    v = rawStep(wx, wy);
+    const overSea = (x, y) => waterBit(x, y) === 3 &&
+      world.heightAt(x, y) < world.LAND_ELEVATION;
+    let seaN = overSea(wx, wy) ? 1 : 0;
+    // cap sized for long sea overpasses (a strait crossing is hundreds of
+    // deck tiles); river crossings stay tiny so the old behaviour is intact
+    for (let i = 0; i < tiles.length && tiles.length < 6000; i++) {
+      const [tx, ty] = tiles[i];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = tx + dx, ny = ty + dy, nk = nx + "," + ny;
+        if (seen.has(nk)) continue;
+        const b2 = waterBit(nx, ny);
+        if (b2 !== 3 && b2 !== 4) continue;
+        seen.add(nk);
+        tiles.push([nx, ny]);
+        const s = rawStep(nx, ny);
+        if (s > v) v = s;
+        if (b2 === 3 && overSea(nx, ny)) seaN++;
+      }
+    }
+    if (seaN > 0) {
+      const floor2 = Math.min(SEA_DECK_MAX,
+        SEA_DECK_MIN + Math.floor(seaN / SEA_SPAN_STEP) * STEP_H);
+      if (v < floor2) v = floor2;
+    }
+    if (deckYCache.size > 20000) deckYCache.clear();
+    for (const [tx, ty] of tiles) deckYCache.set(tx + "," + ty, v);
+    return v;
+  }
+
+  // city-gate positions that can affect terrain near a 16x16-tile cell —
+  // cached so the per-tile groundY pass isn't paying a villagesNear walk for
+  // every fresh tile (that showed up in chunk-build profiles)
+  const gateCellCache = new Map();
+  function gatesNearCell(wx, wy) {
+    const key = (wx >> 4) + "," + (wy >> 4);
+    let v = gateCellCache.get(key);
+    if (v === undefined) {
+      v = [];
+      if (world.walledVillagesNear)
+        for (const v2 of world.walledVillagesNear(wx, wy, 40)) {
+          const R2 = v2.R;
+          for (const g of [[v2.x - R2, v2.y], [v2.x + R2, v2.y], [v2.x, v2.y - R2], [v2.x, v2.y + R2]])
+            if (Math.abs(g[0] - wx) < 40 && Math.abs(g[1] - wy) < 40) v.push(g);
+        }
+      if (gateCellCache.size > 4000) gateCellCache.clear();
+      gateCellCache.set(key, v);
+    }
+    return v;
+  }
+  function groundY(wx, wy) {
+    const key = wx + "," + wy;
+    let v = groundYCache.get(key);
+    if (v !== undefined) return v;
+    const _t0 = performance.now(); gyPerf.n++;
+    if (world.isWater(wx, wy)) { v = waterLevelAt(wx, wy); gyPerf.water += performance.now() - _t0; }
+    else {
+      let b = null;
+      outer: for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          b = insideB(wx + dx, wy + dy);
+          if (b) break outer;
+        }
+      // river-spanning buildings keep their hollow passage: the bank strip
+      // inside the footprint (natural ground) and the water-adjacent ring
+      // tiles at the passage mouths ramp like any river bank instead of
+      // flattening to the building tier
+      if (b) {
+        const hollow =
+          (insideB(wx, wy) &&
+            !String(world.getGround(wx, wy)).startsWith("floor")) ||
+          (b.river && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+            const wb3 = waterBit(wx + dx, wy + dy);
+            return wb3 >= 1 && wb3 <= 3;
+          }));
+        if (hollow) b = null;
+      }
+      const _t1 = performance.now(); gyPerf.bld += _t1 - _t0;
+      if (b) v = rawStep(b.x0 + (b.w >> 1), b.y0 + (b.h >> 1));
+      else {
+        const raw = rawStep(wx, wy);
+        if (world.getGround(wx, wy) === "floor_wood") {
+          // free-standing pier deck over the sea: ride one half step above
+          // the water it crosses, not the raw tier. waterLevelAt's fill
+          // crawls through deck tiles, so seeding it from the deck itself
+          // finds the body's level even mid-deck.
+          v = Math.min(raw, waterLevelAt(wx, wy) + STEP_H);
+        } else {
+          v = bankStep(wx, wy, raw);
+          const _t2 = performance.now(); gyPerf.bank += _t2 - _t1;
+          // Terrain near a crossing or a river building terraces UP toward the
+          // deck/plinth level — flat beside the structure, then one half block
+          // per tile down until it meets natural ground (no sheer causeway or
+          // flatten walls). Exempt: any tile touching water (8-neighbour, so
+          // the under-passage corridor never pinches on a diagonal channel
+          // curve) and any tile INSIDE a footprint (the hollow strip itself).
+          const inBldg = !!insideB(wx, wy);
+          let waterAdj = false;
+          for (let ay = -1; ay <= 1 && !waterAdj; ay++)
+            for (let ax = -1; ax <= 1; ax++) {
+              if (!ax && !ay) continue;
+              const wb4 = waterBit(wx + ax, wy + ay);
+              if (wb4 >= 1 && wb4 <= 3) { waterAdj = true; break; }
+            }
+          if (!waterAdj && !inBldg) {
+            for (const rb of buildingsNearCell(wx, wy))
+              if (rb.river) {
+                const ddx = Math.max(rb.x0 - wx, 0, wx - (rb.x0 + rb.w - 1));
+                const ddy = Math.max(rb.y0 - wy, 0, wy - (rb.y0 + rb.h - 1));
+                const d = Math.max(ddx, ddy);
+                if (d <= 8) {
+                  const t = rawStep(rb.x0 + (rb.w >> 1), rb.y0 + (rb.h >> 1)) -
+                    Math.max(0, d - 1) * STEP_H;
+                  if (t > v) v = t;
+                }
+              }
+            if (bridgeInBox(wx, wy))
+              for (let dy2 = -8; dy2 <= 8; dy2++)
+                for (let dx2 = -8; dx2 <= 8; dx2++) {
+                  const wb5 = waterBit(wx + dx2, wy + dy2);
+                  if (wb5 !== 3 && wb5 !== 4) continue;
+                  const dd = Math.max(Math.abs(dx2), Math.abs(dy2));
+                  const t = bridgeDeckY(wx + dx2, wy + dy2) - Math.max(0, dd - 1) * STEP_H;
+                  if (t > v) v = t;
+                }
+          }
+          const _t3 = performance.now(); gyPerf.terr += _t3 - _t2;
+          // door forecourts of river buildings stay flat at the plinth tier
+          // even right beside the water — the doorstep never sits in a dip
+          if (!inBldg)
+            for (const rb of buildingsNearCell(wx, wy))
+              if (rb.river) {
+                const m2 = world.buildingMeta(rb);
+                for (const d3 of [m2.door, m2.door2]) {
+                  if (!d3) continue;
+                  if (Math.max(Math.abs(wx - d3.x), Math.abs(wy - d3.y)) <= 2) {
+                    const t = rawStep(rb.x0 + (rb.w >> 1), rb.y0 + (rb.h >> 1));
+                    if (t > v) v = t;
+                  }
+                }
+              }
+          // city gates stand at ground level on even ground: within the gate
+          // apron the terrain snaps to the gate tile's own tier, then eases
+          // back to natural ground at half a step per tile so the road
+          // through the wall stays steppable and the leaves sit flush
+          for (const [gx2, gz2] of gatesNearCell(wx, wy)) {
+            const dd = Math.max(Math.abs(wx - gx2), Math.abs(wy - gz2));
+            if (dd > 5 || world.isWater(gx2, gz2)) continue; // river gates ride the deck
+            const t = rawStep(gx2, gz2);
+            if (dd <= 2) v = t;
+            else v = Math.max(t - (dd - 2) * STEP_H, Math.min(t + (dd - 2) * STEP_H, v));
+          }
+          gyPerf.gate += performance.now() - _t3;
+        }
+      }
+    }
+    if (groundYCache.size > 200000) groundYCache.clear();
+    groundYCache.set(key, v);
+    return v;
+  }
+
+  // entities stand on the terrain tier (plus the plinth slab inside
+  // buildings); the player can additionally be a whole storey up (ladders —
+  // playerLiftY, set per frame) or sunk below the water surface wading in
+  // deep sea (playerSink, subtracted into playerLiftY; kept separately so
+  // the overlay can find the surface again for the air bubbles)
+  let playerLiftY = 0, playerSink = 0;
+  // cursor level lock while under a span (pickTile): false = river level
+  // (default when player.deck === false), true = deck unlocked by hovering land
+  let pickHigh = false;
+  // The walkable overhead level of a two-level tile: bridge deck height, or a
+  // river-spanning building's floor slab; null for ordinary tiles.
+  function deckAt(tx, tz) {
+    // building first: piers inside a river building carry the building's own
+    // floor slab, not a bridge deck of their own
+    const b = insideB(tx, tz);
+    if (b && (world.isWater(tx, tz) || !String(world.getGround(tx, tz)).startsWith("floor")))
+      return rawStep(b.x0 + (b.w >> 1), b.y0 + (b.h >> 1)) + FLOOR_T;
+    if ((world.getDecor(tx, tz) || "").startsWith("stone_bridge"))
+      return bridgeDeckY(tx, tz) + FLOOR_T;
+    return null;
+  }
+  function liftAt(wx, wz) {
+    const tx = Math.floor(wx), tz = Math.floor(wz);
+    // two-level tiles: entities over WATER can only be standing on the deck;
+    // on the land strip underneath they walk the bank (the player's own
+    // deck/under choice is applied in playerLiftY, not here)
+    const d = deckAt(tx, tz);
+    if (d != null && world.isWater(tx, tz)) return d;
+    const g = world.getGround(tx, tz);
+    const gy = groundY(tx, tz);
+    return g === "floor_wood" || g === "floor_stone" ? gy + FLOOR_T : gy;
+  }
+  // ground lift for overlay projections given interpolated pixel coordinates
+  function liftPx(px, py) {
+    return groundY(Math.floor(px / (TILE * SCALE)), Math.floor(py / (TILE * SCALE)));
+  }
+  // is an entity/item on storey `lvl` (of the building at tx,tz) visible to the
+  // player? Ground level is always shown; an upper storey only when the player is
+  // inside that same building and up on (or above) that floor — otherwise it'd
+  // float above the ground-floor ceiling. Mirrors the NPC storey cull.
+  function levelVisible(tx, tz, lvl) {
+    lvl = lvl | 0;
+    if (lvl <= 0) return true;
+    if ((player.level | 0) < lvl) return false;
+    const pb = world.insideBuilding && world.insideBuilding(player.x, player.y);
+    const tb = world.insideBuilding && world.insideBuilding(tx, tz);
+    return !!(pb && tb && pb === tb);
+  }
+  // ---- silhouette shadows (sun-driven) ----
+  // Every shadowed billboard gets a sprite silhouette laid flat on the ground
+  // along the SUN's current ground direction — the sun is world-anchored and
+  // driven by the day/night clock (daynight.js), not the camera:
+  //   · azimuth: the sun arcs east → south → west across the daylight window
+  //     (continuous sunPhase when available), so shadows sweep west → north →
+  //     east through the day and stay put as the camera orbits;
+  //   · length: long at dawn/dusk, short at noon (sun elevation);
+  //   · the silhouette is the 8-dir sprite frame for the side the sun SEES
+  //     (facing minus the sun's octant), not the camera-facing frame;
+  //   · shadows fade in/out through a few minutes around sunrise/sunset and
+  //     are gone at night.
+  const SHADOWS = true;
+  const sunState = { up: false, dx: -0.7, dz: -0.55, len: 1, oct: 2, fade: 0, elev: 0, key: "down" };
+  function updateSun() {
+    if (typeof dayFraction !== "function" || typeof player === "undefined" || !player) return;
+    const D = dayFraction(player.y);
+    const ph = (typeof sunPhase === "function") ? sunPhase(player.x)
+      : (typeof localPhase === "function") ? localPhase(player.x) : 0.5;
+    if (D <= 0.001) { sunState.up = false; sunState.fade = 0; sunState.elev = 0; sunState.key = "down"; return; }
+    const u = (ph - (0.5 - D / 2)) / D;               // 0 sunrise … 1 sunset
+    if (D < 0.999 && (u <= 0 || u >= 1)) { sunState.up = false; sunState.fade = 0; sunState.elev = 0; sunState.key = "down"; return; }
+    const uc = Math.min(1, Math.max(0, u));
+    // AZIMUTH comes from the raw time of day, not the daylight window: the
+    // sun rings the full compass once per cycle — east at ph .25, south at
+    // local noon, west at .75, north at midnight. The daylight window then
+    // decides which stretch of that circle the sun is visibly ABOVE the
+    // horizon for, which is what gives each latitude its season:
+    //   · temperate (D≈.5): the familiar east → south → west arc;
+    //   · subarctic winter (D→0): a brief, narrow SE → SW skim;
+    //   · high summer (D→1): rises NE, sets NW — and at the Fullday Pole the
+    //     midnight sun circles the entire horizon, shadows wheeling 360°.
+    const th = 2 * Math.PI * (ph - 0.25);
+    const sx = Math.cos(th), sz = 0.55 * Math.sin(th); // ±0.55: flattened toward the S/N sky (HD-2D look)
+    const n = Math.hypot(sx, sz) || 1;
+    sunState.dx = -sx / n; sunState.dz = -sz / n;      // shadows fall opposite the sun
+    // ELEVATION by season: noon height peaks at the equatorial day (sin²D)
+    // and falls away toward BOTH poles — near the Fullnight Pole the winter
+    // sun barely crests the horizon (long pale shadows all day); past D≈.85
+    // a midnight-sun floor keeps the sun aloft around the whole circle, so
+    // polar-summer shadows are always long and never fade out.
+    const base = Math.max(0, (D - 0.85) / 0.15) * 0.12;
+    const noonE = Math.max(Math.pow(Math.sin(Math.PI * D), 2), base + 0.08);
+    const elev = base + (noonE - base) * Math.sin(Math.PI * uc);
+    sunState.elev = elev;                              // 0 horizon … 1 zenith (readable meter)
+    // shadow length: gentle growth through the afternoon plus a strong
+    // stretch as the sun nears the horizon (up to ~4.3× at the very edge of
+    // the day) — evening shadows visibly ELONGATE instead of staying stubby
+    sunState.len = 0.35 + (1 - elev) * 0.9 + Math.pow(1 - elev, 6) * 3;
+    // horizon fade: thin out gradually across the whole low-sun stretch
+    // (last ~12% of the daylight window) WHILE the shadows lengthen, rather
+    // than winking out minutes after the light starts to turn. The old
+    // elev*5 window was ~2 minutes of real time at the equator — "they just
+    // disappear". Same curve plays in reverse through sunrise.
+    sunState.fade = Math.pow(Math.min(1, elev / 0.35), 0.8);
+    // which 8-dir sprite side the sun sees: octant of the sun's position
+    sunState.oct = Math.round((Math.PI / 2 - Math.atan2(sz, sx)) / (Math.PI / 4)) & 7;
+    sunState.up = true;
+    // bake key: rebuild the baked shadows when the sun has genuinely moved.
+    // len is quantized on a sqrt scale — it races from ~1.9 to ~4.3 in the
+    // final stretch of sunset, and a linear key would rebake every visible
+    // chunk's shadows ten times in under a minute.
+    sunState.key = Math.round(th / (Math.PI / 14)) + ":" + Math.round(Math.sqrt(sunState.len) * 5);
+    updateSunQuat();
+  }
+  function sunDir() { return [sunState.dx, sunState.dz]; }
+  // quaternion laying a billboard flat with +y (sprite up) along the sun's
+  // ground direction and +x (sprite width) along the perpendicular
+  const _sunQuat = new THREE.Quaternion();
+  const _sunM4 = new THREE.Matrix4();
+  function updateSunQuat() {
+    // right-handed basis (x × y = +y-up normal) — a left-handed one is not a
+    // rotation and setFromRotationMatrix turns it into an edge-on sliver
+    _sunM4.makeBasis(
+      new THREE.Vector3(-sunState.dz, 0, sunState.dx), // local +x (width) -> perpendicular
+      new THREE.Vector3(sunState.dx, 0, sunState.dz),  // local +y (up)    -> sun ground dir
+      new THREE.Vector3(0, 1, 0));                     // plane normal     -> world up
+    _sunQuat.setFromRotationMatrix(_sunM4);
+  }
+  // per-frame opacity: all shadow materials share the horizon fade, and cloud
+  // cover washes shadows out (an overcast sky casts none)
+  function updateShadowFade() {
+    const w = (typeof weatherNow === "function") ? weatherNow() : null;
+    const clearK = 1 - (w ? w.cloud : 0) * 0.85;
+    const op = 0.5 * sunState.fade * clearK;
+    for (const m of _shadowMats.values()) m.opacity = op;
+    if (shadowDirMat) shadowDirMat.opacity = sunState.fade * clearK;  // its texture bakes the 0.5 body alpha
+  }
+  const _qShTilt = new THREE.Quaternion();
+  const _axisX = new THREE.Vector3(1, 0, 0);
+  let sunBakeKey = "";   // sunState.key the baked shadows were last built for
+  const _shadowMats = new Map();
+  function shadowMatFor(src) {
+    let m = _shadowMats.get(src);
+    if (!m) {
+      m = src.clone();
+      m.color = new THREE.Color(0x000000);
+      m.opacity = 0.5;
+      m.transparent = true;
+      m.depthWrite = false;
+      m.alphaTest = 0.3;
+      m.vertexColors = false;
+      // the flatten quaternion leaves the plane's normal pointing down —
+      // single-sided source materials would backface-cull the whole shadow
+      m.side = THREE.DoubleSide;
+      _shadowMats.set(src, m);
+    }
+    return m;
+  }
+  function place(m, wx, wz, h, scale = 1, flip = false, flat = false, baseY = 0) {
+    // Dream Forest: billboards shrink as the dream deepens — gently near the
+    // player, hard toward the screen edges (js/gameplay/dream.js), so the warp
+    // stays at the periphery/off-screen and doesn't induce nausea.
+    if (typeof DREAM !== "undefined" && DREAM.active)
+      scale *= DREAM.scaleAt(Math.hypot(wx - WX(player.px), wz - WX(player.py)));
+    m.position.set(wx, baseY + (flat ? 0.02 : (h * scale) / 2 + (m.userData.lift || 0)), wz);
+    // flat decor lies down; upright billboards share one orientation that faces the
+    // orbiting camera and leans by TILT about the camera-right axis (computed in frame()).
+    if (flat) m.rotation.set(-Math.PI / 2, 0, 0);
+    else m.quaternion.copy(_bbQuat);
+    m.scale.set(flip ? -scale : scale, scale, scale);
+    if (m.userData.shadow) {
+      const sh = m.userData.shadow;
+      if (!sunState.up) { sh.visible = false; return; }
+      // the profile the sun sees (set by the caster from its 8-dir sheet and
+      // the sun's octant) when it has one, otherwise the displayed sprite
+      const sg = m.userData.shadowGeom || m.geometry;
+      if (sh.geometry !== sg) sh.geometry = sg;
+      // sprite height stretched by the sun's elevation (long at dawn/dusk,
+      // short at noon), feet-anchored
+      const len = h * scale * sunState.len;
+      const [sdx, sdz] = sunDir();
+      // ground the shadow on the terrain/water under the feet (not the boat
+      // deck or an upper storey), and tilt it to drape over terrain steps
+      const under = liftAt(wx, wz);
+      const feetY = Math.abs(baseY - under) < 1.2 ? under : baseY;
+      let tipY = feetY, tilt = 0;
+      if (feetY === under) {
+        tipY = liftAt(wx + sdx * len, wz + sdz * len);
+        if (Math.abs(tipY - feetY) > 2) tipY = feetY; // ignore canyon drops
+        tilt = Math.atan2(tipY - feetY, len);
+      }
+      sh.quaternion.copy(_sunQuat);
+      if (tilt) sh.quaternion.multiply(_qShTilt.setFromAxisAngle(_axisX, tilt));
+      const mid = (len / 2) * Math.cos(tilt);
+      sh.position.set(wx + sdx * mid, (feetY + tipY) / 2 + 0.03, wz + sdz * mid);
+      sh.scale.set(flip ? -scale : scale, len, 1);
+      sh.visible = m.visible && !flat;
+    }
+  }
+  const WX = px => px / (TILE * SCALE) + 0.5;
+
+  // ---------- playable character sheet (data-URI texture, 8-dir frames) ----------
+  let charTex = null, charMat = null, charImg = null, charW = 0, charH = 0, charMesh = null;
+  let armourMesh = null;   // equipped metal armour, tailored + tinted, over the player
+  let _playerBB = null;    // billboard drawn for the player this frame — drawOverlay's head anchor
+  const _vHead = new THREE.Vector3();
+  const CHAR_SCALE = 1.85;
+  // Player character-sheet frames sit in a 96px cell that the art fills only to
+  // ~77% of its height (headroom above the head), feet ~4% up from the cell
+  // bottom — whereas NPC frames are TIGHT crops that fill their plane fully. So
+  // at the same scale a player renders ~23% shorter than an equivalent NPC. The
+  // player billboard divides its scale by this fill ratio (and drops the feet to
+  // the ground) so a player and an NPC of the same build match in world size.
+  const CHAR_FILL_H = 0.774, CHAR_FEET_FRAC = 0.042;
+  function ensureCharTex() {
+    if (charTex || typeof CHAR_SHEET === "undefined") return;
+    charImg = new Image();
+    charImg.onload = () => { charW = charImg.naturalWidth; charH = charImg.naturalHeight; charTex.needsUpdate = true; };
+    charTex = new THREE.Texture(charImg);
+    charTex.magFilter = THREE.NearestFilter;
+    charTex.minFilter = THREE.NearestFilter;
+    charTex.generateMipmaps = false;
+    charMat = new THREE.MeshBasicMaterial({ map: charTex, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide });
+    tintPatch(charMat);   // the player stands in the same light as the world
+    charImg.src = CHAR_SHEET;
+  }
+  function setCharUV(geom, frame) {
+    if (!charW) return false;
+    const col = frame % CHAR_COLS, row = Math.floor(frame / CHAR_COLS);
+    const cx = col * CHAR_CELL, cy = row * CHAR_CELL, e = 0.06;
+    const u0 = (cx + e) / charW, u1 = (cx + CHAR_CELL - e) / charW;
+    const v1 = 1 - (cy + e) / charH, v0 = 1 - (cy + CHAR_CELL - e) / charH;
+    const uv = geom.attributes.uv;
+    uv.setXY(0, u0, v1); uv.setXY(1, u1, v1); uv.setXY(2, u0, v0); uv.setXY(3, u1, v0);
+    uv.needsUpdate = true;
+    return true;
+  }
+  function getCharMesh() {
+    ensureCharTex();
+    if (!charMesh) {
+      charMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), charMat);
+      if (SHADOWS) {
+        const s = new THREE.Mesh(charMesh.geometry, shadowMatFor(charMat));
+        s.renderOrder = 2;
+        charMesh.userData.shadow = s;
+        scene.add(s);
+      }
+      scene.add(charMesh);
+    }
+    return charMesh;
+  }
+  // set a quad's UVs to cell (col,row) of a cols-wide packed sheet (generic setCharUV)
+  function setCellUV(geom, col, row, cell, texW, texH) {
+    const e = 0.06, cx = col * cell, cy = row * cell;
+    const u0 = (cx + e) / texW, u1 = (cx + cell - e) / texW;
+    const v1 = 1 - (cy + e) / texH, v0 = 1 - (cy + cell - e) / texH;
+    const uv = geom.attributes.uv;
+    uv.setXY(0, u0, v1); uv.setXY(1, u1, v1); uv.setXY(2, u0, v0); uv.setXY(3, u1, v0);
+    uv.needsUpdate = true; return true;
+  }
+
+  // ---------- alternate OUTFIT sheets (character-select "outfit" page) ----------
+  // Idle is packed in CHAR_SHEET; every other outfit STATE (smallclothes, new_outfit,
+  // new_hairstyle, armed, …) is packed into a few EMBEDDED data-URI sheets
+  // (tools/build_outfit_sheet.py → OUTFIT_SHEETS[]) — embedded (not fetched) so it
+  // works over file://, and split into several sheets because ~700 states in one
+  // would exceed the GPU texture-size limit. OUTFIT_FRAME["folder|state"] = [sheetIdx,
+  // baseFrame]; the 8 directions follow at base+dirIndex. Each sheet is loaded lazily
+  // on first use (states are grouped per character, so normally only one is needed).
+  const _outfitSheets = [];   // [sheetIdx] -> {img,tex,mat,shadowMat,w,h}
+  function ensureOutfitSheet(si) {
+    if (typeof OUTFIT_SHEETS === "undefined" || si == null || si < 0 || si >= OUTFIT_SHEETS.length) return null;
+    let e = _outfitSheets[si];
+    if (e) return e;
+    e = { img: null, tex: null, mat: null, shadowMat: null, w: 0, h: 0 };
+    _outfitSheets[si] = e;
+    e.img = new Image();
+    e.img.onload = () => { e.w = e.img.naturalWidth; e.h = e.img.naturalHeight; e.tex.needsUpdate = true; };
+    e.tex = new THREE.Texture(e.img);
+    e.tex.magFilter = THREE.NearestFilter; e.tex.minFilter = THREE.NearestFilter; e.tex.generateMipmaps = false;
+    e.mat = new THREE.MeshBasicMaterial({ map: e.tex, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide });
+    tintPatch(e.mat);   // NPCs share the world's light
+    e.shadowMat = shadowMatFor(e.mat);
+    e.img.src = OUTFIT_SHEETS[si];
+    return e;
+  }
+  // UV for a frame index in a cols-wide, `cell`-px packed sheet
+  function setSheetUV(geom, frame, cols, cell, texW, texH) {
+    return setCellUV(geom, frame % cols, Math.floor(frame / cols), cell, texW, texH);
+  }
+  // ---------- 8-directional world objects (trees, rocks, stations) ----------
+  // Same idea as the character sheet: one packed data-URI texture, foot-anchored
+  // 8-dir frames. Static objects show the frame matching the camera azimuth so
+  // they present the correct face as the view orbits.
+  let objTex = null, objMat = null, objImg = null, objW = 0, objH = 0;
+  const objGeomCache = {};
+  function ensureObjTex() {
+    if (objTex || typeof OBJ_SHEET === "undefined") return;
+    objImg = new Image();
+    objImg.onload = () => { objW = objImg.naturalWidth; objH = objImg.naturalHeight; objTex.needsUpdate = true; };
+    objTex = new THREE.Texture(objImg);
+    objTex.magFilter = THREE.NearestFilter;
+    objTex.minFilter = THREE.NearestFilter;
+    objTex.generateMipmaps = false;
+    objMat = new THREE.MeshBasicMaterial({ map: objTex, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide });
+    snowPatchTop(objMat);   // trees/rocks/furniture whiten from the crown down
+    objImg.src = OBJ_SHEET;
+  }
+  function objGeomFor(gf) {
+    if (!objGeomCache[gf]) {
+      const g = new THREE.PlaneGeometry(1, 1);
+      const col = gf % OBJ_COLS, row = Math.floor(gf / OBJ_COLS), e = 0.06;
+      const cx = col * OBJ_CELL, cy = row * OBJ_CELL;
+      const u0 = (cx + e) / objW, u1 = (cx + OBJ_CELL - e) / objW;
+      const v1 = 1 - (cy + e) / objH, v0 = 1 - (cy + OBJ_CELL - e) / objH;
+      const uv = g.attributes.uv;
+      uv.setXY(0, u0, v1); uv.setXY(1, u1, v1); uv.setXY(2, u0, v0); uv.setXY(3, u1, v0);
+      objGeomCache[gf] = g;
+    }
+    return objGeomCache[gf];
+  }
+  // which in-world atlas sprite keys are replaced by a directional object, and at
+  // what world scale. Stations/rocks are 1:1; trees map the 4 base sprites (and the
+  // tiered s_treeN variants, cycled) onto the four tree objects.
+  const OBJ_STATION = { furnace: 1.5, anvil: 1.5, loom: 1.5, cauldron: 1.5, workbench: 1.5, tanrack: 1.5, mill: 1.5, altar: 1.5,
+    // dedicated station objects (2026-09 art drop, market.js STATION_ART)
+    sawmill: 1.5, cooperage: 1.5, malthouse: 1.5, fulling_mill: 1.5, masons_yard: 1.5,
+    assay_furnace: 1.5, drawbench: 1.5, leather_bench: 1.5, cobblers_bench: 1.5,
+    saddlers_bench: 1.5, toolsmith: 1.5, locksmith_bench: 1.5, paper_mill: 1.5,
+    bindery: 1.5, soap_works: 1.5, seasoning_yard: 1.5, charcoal_clamp: 1.5,
+    lime_kiln: 1.5, ropewalk: 1.5, shipyard: 1.5, barn: 1.5, creamery: 1.5,
+    tailors_bench: 1.5, altar_rune: 1.5, bread_oven: 1.4, brewery_tun: 1.4,
+    spinning_wheel: 1.4, dye_vat: 1.4, kiln: 1.4, jewelrytable: 1.4,
+    sailmaker_spindle: 1.4, chandler_set: 1.4 };
+  const OBJ_ROCK = { rock_copper: 1.2, rock_iron: 1.2, rock_gold: 1.2, rock_essence: 1.2 };
+  const OBJ_TREEBASE = { tree: "tree_generic", tree_orange: "tree_maple", tree_pine: "tree_pine", tree_apple: "tree_cherry" };
+  const OBJ_TREECYCLE = ["tree_oak", "tree_maple", "tree_pine", "tree_cherry"];
+  // tiered mining rock (content.js s_rock<i>) -> dedicated ore object, by METAL_NAMES index
+  const OBJ_ROCK_TIER = { 1: "rock_tin", 3: "rock_zinc", 4: "rock_lead", 5: "rock_silver",
+    6: "rock_nickel", 7: "rock_cobalt", 9: "rock_platinum", 10: "rock_tungsten", 11: "rock_titanium",
+    12: "rock_mithril", 13: "rock_orichalcum", 14: "rock_adamantite", 15: "rock_darksteel", 16: "rock_meteorite",
+    17: "rock_runite", 18: "rock_dragonite", 19: "rock_voidsteel", 20: "rock_starmetal",
+    21: "rock_bloodiron", 22: "rock_frostiron", 23: "rock_emberite", 24: "rock_stormsteel",
+    25: "rock_duskmetal", 26: "rock_dawnmetal", 27: "rock_aetherium", 28: "rock_celestium",
+    29: "rock_infernium", 30: "rock_chronite", 31: "rock_eternium" };
+  // tiered gem vein (mining-split.js s_gem<i>) -> dedicated gem object, by GEM_NAMES index
+  const OBJ_GEM_TIER = { 0: "gem_quartz", 1: "gem_agate", 2: "gem_jasper", 3: "gem_garnet",
+    4: "gem_onyx", 5: "gem_amethyst", 6: "gem_topaz", 7: "gem_citrine", 8: "gem_peridot",
+    9: "gem_zircon", 10: "gem_tourmaline", 11: "gem_beryl", 12: "gem_aquamarine", 13: "gem_turquoise",
+    14: "gem_jade", 15: "gem_malachite", 16: "gem_lapis", 17: "gem_opal", 18: "gem_moonstone",
+    19: "gem_sunstone", 20: "gem_bloodstone", 21: "gem_spinel", 22: "gem_ruby", 23: "gem_sapphire",
+    24: "gem_emerald", 25: "gem_diamond", 26: "gem_amber", 27: "gem_star_sapphire", 28: "gem_fire_opal",
+    29: "gem_voidgem", 30: "gem_aethergem", 31: "gem_worldheart" };
+  // tiered tree (content.js s_tree<i>) -> dedicated species object, by TREE_NAMES index
+  const OBJ_TREE_TIER = { 1: "tree_oak", 2: "tree_birch", 3: "tree_alder", 4: "tree_pine",
+    5: "tree_willow", 6: "tree_cedar", 8: "tree_maple", 9: "tree_cherry",
+    7: "tree_poplar", 10: "tree_ash", 11: "tree_beech", 12: "tree_walnut", 13: "tree_cypress",
+    14: "tree_fir", 15: "tree_teak", 16: "tree_juniper", 17: "tree_hazel", 18: "tree_rowan",
+    19: "tree_mahogany", 20: "tree_ebony", 21: "tree_yew", 22: "tree_redwood", 23: "tree_ironbark",
+    24: "tree_frostbark", 25: "tree_silverleaf", 26: "tree_duskwood", 27: "tree_bloodwood",
+    28: "tree_starwood", 29: "tree_magic", 30: "tree_elderwood", 31: "tree_worldtree" };
+  // per-key world scale (in tiles) for generic decor/props/furniture that render 8-dir.
+  // Packed objects are normalized to ~1 tile; these tune each to a natural footprint.
+  const OBJ_SCALE = {
+    fence_wood: 1.0, gate_wood: 1.0,   // farm-field enclosure fence + gate
+    flower_white: 0.5, flower_blue: 0.5, flower_orange: 0.5, flower_purple: 0.5,
+    mushroom: 0.45, mushroom_big: 2.2, mushroom_big2: 2.3, seashell: 0.4, leaflitter: 0.6,
+    mush_brown: 2.2, mush_purple: 2.4, mush_amber: 2.2, mush_teal: 2.1,   // giant mushroom-forest canopy
+    skull: 0.5, sprout: 0.4, wheat_plant: 0.5, coral_red: 0.7, bush: 0.85, bush2: 0.8,
+    berrybush: 0.85, boulder: 1.0, moss_rock: 1.0, rock_dead: 1.0, gem_rock: 1.05, fallen_log: 0.9,
+    crystal_shard: 0.7, crystal_cluster_blue: 0.9, crystal_cluster_purple: 0.9,
+    crystal_cluster_green: 0.9, geode: 0.6, salt_crystal: 0.7, forage_starfruit: 1.2,
+    torch: 0.9, barrel: 0.7, haybale: 0.8, crate: 0.7, sign: 0.8, scarecrow: 1.0, cart_gold: 1.05,
+    campfire: 0.8, cooking_pot: 0.7, bankchest: 0.8, alchtable: 0.95, signpost_directions: 1.0,
+    beehive: 0.75, crab_pot: 0.6, fishing_net: 1.0, hanging_carcass: 1.0, bedroll: 0.7,
+    campfire_ring: 0.85, lamppost: 1.25, banner_pole: 1.7, stone_bridge: 1.4,
+    city_fountain: 1.2, city_bench: 0.8, city_planter: 0.6, bed: 0.9, bookshelf: 1.0,
+    dresser: 0.9, table2: 0.8, chair: 0.6, well: 1.1, tent: 1.2, tent2: 1.2, stall: 1.3,
+    // ---- new pixellab objects (2026-08-30) ----
+    altar_stone: 1.2, amphora: 0.5, amphora_ornate: 0.62, anvil2: 1.2, aqueduct: 1.55,
+    archway_stone: 1.5, awning_rolled: 0.9, barrel_ale: 0.75, barrel_beer: 0.75,
+    barrel_cargo: 0.75, barrel_export: 0.75, barrel_fish: 0.75, barrel_flour: 0.75,
+    barrel_pickle: 0.75, barrel_scorched: 0.75, barrel_wine: 0.75, bed_fourposter: 1.15,
+    bed_frame: 0.95, beehive_box: 0.7, bell_jar: 0.5, bell_rope: 1.0, bellows: 1.0,
+    bench_trestle: 0.8, birdbath: 0.95, birdcage: 0.7, birdhouse: 0.7, boards_bundle: 0.7,
+    boards_loose: 0.7, boards_stacked: 0.7, boat_barge: 1.25, boat_catboat: 1.25,
+    boat_coracle: 1.25, boat_cover: 0.6, boat_dinghy: 1.25, boat_dory: 1.25,
+    bookshelf_small: 0.95, brazier_bronze: 0.75, brazier_iron: 0.8, bread_oven: 1.25,
+    brewery_tun: 1.35, brewery_tun_open: 1.35, bridge_arch: 1.45, brine_vat: 1.0, bucket: 0.5,
+    burial_urn: 0.5, butter_churn: 0.8, cabinet: 0.9, candelabra: 0.6, candle_altar: 0.5,
+    candle_bayberry: 0.5, candle_beeswax: 0.5, candle_carriage: 0.5, candle_cathedral: 0.5,
+    candle_chime: 0.5, candle_church: 0.5, candle_colored: 0.5, candle_dinner: 0.5,
+    candle_dripping: 0.5, candle_ember: 0.5, candle_floating: 0.5, candle_lantern: 0.8,
+    candle_pillar: 0.5, candle_rushlight: 0.5, candle_scrying: 0.5, candle_ship: 0.5,
+    candle_signal: 0.5, candle_storm: 0.5, candle_taper: 0.5, candle_threewick: 0.5,
+    candle_votive: 0.5, candle_white: 0.5, carboy: 0.5, cargo_cover: 0.6, cargo_net: 0.7,
+    cargo_sling: 0.6, cartwheel: 0.8, cask_ageing: 0.75, cask_ale: 0.75, cask_carved: 0.75,
+    cask_chemical: 0.75, cask_cooper: 0.75, cask_export: 0.75, cask_oak: 0.75,
+    cask_ships: 0.75, cask_silver: 0.75, cask_water: 0.75, cathedral_stone: 1.55,
+    cauldron_iron: 0.9, censer: 0.5, chandelier_crystal: 0.9, chandelier_iron: 0.9,
+    chandler_set: 0.8, chest_storage: 0.75, chest_warded: 0.75, chimney_pot: 0.7,
+    chimney_stack: 1.4, cistern: 1.15, clay_bowl: 0.5, clay_cup: 0.5, clay_jug: 0.5,
+    clay_plate: 0.5, clockwork: 0.5, cog: 0.5, coin_purse: 0.5, column_stone: 1.55,
+    cradle: 0.95, crate_braced: 0.7, crowbar: 0.6, crucible: 0.6, cupboard: 1.05,
+    decanter: 0.5, demijohn: 0.5, desk: 0.95, door_wood: 1.35, dresser_mirror: 0.95,
+    dye_vat: 1.15, easel: 0.95, fence_wood: 1.4, fender: 0.5, fermentation_vat: 1.25,
+    figurine: 0.5, filigree: 0.5, fireplace: 0.9, flask: 0.5, flowerpot: 0.5,
+    fountain_small: 1.25, gargoyle: 0.95, gate_iron: 1.4, gate_wood: 1.4, glass_bottle: 0.5,
+    glass_jar: 0.5, goblet: 0.5, gravestone3: 0.9, grille: 1.1, hammock: 1.0,
+    hammock_canvas: 1.0, hand_mirror: 0.5, hasp: 0.5, hearthstone: 0.7, hinge: 0.5,
+    iron_bell: 0.7, jar_storage: 0.5, jewelry_box: 0.5, kiln: 1.4, ladder: 1.0,
+    ladder_tall: 1.3, latch: 0.5, lock_birdcage: 0.5, lock_chest: 0.5,
+    lock_combination: 0.5, lock_enchanted: 0.5, lock_gate: 0.5, lock_padlock: 0.5,
+    lock_plate: 0.5, lock_puzzle: 0.5, lock_tumbler: 0.5, lock_vault: 0.5, lockbox: 0.5,
+    mantrap: 0.6, mead_bottle: 0.5, mechanism: 0.5, milk_bottle: 0.5, mug: 0.5,
+    offcuts: 0.6, oil_jar: 0.5, oil_lamp: 0.5, pillar_stone: 1.45, pitch_pot: 0.5,
+    pitcher: 0.5, planks_seasoned: 0.7, planter_box: 0.6, planter_ceramic: 0.6,
+    portcullis_winch: 1.2, pot_lidded: 0.5, pouch: 0.5, powder_keg: 0.6, quiver: 0.6,
+    raft_logs: 1.25, raft_planks: 1.25, rampart: 1.4, retort: 0.8, rigging: 0.8,
+    roof_tiles_section: 0.7, roof_tiles_stack: 0.6, rope_ladder: 1.2, rope_mat: 0.6,
+    sail_cream: 0.8, sail_foresail: 0.8, sail_fullrig: 0.8, sail_gaff: 0.8, sail_jib: 0.8,
+    sail_lateen: 0.8, sail_lugsail: 0.8, sail_mainsail: 0.8, sail_masterwork: 0.8,
+    sail_mizzen: 0.8, sail_royal: 0.8, sail_spanker: 0.8, sail_square: 0.8,
+    sail_squarerig: 0.8, sail_staysail: 0.8, sail_stormjib: 0.8, sail_studding: 0.8,
+    sail_topgallant: 0.8, sail_topsail: 0.8, sailmaker_spindle: 0.8, sea_sack: 0.5,
+    shackles: 0.5, ship_barque: 1.25, ship_brig: 1.25, ship_brigantine: 1.25,
+    ship_caravel: 1.25, ship_carrack: 1.25, ship_clipper: 1.25, ship_cutter: 1.25,
+    ship_dhow: 1.25, ship_frigate: 1.25, ship_galleon: 1.25, ship_galley: 1.25,
+    ship_junk: 1.25, ship_longship: 1.25, ship_manofwar: 1.25, ship_schooner: 1.25,
+    ship_smack: 1.25, sideboard: 0.95, signpost_blank: 1.0, skiff: 1.25, snow_globe: 0.5,
+    spinning_wheel: 1.2, stainedglass_blue: 1.0, stainedglass_green: 1.0,
+    stainedglass_red: 1.0, statue_marble: 1.05, staves: 0.6, stool: 0.55, strongbox: 0.7,
+    tanning_vat: 1.1, tarpaulin: 0.6, teapot: 0.5, tent_bundle: 0.65, terrarium: 0.5,
+    timber_beam: 0.7, timber_seasoned: 0.7, toolbox: 0.5, treasure_chest: 0.7,
+    tub_storage: 0.75, tumbler: 0.5, tureen: 0.5, urn_garden: 0.75, vase_glazed: 0.5,
+    vase_masterwork: 0.58, vault_door: 1.5, vice: 0.6, wall_bracket: 0.6, wall_brick: 1.4,
+    wall_keep: 1.4, wall_plaster: 1.4, wall_rubble: 1.4, wallshelf: 0.7, wardrobe: 1.1,
+    wash_tub: 0.8, water_filter: 0.7, weathervane: 1.0, well_roofed: 1.35, whetstone: 0.6,
+    window_frame: 1.0, window_pane: 1.0, wine_tun: 0.75, wire_frame: 0.6, wire_mesh: 0.6,
+  };
+  // Furnishing readability pass: the trade objects sized up into clear size
+  // classes so interiors read at the HD-2D camera distance — barrels/casks
+  // waist-high, vessels and candles small but visible, workshop fixtures
+  // imposing. Overrides the base table above.
+  Object.assign(OBJ_SCALE, {
+    // storage: barrels, casks, crates, chests
+    barrel_ale: 0.85, barrel_beer: 0.85, barrel_cargo: 0.85, barrel_export: 0.85,
+    barrel_fish: 0.85, barrel_flour: 0.85, barrel_pickle: 0.85, barrel_scorched: 0.85,
+    barrel_wine: 0.85, cask_ageing: 0.85, cask_ale: 0.85, cask_carved: 0.85,
+    cask_chemical: 0.85, cask_cooper: 0.85, cask_export: 0.85, cask_oak: 0.85,
+    cask_ships: 0.85, cask_silver: 0.85, cask_water: 0.85, wine_tun: 0.9,
+    tub_storage: 0.85, crate_braced: 0.85, powder_keg: 0.7, chest_storage: 0.85,
+    chest_warded: 0.85, treasure_chest: 0.85, strongbox: 0.85, lockbox: 0.62,
+    // wood stock
+    boards_bundle: 0.82, boards_loose: 0.82, boards_stacked: 0.82,
+    planks_seasoned: 0.82, timber_beam: 0.82, timber_seasoned: 0.82,
+    staves: 0.75, offcuts: 0.7,
+    // sacks, canvas, cordage
+    sea_sack: 0.65, pouch: 0.55, quiver: 0.7, cargo_net: 0.8, cargo_sling: 0.7,
+    cargo_cover: 0.7, tarpaulin: 0.7, boat_cover: 0.7, awning_rolled: 0.95,
+    rope_mat: 0.7, rope_ladder: 1.25, hammock: 1.05, hammock_canvas: 1.05,
+    // vessels and tableware
+    amphora: 0.6, amphora_ornate: 0.7, clay_bowl: 0.55, clay_cup: 0.55,
+    clay_jug: 0.6, clay_plate: 0.55, glass_bottle: 0.55, glass_jar: 0.55,
+    decanter: 0.55, tumbler: 0.55, goblet: 0.55, mug: 0.55, pitcher: 0.6,
+    teapot: 0.6, tureen: 0.6, flask: 0.55, oil_jar: 0.6, oil_lamp: 0.6,
+    bell_jar: 0.6, carboy: 0.62, demijohn: 0.62, jar_storage: 0.62,
+    pot_lidded: 0.6, mead_bottle: 0.55, milk_bottle: 0.55, pitch_pot: 0.6,
+    vase_glazed: 0.62, burial_urn: 0.62, terrarium: 0.6,
+    // candles and lights
+    candle_altar: 0.58, candle_bayberry: 0.58, candle_beeswax: 0.58,
+    candle_carriage: 0.58, candle_cathedral: 0.58, candle_chime: 0.58,
+    candle_church: 0.58, candle_colored: 0.58, candle_dinner: 0.58,
+    candle_dripping: 0.58, candle_ember: 0.58, candle_floating: 0.58,
+    candle_pillar: 0.58, candle_rushlight: 0.58, candle_scrying: 0.58,
+    candle_ship: 0.58, candle_signal: 0.58, candle_storm: 0.58,
+    candle_taper: 0.58, candle_threewick: 0.58, candle_votive: 0.58,
+    candle_white: 0.58, candelabra: 0.72, chandler_set: 0.9, censer: 0.6,
+    candle_lantern: 0.85, brazier_bronze: 0.85,
+    // village street candle-stands (villagers set these out at dusk)
+    candlestand_iron: 1.2, candlestand_wood: 1.15, candlestand_brass: 1.2,
+    // locks and trinkets
+    lock_birdcage: 0.55, lock_chest: 0.55, lock_combination: 0.55,
+    lock_enchanted: 0.55, lock_gate: 0.55, lock_padlock: 0.55, lock_plate: 0.55,
+    lock_puzzle: 0.55, lock_tumbler: 0.55, lock_vault: 0.55, hasp: 0.55,
+    hinge: 0.55, latch: 0.55, figurine: 0.58, filigree: 0.58, coin_purse: 0.58,
+    jewelry_box: 0.58, hand_mirror: 0.58, snow_globe: 0.58, clockwork: 0.6,
+    cog: 0.6, mechanism: 0.6, birdcage: 0.8,
+    // tools and small gear
+    toolbox: 0.68, bucket: 0.62, crowbar: 0.7, vice: 0.75, whetstone: 0.7,
+    crucible: 0.7, shackles: 0.6, mantrap: 0.7, wall_bracket: 0.7,
+    water_filter: 0.8, hearthstone: 0.8, wire_frame: 0.75, wire_mesh: 0.75,
+    fender: 0.6, cartwheel: 0.9,
+    // furniture
+    stool: 0.65, bench_trestle: 0.9, wallshelf: 0.9, sideboard: 1.0,
+    cabinet: 1.0, cupboard: 1.1, desk: 1.0, easel: 1.0, dresser_mirror: 1.05,
+    wardrobe: 1.2, bookshelf_small: 1.05, bed_frame: 1.0, bed_fourposter: 1.2,
+    cradle: 1.0,
+    // workshop fixtures
+    bellows: 1.05, cauldron_iron: 1.05, retort: 0.85, brine_vat: 1.1,
+    wash_tub: 0.95, butter_churn: 0.95, dye_vat: 1.2, tanning_vat: 1.2,
+    spinning_wheel: 1.25, bread_oven: 1.3, brewery_tun: 1.4,
+    brewery_tun_open: 1.4, fermentation_vat: 1.3, kiln: 1.45, cistern: 1.2,
+    anvil2: 1.25, sailmaker_spindle: 0.95, rigging: 0.95, ladder: 1.1,
+    ladder_tall: 1.35, iron_bell: 0.8, bell_rope: 1.1, portcullis_winch: 1.25,
+    stainedglass_blue: 1.1, stainedglass_green: 1.1, stainedglass_red: 1.1,
+    // sail loft stock
+    sail_cream: 0.95, sail_foresail: 0.95, sail_fullrig: 0.95, sail_gaff: 0.95,
+    sail_jib: 0.95, sail_lateen: 0.95, sail_lugsail: 0.95, sail_mainsail: 0.95,
+    sail_masterwork: 0.95, sail_mizzen: 0.95, sail_royal: 0.95,
+    sail_spanker: 0.95, sail_square: 0.95, sail_squarerig: 0.95,
+    sail_staysail: 0.95, sail_stormjib: 0.95, sail_studding: 0.95,
+    sail_topgallant: 0.95, sail_topsail: 0.95,
+    // masonry stock
+    roof_tiles_stack: 0.7, roof_tiles_section: 0.8, chimney_pot: 0.8,
+    window_frame: 1.1, window_pane: 1.1, urn_garden: 0.85, planter_ceramic: 0.7,
+  });
+  // ---- Furniture proportion pass (2026-09-08) ----
+  // Household furniture sized against the PEOPLE who use it (CHAR_SCALE 1.85,
+  // storey band 1.8): beds long enough for a villager to lie on (renderMixNpc
+  // lays sleepers flat on them), wardrobes person-height, chairs seat-height.
+  // The earlier readability pass sized workshop stock; this fixes the bedroom
+  // and parlour pieces that still read as dollhouse furniture next to a 1.85
+  // villager. Ceiling cap ~1.65 (fourposter) keeps everything under the beam.
+  Object.assign(OBJ_SCALE, {
+    // beds & bedding
+    bed: 1.45, bed_frame: 1.45, bed_fourposter: 1.62, bedroll: 1.0,
+    hammock: 1.25, hammock_canvas: 1.25, cradle: 1.0,
+    // tall casework
+    wardrobe: 1.6, cupboard: 1.4, bookshelf: 1.4, bookshelf_small: 1.2,
+    dresser_mirror: 1.35, cabinet: 1.25, fireplace: 1.3,
+    // waist-height pieces
+    dresser: 1.15, sideboard: 1.15, desk: 1.15, table2: 1.05, alchtable: 1.15,
+    // seating & small stands
+    chair: 0.85, stool: 0.7, bench_trestle: 1.0, city_bench: 0.95, easel: 1.2,
+  });
+  // ---- Per-species tree scale, proportional to real-world size (2026-09-05) ----
+  // Every tree_ species previously fell back to a flat 2.2 (the tree_/nz_ default in
+  // objScaleFor); this replaces that with a scale driven by the species' real mature
+  // HEIGHT, with a small bonus for exceptionally stout/broad GIRTH (oak, baobab, yew,
+  // beech, cedar…). Calibrated to the same curve the NZ natives already use
+  // (NZ_TREE_SCALE: kauri 45m->4.0, kahikatea ~58m->3.8, rimu ~35m->3.4), so the whole
+  // forest reads at one consistent real scale. Formula: 0.96*H_m^0.338 + girthBonus.
+  // Scale is UNIFORM (place() multiplies width and height equally off a square
+  // billboard) so nothing stretches; the max is held at ~4.2 — the existing kauri sits
+  // at 4.0, so no species is enlarged past the already-shipped resolution ceiling and
+  // nothing new pixelates. Small species (juniper, hazel, cherry, the worldtree
+  // *sapling*) drop below 2.2 and actually render crisper than before.
+  Object.assign(OBJ_SCALE, {
+    tree_generic: 2.5,                                    // ~20m, generic broadleaf
+    tree_oak: 3.25,     // ~25m, girth to 12m — broad & iconic
+    tree_birch: 2.45,   // ~22m, slender
+    tree_alder: 2.8,    // ~25m
+    tree_pine: 3.1, tree_pine_snow: 3.1,                 // Scots pine ~30-35m
+    tree_willow: 2.8,   // ~18m, broad weeping crown
+    tree_cedar: 3.7,    // ~45m, massive spreading
+    tree_poplar: 2.85,  // Lombardy ~30m, tall but columnar (narrowness is in the art)
+    tree_maple: 2.8,    // ~22m, broad
+    tree_cherry: 2.2,   // ~12m
+    tree_ash: 2.9,      // ~28m, airy spreading
+    tree_beech: 3.4,    // ~32m, big girth, broad dome
+    tree_walnut: 3.05,  // ~25m, broad rounded
+    tree_cypress: 2.8,  // ~30m, narrow
+    tree_fir: 3.6,      // silver fir ~50m, tall conical
+    tree_teak: 3.3,     // ~35m
+    tree_juniper: 1.65, // ~6m, shrubby
+    tree_hazel: 1.7,    // ~7m, coppice shrub
+    tree_rowan: 2.2,    // ~12m
+    tree_mahogany: 3.35,// ~35m
+    tree_ebony: 2.7,    // ~20m, dense
+    tree_yew: 2.75,     // ~15m but enormous ancient girth — squat, imposing
+    tree_redwood: 4.2,  // coast redwood 100m+, tallest on Earth (held at the 4.2 cap)
+    tree_ironbark: 3.15,// eucalypt ~30m, rugged
+    tree_baobab: 3.05,  // ~18m but 5-11m trunk ⌀ — girth-boosted for presence
+    tree_kauri: 4.0,    // ~45m, 15m girth (matches nz_kauri)
+    tree_palm: 2.5,     // ~20m, slender trunk
+    // fantasy species — scaled by their described form/lore
+    tree_frostbark: 2.7,   // pale birch/beech-like, ~25m
+    tree_silverleaf: 2.6,  // shimmering, graceful ~20m
+    tree_duskwood: 2.9,    // dark, large ~28m
+    tree_bloodwood: 3.1,   // crimson, lofty ~30m
+    tree_starwood: 3.2,    // glowing, lofty ~32m
+    tree_magic: 2.9,       // luminous teal crown, tall ~28m
+    tree_elderwood: 3.65,  // ancient elder, huge ~40m + girth
+    tree_dreamwood: 3.0,   // glowing blue, large ~30m
+    tree_charred: 2.3,     // burnt bare tree, gaunt ~18m
+    tree_worldtree: 4.6,   // a glowing golden SAPLING of the cosmic world-tree — even
+                           // an infant of a heaven-reaching tree towers over every
+                           // mortal species, so it's the single largest tree in the world
+
+  });
+  // ---- Per-hull vessel scale (2026-09-08) ----
+  // The whole fleet previously rendered at one flat 1.25 — a man-o'-war the
+  // size of a coracle. Scale now tracks the Shipwrighting hull tier
+  // (ITEMS[id].boat 1..32): 1.15 + tier*0.065, so dinghies stay rowboat-sized
+  // and tall ships tower like trees (max ~3.2, inside the billboard's crisp
+  // range). Keys are the OBJ_MAP hulls; where several tiers share one sprite
+  // (sloop+cutter → ship_cutter) the key takes its top tier's scale. The same
+  // tier curve drives boatClearance() (state.js) — how much air a hull needs
+  // to pass under a bridge deck — so looks and rules agree.
+  Object.assign(OBJ_SCALE, {
+    raft: 1.22, raft_logs: 1.28, canoe: 1.35, boat_coracle: 1.41,
+    raft_planks: 1.48, skiff: 1.54, rowboat: 1.61, boat_dinghy: 1.67,
+    boat_dory: 1.74, boat_catboat: 1.8, ship_smack: 1.87, boat_barge: 2.0,
+    ship_cutter: 2.06, sailboat: 2.19, ship_longship: 2.32, ship_junk: 2.39,
+    ship_caravel: 2.45, ship_schooner: 2.52, ship_carrack: 2.58,
+    ship_brig: 2.65, ship_brigantine: 2.71, ship_galley: 2.78,
+    ship_barque: 2.84, ship_galleon: 2.91, ship: 2.97, ship_frigate: 3.04,
+    ship_clipper: 3.1, ship_dhow: 3.17, ship_manofwar: 3.23,
+  });
+  function objScaleFor(key) {
+    if (OBJ_SCALE[key] != null) return OBJ_SCALE[key];
+    // NZ species carry their real-scale size in NZ_TREE_SCALE (used both by the
+    // tree billboards and the small-plant decorations placed by key "nz_*")
+    if (typeof NZ_TREE_SCALE !== "undefined" && NZ_TREE_SCALE[key] != null) return NZ_TREE_SCALE[key];
+    if (key.startsWith("tree_") || key.startsWith("nz_")) return 2.2;
+    if (key.startsWith("rock_")) return 1.2;
+    if (key.startsWith("forage_")) return 0.85;
+    if (key.startsWith("herb_")) return 0.5;
+    if (key.startsWith("crystal_")) return 0.9;
+    if (key.startsWith("wall_") || key.startsWith("tower_") || key === "fence_broken" || key === "windmill_small") return 1.4;
+    return 0.9;
+  }
+  function objForKey(key) {
+    if (typeof OBJ_MAP === "undefined" || !key) return null;
+    if (OBJ_STATION[key] != null && OBJ_MAP[key] != null) return { idx: OBJ_MAP[key], scale: OBJ_STATION[key] };
+    if (OBJ_ROCK[key] != null && OBJ_MAP[key] != null) return { idx: OBJ_MAP[key], scale: OBJ_ROCK[key] };
+    if (key === "stump" && OBJ_MAP.stump != null) return { idx: OBJ_MAP.stump, scale: 1.3 };
+    if (key === "gravestone" && OBJ_MAP.gravestone2 != null) return { idx: OBJ_MAP.gravestone2, scale: 0.9 };
+    if (OBJ_TREEBASE[key] && OBJ_MAP[OBJ_TREEBASE[key]] != null) return { idx: OBJ_MAP[OBJ_TREEBASE[key]], scale: objScaleFor(OBJ_TREEBASE[key]) };
+    // tiered mining rock: dedicated ore object if generated, else fall back to the flat recolour
+    if (key.startsWith("s_rock")) {
+      const ok = OBJ_ROCK_TIER[parseInt(key.slice(6), 10)];
+      return (ok && OBJ_MAP[ok] != null) ? { idx: OBJ_MAP[ok], scale: 1.2 } : null;
+    }
+    // tiered gem vein: dedicated gem object if generated, else fall back to the flat recolour
+    if (key.startsWith("s_gem")) {
+      const gk = OBJ_GEM_TIER[parseInt(key.slice(5), 10)];
+      return (gk && OBJ_MAP[gk] != null) ? { idx: OBJ_MAP[gk], scale: 1.15 } : null;
+    }
+    if (key.startsWith("s_tree")) {
+      const i = parseInt(key.slice(6), 10) || 0;
+      const tk = OBJ_TREE_TIER[i];
+      if (tk && OBJ_MAP[tk] != null) return { idx: OBJ_MAP[tk], scale: objScaleFor(tk) };
+      const ok = OBJ_TREECYCLE[i % 4];
+      if (OBJ_MAP[ok] != null) return { idx: OBJ_MAP[ok], scale: objScaleFor(ok) };
+    }
+    // NZ trees (js/nz-extra-trees.js): each species has its own dedicated
+    // packed object and its own real-world-proportional scale.
+    if (key.startsWith("nzf_") && typeof NZ_TREE_SCALE !== "undefined") {
+      const treeKey = "nz_" + key.slice(4);
+      if (OBJ_MAP[treeKey] != null) return { idx: OBJ_MAP[treeKey], scale: NZ_TREE_SCALE[treeKey] || 2.2 };
+    }
+    // generic: any decor/prop/furniture sprite key with a matching packed object
+    // renders as an 8-directional billboard instead of the flat atlas sprite.
+    if (OBJ_MAP[key] != null) return { idx: OBJ_MAP[key], scale: objScaleFor(key) };
+    return null;
+  }
+  // returns a mesh showing object `objIdx` from the current camera azimuth, or null
+  // if the object texture hasn't loaded yet (caller falls back to the atlas sprite).
+  function getObjMesh(id, objIdx, forceFrame) {
+    ensureObjTex();
+    if (!objW) return null;
+    let m = meshes.get(id);
+    if (m && !m.userData.isObj) { scene.remove(m); if (m.userData.shadow) scene.remove(m.userData.shadow); meshes.delete(id); m = null; }
+    // forceFrame pins a specific direction sprite (0 = south) regardless of the
+    // camera angle — decor uses it so props always show their south frame.
+    const frame = forceFrame != null ? (forceFrame & 7) : (8 - camDir) & 7; // else worldDir 0 seen from the eased camera angle
+    const gf = objIdx * 8 + frame;
+    if (!m) {
+      m = new THREE.Mesh(objGeomFor(gf), objMat);
+      m.rotation.order = "YXZ";
+      m.userData.isObj = true;
+      if (SHADOWS) {
+        const s = new THREE.Mesh(m.geometry, shadowMatFor(objMat));
+        s.renderOrder = 2;
+        m.userData.shadow = s;
+        scene.add(s);
+      }
+      scene.add(m);
+      meshes.set(id, m);
+    }
+    if (m.userData.objFrame !== gf) { m.geometry = objGeomFor(gf); m.userData.objFrame = gf; }
+    // the shadow shows the side the SUN currently sees (a static object faces
+    // "south", so its sun-side frame is just the negated sun octant),
+    // independent of the camera-facing frame the mesh displays
+    m.userData.shadowGeom = objGeomFor(objIdx * 8 + ((8 - sunState.oct) & 7));
+    m.userData.seen = true;
+    m.visible = true;
+    return m;
+  }
+
+  // ---------- init ----------
+  // Returns false if WebGL is unavailable or canvas data is blocked.
+  function init() {
+    const canvas = document.getElementById("game");
+    try {
+      if (typeof THREE === "undefined") return false;
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    } catch (e) {
+      console.warn("WebGL unavailable:", e.message);
+      return false;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(SKY);
+    scene.fog = new THREE.Fog(SKY, 28, 52);
+    camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
+    overlay = document.getElementById("overlay");
+    octx = overlay.getContext("2d");
+
+    const shadowCv = document.createElement("canvas");
+    shadowCv.width = 32; shadowCv.height = 32;
+    const sc = shadowCv.getContext("2d");
+    const grad = sc.createRadialGradient(16, 16, 2, 16, 16, 14);
+    grad.addColorStop(0, "rgba(0,0,0,0.35)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    sc.fillStyle = grad;
+    sc.fillRect(0, 0, 32, 32);
+    shadowMat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(shadowCv), transparent: true, depthWrite: false });
+    shadowGeom = new THREE.PlaneGeometry(0.9, 0.6);
+
+    try {
+      buildAtlas();
+    } catch (e) {
+      console.warn("Atlas build failed:", e.message);
+      return false;
+    }
+    // structural billboards use DERIVED placeholder sprites (no retired prototype 2D art
+    // exists — LC is voxel); track them so they can be swapped for bespoke art.
+    if (typeof registerPlaceholder === "function")
+      for (const [k, n] of [["door_wood", "Wooden door"], ["door_stone", "Castle door"],
+        ["gate_leaf", "City gate leaf"], ["ladder", "Ladder"], ["stairs", "Staircase"]])
+        registerPlaceholder("spr:" + k, n, "structural billboard — tinted placeholder sprite");
+    initSea();
+    syncChunks();
+    resize();
+    camPos.set(WX(player.px), 9, WX(player.py) + 7);
+    ready = true;
+    return true;
+  }
+
+  // On a HiDPI/Retina display, a canvas whose backing store is sized in CSS
+  // pixels gets upscaled by the browser to fill the same box at the real
+  // (higher) device resolution — every 2D-canvas-drawn thing (floats, HP
+  // bars, name labels; this is on TOP of the separately-DPR-aware WebGL
+  // view, which is why only the overlaid TEXT looked soft/pixelated, not
+  // the 3D scene under it) ends up blurry. Sizing the backing store by
+  // devicePixelRatio and scaling the context to match fixes that while
+  // every existing draw call keeps using plain CSS-pixel coordinates —
+  // project() and the per-frame draw loop reference overlayCssW/H (the
+  // logical size) rather than overlay.width/height (the scaled backing
+  // store) for exactly that reason.
+  function resize() {
+    if (!renderer) return;
+    const w = Math.max(320, gamecol.clientWidth), h = Math.max(240, gamecol.clientHeight);
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    overlayCssW = w; overlayCssH = h;
+    overlay.width = Math.round(w * dpr);
+    overlay.height = Math.round(h * dpr);
+    octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  // ---------- projection / picking ----------
+  function project(px, py, h = 0) {
+    _v.set(WX(px), h, WX(py)).project(camera);
+    return { x: (_v.x + 1) / 2 * overlayCssW, y: (1 - _v.y) / 2 * overlayCssH, behind: _v.z > 1 };
+  }
+  const raycaster = new THREE.Raycaster();
+  function pickTile(e) {
+    const r = renderer.domElement.getBoundingClientRect();
+    const nx = ((e.clientX - r.left) / r.width) * 2 - 1;
+    const ny = -((e.clientY - r.top) / r.height) * 2 + 1;
+    raycaster.setFromCamera({ x: nx, y: ny }, camera);
+    const o = raycaster.ray.origin, d = raycaster.ray.direction;
+    if (Math.abs(d.y) < 1e-6) return { x: -1, y: -1 };
+    const lv = player.level | 0;
+    if (lv > 0) {
+      // upstairs: clicks land on the floor plane the player is standing on
+      const planeY = groundY(player.x, player.y) + lv * STOREY_H + 0.02;
+      const t = (planeY - o.y) / d.y;
+      if (t < 0) return { x: -1, y: -1 };
+      return { x: Math.floor(o.x + d.x * t), y: Math.floor(o.z + d.z * t) };
+    }
+    // inside a river-spanning building at floor level: clicks land on the
+    // floor-slab plane (the terrain raycast would tunnel through the hollow
+    // to the river below and select a parallax-shifted tile)
+    if (!player.sailing && player.deck !== false) {
+      const bIn = world.insideBuilding(player.x, player.y);
+      if (bIn && bIn.river) {
+        const planeY = rawStep(bIn.x0 + (bIn.w >> 1), bIn.y0 + (bIn.h >> 1)) + FLOOR_T;
+        const t2 = (planeY - o.y) / d.y;
+        if (t2 > 0) {
+          const hx = Math.floor(o.x + d.x * t2), hy = Math.floor(o.z + d.z * t2);
+          if (hx >= bIn.x0 && hx < bIn.x0 + bIn.w && hy >= bIn.y0 && hy < bIn.y0 + bIn.h)
+            return { x: hx, y: hy };
+        }
+      }
+    }
+    // ground level: raycast the stepped terrain meshes so clicks land on the
+    // tile actually under the cursor, whatever its tier
+    const targets = [];
+    for (const g of chunkMeshes.values()) {
+      if (g.userData.groundMesh) targets.push(g.userData.groundMesh);
+      if (g.userData.skirtMesh) targets.push(g.userData.skirtMesh);
+    }
+    const hits = raycaster.intersectObjects(targets, false);
+    let hx2, hy2;
+    if (hits.length) {
+      const p = hits[0].point;
+      // nudge BACK toward the camera, not along the ray: pushing into the
+      // terrain flips the pick to the higher tile behind a terrace crest,
+      // which made the cursor pop uphill while panning over hills
+      hx2 = Math.floor(p.x - d.x * 0.001); hy2 = Math.floor(p.z - d.z * 0.001);
+    } else {
+      const t = -o.y / d.y;
+      if (t < 0) return { x: -1, y: -1 };
+      hx2 = Math.floor(o.x + d.x * t); hy2 = Math.floor(o.z + d.z * t);
+    }
+    // travelling under a bridge/building (deck === false): the selector is
+    // locked to the river level by default — a pick landing on the two-level
+    // span overhead re-projects onto the player's water plane. Sweeping the
+    // cursor over plain land clears the lock (pickHigh), so the deck can
+    // still be selected by circling up out of the river and onto the bridge;
+    // sweeping back over open water re-arms it.
+    if (player.deck === false && !player.sailing) {
+      if (!pickDual(hx2, hy2)) {
+        const wb6 = waterBit(hx2, hy2);
+        pickHigh = !(wb6 >= 1 && wb6 <= 3);
+      } else if (!pickHigh) {
+        const planeY = groundY(player.x, player.y) + 0.02;
+        const t2 = (planeY - o.y) / d.y;
+        if (t2 > 0) {
+          const lx2 = Math.floor(o.x + d.x * t2), lz2 = Math.floor(o.z + d.z * t2);
+          const wbL = waterBit(lx2, lz2);
+          const bL = world.insideBuilding(lx2, lz2);
+          if ((wbL >= 1 && wbL <= 3) ||
+              (bL && !String(world.getGround(lx2, lz2)).startsWith("floor")))
+            return { x: lx2, y: lz2 };
+        }
+      }
+    } else pickHigh = false;
+    return { x: hx2, y: hy2 };
+  }
+  // a two-level tile for picking purposes: bridge deck (incl. approach spans)
+  // or the span/hollow of a river building
+  function pickDual(tx, tz) {
+    if ((world.getDecor(tx, tz) || "").startsWith("stone_bridge")) return true;
+    const b = world.insideBuilding(tx, tz);
+    return !!b && (world.isWater(tx, tz) || !String(world.getGround(tx, tz)).startsWith("floor"));
+  }
+
+  // ---------- per-frame sync ----------
+  function syncNodes() {
+    for (const n of world.nodesNear(player.x, player.y, viewRadius())) {
+      const id = "n" + n.id;
+      let key = null, scale = 1, flat = false, treeMul = 1;
+      if (n.portal) { key = "archway_stone"; scale = 1.7; }
+      else if (n.station) key = STATIONS[n.type].spr;
+      else if (n.farm) {
+        if (n.crop) {
+          const crop = CROPS[n.crop.kind];
+          const p = (now - n.crop.plantedAt) / crop.time;
+          if (crop.tree) {
+            // Pomiculture: a barren fruit tree that grows from a sapling; the
+            // crop's own fruit is hung on the canopy once ripe, and vanishes
+            // once picked (leaving the bare tree to be chopped for logs).
+            key = "tree_fruit";
+            treeMul = p >= 1 ? 1 : 0.4 + 0.6 * Math.min(1, p);
+            if (p >= 1 && !n.crop.picked) {
+              const fspr = ITEMS[crop.item] && ITEMS[crop.item].icon;
+              if (fspr && SPR[fspr]) {
+                const base = objScaleFor("tree_fruit") * treeMul;
+                const spots = [[-0.25, -0.05, 0.62], [0.28, 0.12, 0.55], [0.0, -0.22, 0.72]];
+                for (let f = 0; f < spots.length; f++) {
+                  const fm = getMesh("fr" + n.id + "_" + f, fspr, { shadow: false });
+                  fm.userData.lift = base * spots[f][2];
+                  place(fm, n.x + 0.5 + spots[f][0], n.y + 0.5 + spots[f][1], 1, 0.42, false, false, liftAt(n.x, n.y));
+                }
+              }
+            }
+          } else {
+            // 4 real growth-stage sprites (Seedling/Growing/Mature/Ready to
+            // Harvest); "Ready to Harvest" lands at p>=1. Defensive fallback to
+            // the old single `crop.spr`/"sprout" if a stage sprite is missing.
+            const stage = p < 0.25 ? 0 : p < 0.5 ? 1 : p < 1 ? 2 : 3;
+            const staged = crop.sprStages && crop.sprStages[stage];
+            key = (staged && SPR[staged]) ? staged : (p >= 1 ? crop.spr : "sprout");
+            scale = [0.55, 0.7, 0.85, 1.0][stage];
+          }
+        } else if (n.tilled) {
+          key = "tilled_soil"; flat = true; // hoed & ready for seed (untilled: bare earth)
+        }
+      } else {
+        const nt = NODE_TYPES[n.type];
+        if (n.alive) {
+          if (n.type.startsWith("fishspot")) {
+            key = RIPPLE_FRAMES[Math.floor(now / 420) % 4]; flat = true;
+            // every ~15s the spot's own fish rises slowly out of the water and
+            // sinks back — a separate billboard above the ripple
+            const fishSpr = nt && ITEMS[nt.item] && ITEMS[nt.item].icon;
+            if (fishSpr && SPR[fishSpr]) {
+              const PERIOD = 15000, WIN = 3000;
+              const off = ((n.x * 6151 + n.y * 3079) >>> 0) % PERIOD;
+              const ph = (now + off) % PERIOD;
+              if (ph < WIN) {
+                const rise = Math.sin((ph / WIN) * Math.PI); // 0 → 1 → 0
+                const fm = getMesh("fj" + n.id, fishSpr, { shadow: false });
+                fm.userData.lift = -0.15 + rise * 0.85;
+                place(fm, n.x + 0.5, n.y + 0.5, 1, 0.55, false, false, liftAt(n.x, n.y));
+              }
+            }
+          }
+          else { key = n.sprv || nt.spr; if (nt.skill === "Woodcutting") scale = 2.0; }
+        } else if (nt.deadSpr && nt.deadSpr !== "stump" && nt.deadSpr !== "rock_dead") key = nt.deadSpr;
+        // chopped trees ("stump") and mined rocks ("rock_dead") render nothing —
+        // the node just vanishes until it respawns (no stumps / empty rocks left behind)
+      }
+      const existing = meshes.get(id);
+      if (!key) { if (existing) { existing.visible = false; existing.userData.seen = true; if (existing.userData.shadow) existing.userData.shadow.visible = false; } continue; }
+      // directional object billboard (trees, ore rocks, crafting stations) if one
+      // maps to this sprite; falls back to the flat atlas sprite otherwise.
+      const ov = flat ? null : objForKey(key);
+      const ly = liftAt(n.x, n.y);
+      if (ov) {
+        const om = getObjMesh(id, ov.idx);
+        if (om) { place(om, n.x + 0.5, n.y + 0.5, 1, ov.scale * treeMul, false, false, ly); continue; }
+      }
+      const m = getMesh(id, key, flat ? {} : { shadow: true });
+      place(m, n.x + 0.5, n.y + 0.5, 1, scale, false, flat, ly);
+    }
+  }
+
+  // Player-placed furniture & vessels (gameplay/placing.js): rendered as the
+  // same 8-directional objects the world uses. The vessel being RIDDEN glides
+  // at the player's interpolated position instead of its stored tile.
+  function syncPlaced() {
+    if (typeof placed === "undefined" || !placed.length) return;
+    const rid = typeof ridingEnt === "function" ? ridingEnt() : null;
+    for (let i = 0; i < placed.length; i++) {
+      const p = placed[i];
+      const _vr = viewRadius();
+      if (Math.abs(p.x - player.x) > _vr || Math.abs(p.y - player.y) > _vr) continue;
+      const d = ITEMS[p.id];
+      const ov = d && d.place && objForKey(d.place);
+      if (!ov) continue;
+      const lv = p.level | 0;
+      if (!levelVisible(p.x, p.y, lv)) continue;   // upstairs furniture hidden from other floors
+      const om = getObjMesh("pl" + i, ov.idx);
+      if (!om) continue;
+      const riddenNow = p === rid;
+      const rx = riddenNow ? player.px / (TILE * SCALE) + 0.5 : p.x + 0.5;
+      const ry = riddenNow ? player.py / (TILE * SCALE) + 0.5 : p.y + 0.5;
+      place(om, rx, ry, 1, ov.scale, false, false, liftAt(p.x, p.y) + lv * STOREY_H);
+    }
+  }
+
+  // Dynamic 8-directional decor billboards (flowers, bushes, boulders, furniture,
+  // camp/village props) diverted from the baked static chunk mesh in buildChunkMesh.
+  // Culled to a radius around the player; sweep() removes ones that fall out of range.
+  function syncDecor() {
+    const _vr = viewRadius();
+    const px = player.x + 0.5, py = player.y + 0.5, R2 = _vr * _vr;
+    // in a bioluminescent biome (mushroom/dream forest), nothing lights the biome
+    // as a whole — instead each decoration (mushroom/tree/rock) glows on its own.
+    _bioLights.length = 0;
+    const pBio = (typeof bioBiomeGlow === "function" && world.biomeNameAt)
+      ? bioBiomeGlow(world.biomeNameAt(player.x, player.y)) : null;
+    for (const [, group] of chunkMeshes) {
+      const list = group.userData.decorObjs;
+      if (!list) continue;
+      for (const o of list) {
+        const dx = o.wx - px, dy = o.wz - py;
+        if (dx * dx + dy * dy > R2) continue;
+        if (pBio) {
+          // cache each decor's biome glow once (static per position)
+          if (o._bio === undefined) o._bio = bioBiomeGlow(world.biomeNameAt(Math.round(o.wx - 0.5), Math.round(o.wz - 0.5))) || null;
+          if (o._bio) _bioLights.push({ wx: o.wx, wz: o.wz, col: o._bio });
+        }
+        // picked-up decorations are hidden (mesh left unplaced → sweep() removes
+        // it) until they respawn; prune the entry once its timer has elapsed
+        if (typeof pickedDecor !== "undefined" && pickedDecor.size) {
+          const pk = (o.wx - 0.5) + "," + (o.wz - 0.5);
+          const until = pickedDecor.get(pk);
+          if (until != null) { if (now < until) continue; pickedDecor.delete(pk); }
+        }
+        const om = getObjMesh("dc" + o.wx + "_" + o.wz, o.idx, 0); // south sprite only
+        if (om) place(om, o.wx, o.wz, 1, o.scale, false, false, liftAt(o.wx, o.wz));
+      }
+    }
+    // upper-storey furniture (built per structure): hidden together with its
+    // storey while the player is inside on a lower floor
+    const lv = player.level | 0;
+    for (const rec of structs.values()) {
+      const list = rec.upperDecor;
+      if (!list || !list.length) continue;
+      const inside = rec.vols && rec.vols.some(vv =>
+        player.x >= vv.x0 && player.x < vv.x1 && player.y >= vv.z0 && player.y < vv.z1);
+      for (const o of list) {
+        if (inside && o.s > lv) continue;
+        const dx = o.wx - px, dy = o.wz - py;
+        if (dx * dx + dy * dy > R2) continue;
+        const om = getObjMesh("ud" + o.wx + "_" + o.wz + "_" + o.s, o.idx, 0); // south sprite only
+        if (om) place(om, o.wx, o.wz, 1, o.scale, false, false, o.y);
+      }
+    }
+  }
+
+  // ---------- structural geometry (buildings, roofs, doors, city walls) ----
+  // Real, tile-edge-aligned 3D architecture, built once per building/village
+  // record and cached. Walls are 1-tile-thick boxes over the blocked perimeter
+  // tiles, so what you see is exactly what collides; corners are where two
+  // wall boxes meet flush. Roofs are hip roofs from a distance-field height
+  // grid; towers get battlements, spires a steep pyramid, lighthouses taper to
+  // a glowing lamp room. Doors/gates are hinged leaves eased open per frame.
+  const structs = new Map();          // "bx0,y0" / "vx,y" -> built structure rec
+  const badStructs = new Set();       // build threw once — skip, don't retry every frame
+  const structMeta = new WeakMap();   // cache buildingMeta per building record
+  function metaOf(b) {
+    let m = structMeta.get(b);
+    if (!m) { m = world.buildingMeta(b); structMeta.set(b, m); }
+    return m;
+  }
+  const flatMats = {};
+  function matFlat(color) {
+    if (!flatMats[color]) {
+      flatMats[color] = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, vertexColors: true });
+      snowPatchUp(flatMats[color], true);   // roofs / up-facing structure faces frost
+    }
+    return flatMats[color];
+  }
+  let matLightRed = null, matLightWhite = null;
+  function lighthouseMats() {
+    if (!matLightRed) {
+      matLightRed = sharedMat.clone(); matLightRed.color.set(0xd96a55); matLightRed.vertexColors = true;
+      matLightWhite = sharedMat.clone(); matLightWhite.color.set(0xf2ece0); matLightWhite.vertexColors = true;
+      snowPatchUp(matLightRed, true); snowPatchUp(matLightWhite, true);   // clones drop onBeforeCompile
+    }
+  }
+  // city walls in weathered grey (the raw wall_stone sprite reads too white
+  // across a whole fortification)
+  let _matCityWall = null;
+  function matCityWall() {
+    if (!_matCityWall) { _matCityWall = sharedMat.clone(); _matCityWall.color.set(0xb4bac2); _matCityWall.vertexColors = true; snowPatchUp(_matCityWall, true); }
+    return _matCityWall;
+  }
+  // plain solid-color material for standard three.js geometries (telescope
+  // parts) — those have no vertex-color attribute, so matFlat won't render them
+  const plainMats = {};
+  function matPlain(color) {
+    if (!plainMats[color]) {
+      plainMats[color] = new THREE.MeshBasicMaterial({ color });
+      snowPatchUp(plainMats[color], true);
+    }
+    return plainMats[color];
+  }
+
+  // ---- west-pointing soft shadows ----
+  // Every object casts a shadow toward the west (sun in the east) so nothing
+  // reads as floating. Structures and baked decor use quads with this shared
+  // linear-gradient texture (dark at the east base, fading to the west tip);
+  // billboard entities reuse their blob shadow, offset west and stretched.
+  let shadowDirMat = null;
+  function shadowMatDir() {
+    if (shadowDirMat) return shadowDirMat;
+    const cv = document.createElement("canvas");
+    cv.width = 64; cv.height = 32;
+    const c2 = cv.getContext("2d");
+    const id = c2.createImageData(64, 32);
+    // solid dark body (matching the 0.5-alpha sprite silhouettes) with a soft
+    // fade over the westmost third and soft north/south edges
+    for (let py = 0; py < 32; py++)
+      for (let px = 0; px < 64; px++) {
+        const u = px / 63, v = Math.abs(py - 15.5) / 16;
+        const a = Math.pow(Math.min(1, u * 2.6), 0.9) * Math.pow(Math.max(0, 1 - v * v * v), 0.8) * 0.5;
+        id.data[(py * 64 + px) * 4 + 3] = Math.round(a * 255);
+      }
+    c2.putImageData(id, 0, 0);
+    const tex = new THREE.CanvasTexture(cv);
+    shadowDirMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, color: 0x000000 });
+    return shadowDirMat;
+  }
+  function newSH() { return { pos: [], uv: [], idx: [], n: 0 }; }
+  function shQuad(sh, x0, z0, x1, z1, y = 0.018) { // x0 = west tip, x1 = east base
+    sh.pos.push(x0, y, z0, x1, y, z0, x1, y, z1, x0, y, z1);
+    sh.uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+    sh.idx.push(sh.n, sh.n + 1, sh.n + 2, sh.n, sh.n + 2, sh.n + 3);
+    sh.n += 4;
+  }
+  // terrain-conforming shadow: tessellated per tile so the shadow drops/climbs
+  // each half-block tier it crosses instead of floating over (or vanishing
+  // under) the steps. yOf(tx, tz) returns the y for a tile.
+  function shQuadSteps(sh, x0, z0, x1, z1, yOf) {
+    for (let tz = Math.floor(z0); tz < z1; tz++)
+      for (let tx = Math.floor(x0); tx < x1; tx++) {
+        const ax = Math.max(tx, x0), az = Math.max(tz, z0);
+        const bx = Math.min(tx + 1, x1), bz = Math.min(tz + 1, z1);
+        const y = yOf(tx, tz);
+        const u0 = (ax - x0) / (x1 - x0), u1 = (bx - x0) / (x1 - x0);
+        const v0 = (az - z0) / (z1 - z0), v1 = (bz - z0) / (z1 - z0);
+        sh.pos.push(ax, y, az, bx, y, az, bx, y, bz, ax, y, bz);
+        sh.uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
+        sh.idx.push(sh.n, sh.n + 1, sh.n + 2, sh.n, sh.n + 2, sh.n + 3);
+        sh.n += 4;
+      }
+  }
+  function shMesh(sh, rec, parent) {
+    if (!sh.n) return null;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(sh.pos, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(sh.uv, 2));
+    g.setIndex(sh.idx);
+    const m = new THREE.Mesh(g, shadowMatDir());
+    m.matrixAutoUpdate = false;
+    if (rec) rec.geoms.push(g);
+    parent.add(m);
+    return m;
+  }
+  // gradient block shadow: a footprint rect [x0,z0]-[x1,z1] stretched by `len`
+  // along the sun ground direction (sdx,sdz), tessellated per tile so it drapes
+  // over terrain steps. u fades 1→0 from the object base to the far tip; v is a
+  // soft edge across the strip width. yOf(tx,tz)->y.
+  function bakeBlockShadow(sh, x0, z0, x1, z1, len, sdx, sdz, yOf) {
+    let rx0 = x0, rz0 = z0, rx1 = x1, rz1 = z1;
+    if (sdx < 0) rx0 = x0 - len; else if (sdx > 0) rx1 = x1 + len;
+    if (sdz < 0) rz0 = z0 - len; else if (sdz > 0) rz1 = z1 + len;
+    const uAt = (x, z) => {
+      let d = 1;
+      if (sdx < 0) d = (x - (x0 - len)) / len;
+      else if (sdx > 0) d = ((x1 + len) - x) / len;
+      else if (sdz < 0) d = (z - (z0 - len)) / len;
+      else if (sdz > 0) d = ((z1 + len) - z) / len;
+      return Math.max(0, Math.min(1, d));
+    };
+    const vAt = (x, z) => sdx ? (z - rz0) / (rz1 - rz0) : (x - rx0) / (rx1 - rx0);
+    for (let tz = Math.floor(rz0); tz < rz1; tz++)
+      for (let tx = Math.floor(rx0); tx < rx1; tx++) {
+        const ax = Math.max(tx, rx0), az = Math.max(tz, rz0);
+        const bx = Math.min(tx + 1, rx1), bz = Math.min(tz + 1, rz1);
+        const y = yOf(tx, tz);
+        sh.pos.push(ax, y, az, bx, y, az, bx, y, bz, ax, y, bz);
+        sh.uv.push(uAt(ax, az), vAt(ax, az), uAt(bx, az), vAt(bx, az),
+                   uAt(bx, bz), vAt(bx, bz), uAt(ax, bz), vAt(ax, bz));
+        sh.idx.push(sh.n, sh.n + 1, sh.n + 2, sh.n, sh.n + 2, sh.n + 3);
+        sh.n += 4;
+      }
+  }
+  // textured silhouette shadow: the sprite `key` laid flat from foot (cx,cz)
+  // out along the sun direction by `len` (half-width `hw`), tessellated so it
+  // drapes over terrain steps. yOf(tx,tz)->y (world or group-relative).
+  function bakeSil(sb, key, cx, cz, len, hw, sdx, sdz, yOf) {
+    const px = sdz * hw, pz = -sdx * hw; // perpendicular half-width
+    const steps = Math.max(1, Math.ceil(len));
+    for (let i = 0; i < steps; i++) {
+      const d0 = i / steps * len, d1 = (i + 1) / steps * len;
+      const v0 = d0 / len, v1 = d1 / len;
+      const fx0 = cx + sdx * d0, fz0 = cz + sdz * d0;
+      const fx1 = cx + sdx * d1, fz1 = cz + sdz * d1;
+      const y0 = yOf(Math.floor(fx0 + sdx * 0.02), Math.floor(fz0 + sdz * 0.02));
+      const y1 = yOf(Math.floor(fx1 - sdx * 0.02), Math.floor(fz1 - sdz * 0.02));
+      sbQuadUV(sb, key,
+        [fx0 - px, y0, fz0 - pz], [fx0 + px, y0, fz0 + pz],
+        [fx1 + px, y1, fz1 + pz], [fx1 - px, y1, fz1 - pz],
+        [0, v0], [1, v0], [1, v1], [0, v1]);
+    }
+  }
+
+  // small geometry accumulators: textured quads/tris share the atlas material,
+  // flat ones a per-color unlit material; both are double-sided so winding is
+  // irrelevant. Every vertex carries a grey "shade" (vertex color) so faces get
+  // baked directional lighting — south faces bright, north dark, roofs sunlit.
+  const SH_S = 1.0, SH_N = 0.6, SH_W = 0.72, SH_E = 0.86, SH_TOP = 0.93, SH_IN = 0.78;
+  function newSB() { return { pos: [], uv: [], col: [], idx: [], n: 0 }; }
+  function sbUV(key) {
+    const cell = atlas.cells[key] || atlas.cells.wall_stone;
+    const W = atlas.canvas.width, H = atlas.canvas.height;
+    return [(cell.cx + 0.5) / W, 1 - (cell.cy + CSZ - 0.5) / H, (cell.cx + CSZ - 0.5) / W, 1 - (cell.cy + 0.5) / H];
+  }
+  // a,b,c,d = corner [x,y,z] in bottom-left, bottom-right, top-right, top-left
+  // order (for vertical faces) or any planar winding (uv follows that order)
+  function sbQuad(sb, key, a, b, c, d, shade = 1) {
+    const [u0, v0, u1, v1] = sbUV(key);
+    sb.pos.push(...a, ...b, ...c, ...d);
+    sb.uv.push(u0, v0, u1, v0, u1, v1, u0, v1);
+    for (let i = 0; i < 4; i++) sb.col.push(shade, shade, shade);
+    sb.idx.push(sb.n, sb.n + 1, sb.n + 2, sb.n, sb.n + 2, sb.n + 3);
+    sb.n += 4;
+  }
+  // quad with per-corner uv given as fractions of the sprite's cell
+  function sbQuadUV(sb, key, a, b, c, d, ua, ub, uc, ud, shade = 1) {
+    const [u0, v0, u1, v1] = sbUV(key);
+    const L = p => [u0 + (u1 - u0) * p[0], v0 + (v1 - v0) * p[1]];
+    sb.pos.push(...a, ...b, ...c, ...d);
+    sb.uv.push(...L(ua), ...L(ub), ...L(uc), ...L(ud));
+    for (let i = 0; i < 4; i++) sb.col.push(shade, shade, shade);
+    sb.idx.push(sb.n, sb.n + 1, sb.n + 2, sb.n, sb.n + 2, sb.n + 3);
+    sb.n += 4;
+  }
+  function sbTri(sb, key, a, b, c, ua, ub, uc, shade = 1) {
+    const [u0, v0, u1, v1] = sbUV(key);
+    const lerp = (p) => [u0 + (u1 - u0) * p[0], v0 + (v1 - v0) * p[1]];
+    sb.pos.push(...a, ...b, ...c);
+    sb.uv.push(...lerp(ua), ...lerp(ub), ...lerp(uc));
+    for (let i = 0; i < 3; i++) sb.col.push(shade, shade, shade);
+    sb.idx.push(sb.n, sb.n + 1, sb.n + 2);
+    sb.n += 3;
+  }
+  // shade for a sloped (roof) triangle from its upward normal and a SE sun
+  function sunShade(a, b, c) {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+    const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const l = Math.hypot(nx, ny, nz) || 1;
+    nx /= l; ny /= l; nz /= l;
+    if (ny < 0) { nx = -nx; ny = -ny; nz = -nz; }
+    return Math.min(1, Math.max(0.55, 0.6 + 0.4 * (nx * 0.26 + ny * 0.7 + nz * 0.56)));
+  }
+  let _texMatV = null;
+  function texMatV() {
+    // Material.clone() does NOT carry onBeforeCompile — re-apply the snow
+    // patch or roofs/wall-tops (all structural atlas geometry) never frost
+    if (!_texMatV) { _texMatV = sharedMat.clone(); _texMatV.vertexColors = true; snowPatchUp(_texMatV, true); }
+    return _texMatV;
+  }
+  function sbMesh(sb, mat, rec, parent) {
+    if (!sb.n) return null;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(sb.pos, 3));
+    g.setAttribute("uv", new THREE.Float32BufferAttribute(sb.uv, 2));
+    g.setAttribute("color", new THREE.Float32BufferAttribute(sb.col, 3));
+    g.setIndex(sb.idx);
+    const m = new THREE.Mesh(g, mat === sharedMat ? texMatV() : mat);
+    m.matrixAutoUpdate = false;
+    rec.geoms.push(g);
+    parent.add(m);
+    return m;
+  }
+  // vertical wall face from (ax,az) to (bx,bz), split into ~1-tile columns and
+  // ~0.9-unit texture rows so the art tiles instead of stretching
+  function sbWallFace(sb, key, ax, az, bx, bz, yB, yT, shade = 1) {
+    const len = Math.hypot(bx - ax, bz - az);
+    const nSeg = Math.max(1, Math.round(len));
+    const nRow = Math.max(1, Math.round((yT - yB) / 0.9));
+    for (let i = 0; i < nSeg; i++) {
+      const t0 = i / nSeg, t1 = (i + 1) / nSeg;
+      const x0 = ax + (bx - ax) * t0, z0 = az + (bz - az) * t0;
+      const x1 = ax + (bx - ax) * t1, z1 = az + (bz - az) * t1;
+      for (let r = 0; r < nRow; r++) {
+        const y0 = yB + (yT - yB) * r / nRow, y1 = yB + (yT - yB) * (r + 1) / nRow;
+        sbQuad(sb, key, [x0, y0, z0], [x1, y0, z1], [x1, y1, z1], [x0, y1, z0], shade);
+      }
+    }
+  }
+  // horizontal quad (tops, slabs) over a rect; per-tile texture cells
+  function sbFloor(sb, key, x0, z0, x1, z1, y, shade = SH_TOP) {
+    for (let z = Math.floor(z0); z < z1; z++)
+      for (let x = Math.floor(x0); x < x1; x++) {
+        const ax = Math.max(x, x0), az = Math.max(z, z0);
+        const bx2 = Math.min(x + 1, x1), bz2 = Math.min(z + 1, z1);
+        sbQuad(sb, key, [ax, y, az], [bx2, y, az], [bx2, y, bz2], [ax, y, bz2], shade);
+      }
+  }
+  // one horizontal flat-colored quad (no texture detail needed)
+  function sbFlatRect(sb, x0, z0, x1, z1, y, shade = SH_TOP) {
+    sbQuad(sb, "wall_stone", [x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1], shade);
+  }
+  // plank floor: long boards with alternating tones (no plank tile exists in
+  // the sheets — the flat floor_wood tile reads as solid orange)
+  function sbPlanks(sb, x0, z0, x1, z1, y) {
+    for (let z = z0, k = 0; z < z1 - 1e-6; z += 0.45, k++) {
+      const z2 = Math.min(z + 0.45, z1);
+      sbQuad(sb, "wall_stone", [x0, y, z], [x1, y, z], [x1, y, z2], [x0, y, z2], [1.0, 0.84, 0.93][k % 3]);
+    }
+  }
+  // small solid block (merlons, posts): 4 sides + top, direction-shaded
+  function sbBlock(sb, x0, y0, z0, x1, y1, z1) {
+    const k = "wall_stone";
+    sbQuad(sb, k, [x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], SH_N);
+    sbQuad(sb, k, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], SH_S);
+    sbQuad(sb, k, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], SH_W);
+    sbQuad(sb, k, [x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], SH_E);
+    sbQuad(sb, k, [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], SH_TOP);
+  }
+  // battlement merlons along the outer edge from (ax,az) to (bx,bz)
+  function sbMerlons(sb, ax, az, bx, bz, y, inward) {
+    const len = Math.hypot(bx - ax, bz - az);
+    const dx = (bx - ax) / len, dz = (bz - az) / len;
+    const n = Math.max(2, Math.floor(len / 0.62));
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) * (len / n);
+      const cx2 = ax + dx * t, cz2 = az + dz * t;
+      sbBlock(sb,
+        cx2 - Math.abs(dx) * 0.15 - Math.abs(dz) * (inward ? 0.26 : 0), y,
+        cz2 - Math.abs(dz) * 0.15 - Math.abs(dx) * (inward ? 0.26 : 0),
+        cx2 + Math.abs(dx) * 0.15 + Math.abs(dz) * (inward ? 0 : 0.26), y + 0.42,
+        cz2 + Math.abs(dz) * 0.15 + Math.abs(dx) * (inward ? 0 : 0.26));
+    }
+  }
+  // hinged swinging leaf (door / gate). Returns the animation record.
+  // (hx,hz)=hinge, (dx,dz)=unit direction the closed leaf extends along,
+  // (owx,owz)=outward normal it swings toward when opening.
+  function makeLeaf(rec, parent, key, hx, hy, hz, dx, dz, owx, owz, leafH, doorKey2) {
+    const grp = new THREE.Group();
+    grp.position.set(hx, hy, hz);
+    const baseYaw = Math.atan2(-dz, dx);
+    // rotating local +x by yaw t gives (cos t, 0, -sin t): pick the 90° swing
+    // whose result points outward
+    const dot = s => {
+      const t = baseYaw + s * Math.PI / 2;
+      return Math.cos(t) * owx - Math.sin(t) * owz;
+    };
+    const sign = dot(1) > dot(-1) ? 1 : -1;
+    const leaf = new THREE.Mesh(geomFor(key), sharedMat);
+    leaf.position.set(0.49, leafH / 2, 0);
+    leaf.scale.set(0.97, leafH, 1);
+    grp.add(leaf);
+    grp.rotation.y = baseYaw;
+    parent.add(grp);
+    const d = { grp, baseYaw, sign, cur: 0, key: doorKey2 };
+    rec.doors.push(d);
+    return d;
+  }
+
+  // hip roof over [rx0..rx1]x[rz0..rz1] with a 1-tile eave overhang; corner
+  // heights follow the capped distance-to-edge field, which produces authentic
+  // hips, ridges and (on big footprints) a flat plateau. Shared by building
+  // halls and mansion wings.
+  function buildHipRoof(rec, parent, rx0, rz0, rx1, rz1, base, roofKey, spire) {
+    const RISE = spire ? 1.15 : 0.62;
+    const CAPD = spire ? 99 : Math.min(3, Math.max(1, Math.floor(Math.min(rx1 - rx0, rz1 - rz0) / 2)));
+    const ex0 = rx0 - 1, ex1 = rx1 + 1, ez0 = rz0 - 1, ez1 = rz1 + 1;
+    const chn = (cx2, cz2) => base - 0.38 +
+      Math.min(cx2 - ex0, ex1 - cx2, cz2 - ez0, ez1 - cz2, CAPD) * RISE;
+    const rb = newSB();
+    for (let tz = ez0; tz < ez1; tz++)
+      for (let tx = ex0; tx < ex1; tx++) {
+        const h00 = chn(tx, tz), h10 = chn(tx + 1, tz), h11 = chn(tx + 1, tz + 1), h01 = chn(tx, tz + 1);
+        const p00 = [tx, h00, tz], p10 = [tx + 1, h10, tz], p11 = [tx + 1, h11, tz + 1], p01 = [tx, h01, tz + 1];
+        // split along the flatter diagonal so hip lines stay straight;
+        // each slope gets sun-angle shading so the roof planes read as 3D
+        if (Math.abs(h00 - h11) <= Math.abs(h10 - h01)) {
+          sbTri(rb, roofKey, p00, p10, p11, [0, 0], [1, 0], [1, 1], sunShade(p00, p10, p11));
+          sbTri(rb, roofKey, p00, p11, p01, [0, 0], [1, 1], [0, 1], sunShade(p00, p11, p01));
+        } else {
+          sbTri(rb, roofKey, p10, p11, p01, [1, 0], [1, 1], [0, 1], sunShade(p10, p11, p01));
+          sbTri(rb, roofKey, p10, p01, p00, [1, 0], [0, 1], [0, 0], sunShade(p10, p01, p00));
+        }
+      }
+    sbMesh(rb, sharedMat, rec, parent);
+  }
+
+  // --- building structure ---
+  function buildBuildingStruct(b) {
+    const m = metaOf(b);
+    const storeys = m.storeys, stone = m.stone, kind = m.kind;
+    const x0 = b.x0, z0 = b.y0, w = b.w, h = b.h;
+    const x1 = x0 + w, z1 = z0 + h; // outer bounds (walls sit ON the perimeter tiles)
+    const frontKey = stone ? "wall_stone" : "wall_wood";
+    const sideKey = stone ? "wall_stone_side" : "wall_wood_side";
+    const floorKey = stone ? "floor_stone" : "floor_wood";
+    const topCol = stone ? 0x767a82 : 0x63482e;
+    const group = new THREE.Group();
+    const rec = { group, geoms: [], storeyGroups: [], slabs: [], roofGroup: null, doors: [], b, m,
+      cx: x0 + w / 2, cz: z0 + h / 2 };
+    // doors by wall (LocAngle W=0 N=1 E=2 S=3) — river buildings may put them
+    // on any wall, one per bank
+    const doorsArr = [m.door, m.door2].filter(Boolean);
+    const dS = doorsArr.find(d2 => d2.angle === 3) || null;
+    const dN = doorsArr.find(d2 => d2.angle === 1) || null;
+    const dW = doorsArr.find(d2 => d2.angle === 0) || null;
+    const dE = doorsArr.find(d2 => d2.angle === 2) || null;
+    const doorX = dS ? dS.x : m.door.x;
+    const battl = kind === "tower" || kind === "keep";
+    const light = kind === "lighthouse";
+    if (light) lighthouseMats();
+    // mansion: attached wings + the archways cut through the hall's shared
+    // walls on the ground AND first floor (positions from buildingMeta)
+    const wings = kind === "mansion" && m.wings ? m.wings : null;
+    const wdW = wings ? m.wingDoors[0] : null;
+    const wdE = wings ? m.wingDoors[1] : null;
+    const wdN = wings ? m.wingDoors[2] : null;
+    // vertical wall face along z at fixed x with an optional 1-tile archway
+    const faceZ = (sb, key, fx, za, zb, yB, yT, shade, gz) => {
+      if (gz == null || gz < za || gz + 1 > zb) { sbWallFace(sb, key, fx, za, fx, zb, yB, yT, shade); return; }
+      if (gz > za) sbWallFace(sb, key, fx, za, fx, gz, yB, yT, shade);
+      if (gz + 1 < zb) sbWallFace(sb, key, fx, gz + 1, fx, zb, yB, yT, shade);
+      sbQuad(sb, key, [fx, yB + DOOR_H, gz], [fx, yB + DOOR_H, gz + 1], [fx, yT, gz + 1], [fx, yT, gz], shade);
+    };
+    const faceX = (sb, key, fz, xa, xb, yB, yT, shade, gx) => {
+      if (gx == null || gx < xa || gx + 1 > xb) { sbWallFace(sb, key, xa, fz, xb, fz, yB, yT, shade); return; }
+      if (gx > xa) sbWallFace(sb, key, xa, fz, gx, fz, yB, yT, shade);
+      if (gx + 1 < xb) sbWallFace(sb, key, gx + 1, fz, xb, fz, yB, yT, shade);
+      sbQuad(sb, key, [gx, yB + DOOR_H, fz], [gx + 1, yB + DOOR_H, fz], [gx + 1, yT, fz], [gx, yT, fz], shade);
+    };
+    // archway passage through a 1-tile-thick wall box: side walls + lintel underside
+    const archZ = (sb, fb, key, xa, xb, gz, yB) => {
+      sbQuad(sb, key, [xa, yB, gz], [xb, yB, gz], [xb, yB + DOOR_H, gz], [xa, yB + DOOR_H, gz], SH_IN);
+      sbQuad(sb, key, [xa, yB, gz + 1], [xb, yB, gz + 1], [xb, yB + DOOR_H, gz + 1], [xa, yB + DOOR_H, gz + 1], SH_IN);
+      sbQuad(fb, key, [xa, yB + DOOR_H, gz], [xb, yB + DOOR_H, gz], [xb, yB + DOOR_H, gz + 1], [xa, yB + DOOR_H, gz + 1], 0.5);
+    };
+    const archX = (sb, fb, key, za, zb, gx, yB) => {
+      sbQuad(sb, key, [gx, yB, za], [gx, yB, zb], [gx, yB + DOOR_H, zb], [gx, yB + DOOR_H, za], SH_IN);
+      sbQuad(sb, key, [gx + 1, yB, za], [gx + 1, yB, zb], [gx + 1, yB + DOOR_H, zb], [gx + 1, yB + DOOR_H, za], SH_IN);
+      sbQuad(fb, key, [gx, yB + DOOR_H, za], [gx + 1, yB + DOOR_H, za], [gx + 1, yB + DOOR_H, zb], [gx, yB + DOOR_H, zb], 0.5);
+    };
+
+    // plinth: raised floor slab over the whole footprint + doorstep
+    {
+      const ft = newSB(), ff = newSB();
+      if (stone) sbFloor(ft, floorKey, x0, z0, x1, z1, FLOOR_T);
+      else {
+        const fp = newSB();
+        sbPlanks(fp, x0, z0, x1, z1, FLOOR_T);
+        sbMesh(fp, matFlat(0x9a6b3a), rec, group);
+      }
+      sbWallFace(ff, frontKey, x0, z1, x1, z1, 0, FLOOR_T, SH_S);
+      sbWallFace(ff, frontKey, x0, z0, x1, z0, 0, FLOOR_T, SH_N);
+      sbWallFace(ff, frontKey, x0, z0, x0, z1, 0, FLOOR_T, SH_W);
+      sbWallFace(ff, frontKey, x1, z0, x1, z1, 0, FLOOR_T, SH_E);
+      // doorstep outside each door
+      if (dS)
+        sbQuad(ft, floorKey, [dS.x + 0.08, 0.03, z1], [dS.x + 0.92, 0.03, z1], [dS.x + 0.92, 0.03, z1 + 0.5], [dS.x + 0.08, 0.03, z1 + 0.5]);
+      if (dN)
+        sbQuad(ft, floorKey, [dN.x + 0.08, 0.03, z0 - 0.5], [dN.x + 0.92, 0.03, z0 - 0.5], [dN.x + 0.92, 0.03, z0], [dN.x + 0.08, 0.03, z0]);
+      if (dW)
+        sbQuad(ft, floorKey, [x0 - 0.5, 0.03, dW.y + 0.08], [x0, 0.03, dW.y + 0.08], [x0, 0.03, dW.y + 0.92], [x0 - 0.5, 0.03, dW.y + 0.92]);
+      if (dE)
+        sbQuad(ft, floorKey, [x1, 0.03, dE.y + 0.08], [x1 + 0.5, 0.03, dE.y + 0.08], [x1 + 0.5, 0.03, dE.y + 0.92], [x1, 0.03, dE.y + 0.92]);
+      sbMesh(ft, sharedMat, rec, group);
+      sbMesh(ff, matFlat(0x5c5f66), rec, group);
+    }
+
+    // wall storeys (the ground storey starts on the plinth top so the skirt
+    // below it is never coplanar with the wall face)
+    for (let s = 0; s < storeys; s++) {
+      const yB = s === 0 ? FLOOR_T : s * STOREY_H, yT = (s + 1) * STOREY_H;
+      // wallMeshes: everything that vanishes while the player stands on this
+      // storey (wall boxes, trim, lighthouse drum) — doors, ladders and
+      // furniture are NOT in it. flat: the collapsed stand-in, low kerbs
+      // tracing the wall footprints at floor level (the wall tops "dropped
+      // to the ground") with jamb posts marking the doorways.
+      const sg = { group: new THREE.Group(), sides: {}, wallMeshes: [],
+        flat: new THREE.Group() };
+      sg.flat.visible = false;
+      sg.group.add(sg.flat);
+      for (const sd of ["n", "s", "e", "w"]) {
+        sg.sides[sd] = new THREE.Group();
+        sg.group.add(sg.sides[sd]);
+      }
+      if (light && s > 0) {
+        // tapered lighthouse drum: thin banded walls, stepping in per storey
+        const inset = [0, 0.4, 0.75, 1.0][s] ?? 1.0;
+        const a = x0 + inset, bx2 = x1 - inset, c = z0 + inset, d = z1 - inset;
+        const mat = (s & 1) ? matLightRed : matLightWhite;
+        const mk = (sd, ax, az, bx3, bz3, shade) => {
+          const sb = newSB();
+          sbWallFace(sb, "wall_stone", ax, az, bx3, bz3, yB, yT, shade);
+          const dm = sbMesh(sb, mat, rec, sg.sides[sd]);
+          if (dm) sg.wallMeshes.push(dm);
+        };
+        mk("n", a, c, bx2, c, SH_N);
+        mk("s", a, d, bx2, d, SH_S);
+        mk("w", a, c, a, d, SH_W);
+        mk("e", bx2, c, bx2, d, SH_E);
+        // ledge ring where the drum steps in (lifted a hair off the band below)
+        const lg = newSB(), ly = yB + 0.02;
+        sbFlatRect(lg, a - 0.31, c - 0.31, bx2 + 0.31, c, ly);
+        sbFlatRect(lg, a - 0.31, d, bx2 + 0.31, d + 0.31, ly);
+        sbFlatRect(lg, a - 0.31, c, a, d, ly);
+        sbFlatRect(lg, bx2, c, bx2 + 0.31, d, ly);
+        const lm = sbMesh(lg, matFlat(0x8a8e96), rec, sg.group);
+        if (lm) sg.wallMeshes.push(lm);
+      } else {
+        // 1-tile-thick wall boxes: west/east boxes run the full depth (they own
+        // the corners), north/south boxes span between them — faces meet flush,
+        // nothing overlaps, so corners are real corners.
+        const mkSide = (sd, fn) => { const sb = newSB(), fb = newSB(); fn(sb, fb);
+          const m1 = sbMesh(sb, sharedMat, rec, sg.sides[sd]);
+          const m2 = sbMesh(fb, matFlat(topCol), rec, sg.sides[sd]);
+          if (m1) sg.wallMeshes.push(m1);
+          if (m2) sg.wallMeshes.push(m2); };
+        const gzW = wings && s <= 1 ? wdW.y : (dW && s === 0 ? dW.y : null);
+        const gzE = wings && s <= 1 ? wdE.y : (dE && s === 0 ? dE.y : null);
+        // north opening: mansion wing archway, or a river building's 2nd door
+        const gxN = wings && s <= 1 ? wdN.x : (dN && s === 0 ? dN.x : null);
+        mkSide("w", (sb, fb) => {
+          faceZ(sb, sideKey, x0, z0, z1, yB, yT, SH_W, gzW);            // outer
+          faceZ(sb, sideKey, x0 + 1, z0 + 1, z1 - 1, yB, yT, SH_IN, gzW); // inner
+          sbWallFace(sb, frontKey, x0, z0, x0 + 1, z0, yB, yT, SH_N);   // n end
+          sbWallFace(sb, frontKey, x0, z1, x0 + 1, z1, yB, yT, SH_S);   // s end
+          if (gzW != null) archZ(sb, fb, frontKey, x0, x0 + 1, gzW, yB);
+          sbFlatRect(fb, x0, z0, x0 + 1, z1, yT);
+        });
+        mkSide("e", (sb, fb) => {
+          faceZ(sb, sideKey, x1, z0, z1, yB, yT, SH_E, gzE);
+          faceZ(sb, sideKey, x1 - 1, z0 + 1, z1 - 1, yB, yT, SH_IN, gzE);
+          sbWallFace(sb, frontKey, x1 - 1, z0, x1, z0, yB, yT, SH_N);
+          sbWallFace(sb, frontKey, x1 - 1, z1, x1, z1, yB, yT, SH_S);
+          if (gzE != null) archZ(sb, fb, frontKey, x1 - 1, x1, gzE, yB);
+          sbFlatRect(fb, x1 - 1, z0, x1, z1, yT);
+        });
+        mkSide("n", (sb, fb) => {
+          faceX(sb, frontKey, z0, x0 + 1, x1 - 1, yB, yT, SH_N, gxN);
+          faceX(sb, frontKey, z0 + 1, x0 + 1, x1 - 1, yB, yT, SH_IN, gxN);
+          if (gxN != null) archX(sb, fb, frontKey, z0, z0 + 1, gxN, yB);
+          sbFlatRect(fb, x0 + 1, z0, x1 - 1, z0 + 1, yT);
+        });
+        mkSide("s", (sb, fb) => {
+          const za = z1 - 1;
+          if (s === 0 && dS) {
+            // door opening at doorX with a lintel band above it
+            sbWallFace(sb, frontKey, x0 + 1, z1, doorX, z1, yB, yT, SH_S);
+            sbWallFace(sb, frontKey, doorX + 1, z1, x1 - 1, z1, yB, yT, SH_S);
+            sbWallFace(sb, frontKey, x0 + 1, za, doorX, za, yB, yT, SH_IN);
+            sbWallFace(sb, frontKey, doorX + 1, za, x1 - 1, za, yB, yT, SH_IN);
+            sbQuad(sb, frontKey, [doorX, yB + DOOR_H, z1], [doorX + 1, yB + DOOR_H, z1], [doorX + 1, yT, z1], [doorX, yT, z1], SH_S);
+            sbQuad(sb, frontKey, [doorX, yB + DOOR_H, za], [doorX + 1, yB + DOOR_H, za], [doorX + 1, yT, za], [doorX, yT, za], SH_IN);
+            // jambs + lintel underside
+            sbQuad(sb, frontKey, [doorX, yB, za], [doorX, yB, z1], [doorX, yB + DOOR_H, z1], [doorX, yB + DOOR_H, za], SH_IN);
+            sbQuad(sb, frontKey, [doorX + 1, yB, za], [doorX + 1, yB, z1], [doorX + 1, yB + DOOR_H, z1], [doorX + 1, yB + DOOR_H, za], SH_IN);
+            sbQuad(fb, frontKey, [doorX, yB + DOOR_H, za], [doorX + 1, yB + DOOR_H, za], [doorX + 1, yB + DOOR_H, z1], [doorX, yB + DOOR_H, z1], 0.5);
+          } else {
+            sbWallFace(sb, frontKey, x0 + 1, z1, x1 - 1, z1, yB, yT, SH_S);
+            sbWallFace(sb, frontKey, x0 + 1, za, x1 - 1, za, yB, yT, SH_IN);
+          }
+          sbFlatRect(fb, x0 + 1, za, x1 - 1, z1, yT);
+        });
+        // seam trim ring between storeys breaks up tall facades
+        if (s > 0) {
+          const tr = newSB(), o = 0.04, ty0 = yB - 0.06, ty1 = yB + 0.08;
+          sbQuad(tr, "wall_stone", [x0 - o, ty0, z0 - o], [x1 + o, ty0, z0 - o], [x1 + o, ty1, z0 - o], [x0 - o, ty1, z0 - o], SH_N);
+          sbQuad(tr, "wall_stone", [x0 - o, ty0, z1 + o], [x1 + o, ty0, z1 + o], [x1 + o, ty1, z1 + o], [x0 - o, ty1, z1 + o], SH_S);
+          sbQuad(tr, "wall_stone", [x0 - o, ty0, z0 - o], [x0 - o, ty0, z1 + o], [x0 - o, ty1, z1 + o], [x0 - o, ty1, z0 - o], SH_W);
+          sbQuad(tr, "wall_stone", [x1 + o, ty0, z0 - o], [x1 + o, ty0, z1 + o], [x1 + o, ty1, z1 + o], [x1 + o, ty1, z0 - o], SH_E);
+          const tm = sbMesh(tr, matFlat(stone ? 0x5b5e66 : 0x4a3a28), rec, sg.group);
+          if (tm) sg.wallMeshes.push(tm);
+        }
+        // collapsed stand-in for this storey: low kerbs over the wall
+        // footprints (door/arch tiles stay open, flanked by jamb posts up to
+        // lintel height so the way out still reads as a doorway)
+        {
+          const ob = newSB(), oy = yB + 0.01, OT = 0.07, JW = 0.1;
+          const stripZ = (fx, za, zb, gz) => {
+            if (gz == null || gz < za || gz + 1 > zb) { sbBlock(ob, fx, oy, za, fx + 1, oy + OT, zb); return; }
+            if (gz > za) sbBlock(ob, fx, oy, za, fx + 1, oy + OT, gz);
+            if (gz + 1 < zb) sbBlock(ob, fx, oy, gz + 1, fx + 1, oy + OT, zb);
+            sbBlock(ob, fx, oy, gz - JW, fx + 1, oy + DOOR_H, gz);
+            sbBlock(ob, fx, oy, gz + 1, fx + 1, oy + DOOR_H, gz + 1 + JW);
+          };
+          const stripX = (fz, xa, xb, gx) => {
+            if (gx == null || gx < xa || gx + 1 > xb) { sbBlock(ob, xa, oy, fz, xb, oy + OT, fz + 1); return; }
+            if (gx > xa) sbBlock(ob, xa, oy, fz, gx, oy + OT, fz + 1);
+            if (gx + 1 < xb) sbBlock(ob, gx + 1, oy, fz, xb, oy + OT, fz + 1);
+            sbBlock(ob, gx - JW, oy, fz, gx, oy + DOOR_H, fz + 1);
+            sbBlock(ob, gx + 1, oy, fz, gx + 1 + JW, oy + DOOR_H, fz + 1);
+          };
+          stripZ(x0, z0, z1, gzW);
+          stripZ(x1 - 1, z0, z1, gzE);
+          stripX(z0, x0 + 1, x1 - 1, gxN);
+          stripX(z1 - 1, x0 + 1, x1 - 1, s === 0 && dS ? doorX : null);
+          sbMesh(ob, matFlat(topCol), rec, sg.flat);
+        }
+      }
+      // ladder segment for this storey: two rails + rungs, leaning slightly
+      // against the tile's north edge. The rails continue well above the floor
+      // it climbs to (RS "laddertop") so the way down is obvious upstairs.
+      if (m.ladder && s < storeys - 1) {
+        const lb = newSB();
+        const lx = m.ladder.x + 0.5, lz = m.ladder.y + 0.28;
+        const railTop = yT + 0.85, rungTop = yT + 0.55;
+        for (const rx of [-0.26, 0.26])
+          sbBlock(lb, lx + rx - 0.045, yB, lz - 0.045, lx + rx + 0.045, railTop, lz + 0.045);
+        const nR = Math.max(4, Math.round((rungTop - yB) / 0.36));
+        for (let r = 1; r <= nR; r++) {
+          const ry = yB + (rungTop - yB) * r / (nR + 1);
+          sbBlock(lb, lx - 0.26, ry - 0.04, lz - 0.03, lx + 0.26, ry + 0.04, lz + 0.03);
+        }
+        sbMesh(lb, matFlat(0x8a6236), rec, sg.group);
+      }
+      rec.storeyGroups.push(sg);
+      group.add(sg.group);
+    }
+
+    // upper floor slabs (interior only): plank top for contrast, dark underside
+    for (let s = 1; s < storeys; s++) {
+      const st = newSB(), su = newSB();
+      sbPlanks(st, x0 + 1, z0 + 1, x1 - 1, z1 - 1, s * STOREY_H + 0.02);
+      sbFlatRect(su, x0 + 1, z0 + 1, x1 - 1, z1 - 1, s * STOREY_H - 0.09);
+      const slabGrp = new THREE.Group();
+      sbMesh(st, matFlat(0x9a6b3a), rec, slabGrp);
+      sbMesh(su, matFlat(0x3c352c), rec, slabGrp);
+      group.add(slabGrp);
+      rec.slabs.push(slabGrp);
+    }
+
+    // roof
+    const roofGroup = new THREE.Group();
+    rec.roofGroup = roofGroup;
+    group.add(roofGroup);
+    const roofTop = storeys * STOREY_H;
+    if (light) {
+      // gallery ledge, glowing lamp room and cap
+      const inset = 1.0;
+      const ga = x0 + inset - 0.45, gb = x1 - inset + 0.45;
+      const gc = z0 + inset - 0.45, gd = z1 - inset + 0.45;
+      const fb = newSB();
+      sbBlock(fb, ga, roofTop, gc, gb, roofTop + 0.09, gd);
+      sbMesh(fb, matFlat(0x4a4a52), rec, roofGroup);
+      const cxm = (x0 + x1) / 2, czm = (z0 + z1) / 2, lh = 0.85;
+      const lb = newSB();
+      sbQuad(lb, "wall_stone", [cxm - lh, roofTop + 0.09, czm - lh], [cxm + lh, roofTop + 0.09, czm - lh], [cxm + lh, roofTop + 0.95, czm - lh], [cxm - lh, roofTop + 0.95, czm - lh]);
+      sbQuad(lb, "wall_stone", [cxm - lh, roofTop + 0.09, czm + lh], [cxm + lh, roofTop + 0.09, czm + lh], [cxm + lh, roofTop + 0.95, czm + lh], [cxm - lh, roofTop + 0.95, czm + lh]);
+      sbQuad(lb, "wall_stone", [cxm - lh, roofTop + 0.09, czm - lh], [cxm - lh, roofTop + 0.09, czm + lh], [cxm - lh, roofTop + 0.95, czm + lh], [cxm - lh, roofTop + 0.95, czm - lh]);
+      sbQuad(lb, "wall_stone", [cxm + lh, roofTop + 0.09, czm - lh], [cxm + lh, roofTop + 0.09, czm + lh], [cxm + lh, roofTop + 0.95, czm + lh], [cxm + lh, roofTop + 0.95, czm - lh]);
+      sbMesh(lb, matFlat(0xffd76a), rec, roofGroup);
+      const cap = newSB();
+      const capY = roofTop + 0.95, apex = [cxm, roofTop + 1.75, czm];
+      const ch2 = lh + 0.18;
+      sbTri(cap, "roof_gray", [cxm - ch2, capY, czm - ch2], [cxm + ch2, capY, czm - ch2], apex, [0, 0], [1, 0], [0.5, 1], SH_N);
+      sbTri(cap, "roof_gray", [cxm + ch2, capY, czm - ch2], [cxm + ch2, capY, czm + ch2], apex, [0, 0], [1, 0], [0.5, 1], SH_E);
+      sbTri(cap, "roof_gray", [cxm + ch2, capY, czm + ch2], [cxm - ch2, capY, czm + ch2], apex, [0, 0], [1, 0], [0.5, 1], SH_S);
+      sbTri(cap, "roof_gray", [cxm - ch2, capY, czm + ch2], [cxm - ch2, capY, czm - ch2], apex, [0, 0], [1, 0], [0.5, 1], SH_W);
+      sbMesh(cap, sharedMat, rec, roofGroup);
+    } else if (battl) {
+      // flat stone roof deck + battlement ring
+      const rt = newSB(), fb = newSB();
+      sbFloor(rt, "floor_stone", x0 + 1, z0 + 1, x1 - 1, z1 - 1, roofTop + 0.02);
+      sbMerlons(fb, x0, z0, x1, z0, roofTop, false);
+      sbMerlons(fb, x0, z1, x1, z1, roofTop, true);
+      sbMerlons(fb, x0, z0, x0, z1, roofTop, false);
+      sbMerlons(fb, x1, z0, x1, z1, roofTop, true);
+      sbMesh(rt, sharedMat, rec, roofGroup);
+      sbMesh(fb, matFlat(0x767a82), rec, roofGroup);
+    } else {
+      buildHipRoof(rec, roofGroup, x0, z0, x1, z1, roofTop,
+        atlas.cells[b.roof] ? b.roof : (stone ? "roof_gray" : "roof_brown"), kind === "spire");
+    }
+
+    // mansion wings: three attached 2-storey rooms sharing a wall with the
+    // hall (the hall's wall face doubles as the wing's inner wall; flank boxes
+    // stop at that plane with no end caps, so nothing is ever coplanar)
+    if (wings) {
+      const rk = atlas.cells[b.roof] ? b.roof : "roof_gray";
+      for (const wg of wings) {
+        const wx0 = wg.x0, wz0 = wg.y0, wx1 = wg.x0 + wg.w, wz1 = wg.y0 + wg.h;
+        for (let s = 0; s < wg.storeys; s++) {
+          const yB = s === 0 ? FLOOR_T : s * STOREY_H, yT = (s + 1) * STOREY_H;
+          const sb = newSB(), fb = newSB();
+          if (wg.shared === "e") {
+            // west wing: far (west) box owns the corners
+            sbWallFace(sb, sideKey, wx0, wz0, wx0, wz1, yB, yT, SH_W);
+            sbWallFace(sb, sideKey, wx0 + 1, wz0 + 1, wx0 + 1, wz1 - 1, yB, yT, SH_IN);
+            sbWallFace(sb, frontKey, wx0, wz0, wx0 + 1, wz0, yB, yT, SH_N);
+            sbWallFace(sb, frontKey, wx0, wz1, wx0 + 1, wz1, yB, yT, SH_S);
+            sbFlatRect(fb, wx0, wz0, wx0 + 1, wz1, yT);
+            sbWallFace(sb, frontKey, wx0 + 1, wz0, x0, wz0, yB, yT, SH_N);
+            sbWallFace(sb, frontKey, wx0 + 1, wz0 + 1, x0, wz0 + 1, yB, yT, SH_IN);
+            sbFlatRect(fb, wx0 + 1, wz0, x0, wz0 + 1, yT);
+            sbWallFace(sb, frontKey, wx0 + 1, wz1 - 1, x0, wz1 - 1, yB, yT, SH_IN);
+            sbWallFace(sb, frontKey, wx0 + 1, wz1, x0, wz1, yB, yT, SH_S);
+            sbFlatRect(fb, wx0 + 1, wz1 - 1, x0, wz1, yT);
+          } else if (wg.shared === "w") {
+            // east wing: far (east) box owns the corners
+            sbWallFace(sb, sideKey, wx1, wz0, wx1, wz1, yB, yT, SH_E);
+            sbWallFace(sb, sideKey, wx1 - 1, wz0 + 1, wx1 - 1, wz1 - 1, yB, yT, SH_IN);
+            sbWallFace(sb, frontKey, wx1 - 1, wz0, wx1, wz0, yB, yT, SH_N);
+            sbWallFace(sb, frontKey, wx1 - 1, wz1, wx1, wz1, yB, yT, SH_S);
+            sbFlatRect(fb, wx1 - 1, wz0, wx1, wz1, yT);
+            sbWallFace(sb, frontKey, x1, wz0, wx1 - 1, wz0, yB, yT, SH_N);
+            sbWallFace(sb, frontKey, x1, wz0 + 1, wx1 - 1, wz0 + 1, yB, yT, SH_IN);
+            sbFlatRect(fb, x1, wz0, wx1 - 1, wz0 + 1, yT);
+            sbWallFace(sb, frontKey, x1, wz1 - 1, wx1 - 1, wz1 - 1, yB, yT, SH_IN);
+            sbWallFace(sb, frontKey, x1, wz1, wx1 - 1, wz1, yB, yT, SH_S);
+            sbFlatRect(fb, x1, wz1 - 1, wx1 - 1, wz1, yT);
+          } else {
+            // north wing: far (north) box owns the corners
+            sbWallFace(sb, frontKey, wx0, wz0, wx1, wz0, yB, yT, SH_N);
+            sbWallFace(sb, frontKey, wx0 + 1, wz0 + 1, wx1 - 1, wz0 + 1, yB, yT, SH_IN);
+            sbWallFace(sb, sideKey, wx0, wz0, wx0, wz0 + 1, yB, yT, SH_W);
+            sbWallFace(sb, sideKey, wx1, wz0, wx1, wz0 + 1, yB, yT, SH_E);
+            sbFlatRect(fb, wx0, wz0, wx1, wz0 + 1, yT);
+            sbWallFace(sb, sideKey, wx0, wz0 + 1, wx0, z0, yB, yT, SH_W);
+            sbWallFace(sb, sideKey, wx0 + 1, wz0 + 1, wx0 + 1, z0, yB, yT, SH_IN);
+            sbFlatRect(fb, wx0, wz0 + 1, wx0 + 1, z0, yT);
+            sbWallFace(sb, sideKey, wx1 - 1, wz0 + 1, wx1 - 1, z0, yB, yT, SH_IN);
+            sbWallFace(sb, sideKey, wx1, wz0 + 1, wx1, z0, yB, yT, SH_E);
+            sbFlatRect(fb, wx1 - 1, wz0 + 1, wx1, z0, yT);
+          }
+          const wm1 = sbMesh(sb, sharedMat, rec, rec.storeyGroups[s].group);
+          const wm2 = sbMesh(fb, matFlat(topCol), rec, rec.storeyGroups[s].group);
+          if (wm1) rec.storeyGroups[s].wallMeshes.push(wm1);
+          if (wm2) rec.storeyGroups[s].wallMeshes.push(wm2);
+          // wing kerbs for the collapsed view (no openings in wing outer
+          // walls — the archways cut the hall's own walls, gapped above)
+          {
+            const ob = newSB(), oy = yB + 0.01, OT = 0.07;
+            const blk = (ax, az, bx3, bz3) => sbBlock(ob, ax, oy, az, bx3, oy + OT, bz3);
+            if (wg.shared === "e") {
+              blk(wx0, wz0, wx0 + 1, wz1);
+              blk(wx0 + 1, wz0, x0, wz0 + 1);
+              blk(wx0 + 1, wz1 - 1, x0, wz1);
+            } else if (wg.shared === "w") {
+              blk(wx1 - 1, wz0, wx1, wz1);
+              blk(x1, wz0, wx1 - 1, wz0 + 1);
+              blk(x1, wz1 - 1, wx1 - 1, wz1);
+            } else {
+              blk(wx0, wz0, wx1, wz0 + 1);
+              blk(wx0, wz0 + 1, wx0 + 1, z0);
+              blk(wx1 - 1, wz0 + 1, wx1, z0);
+            }
+            sbMesh(ob, matFlat(topCol), rec, rec.storeyGroups[s].flat);
+          }
+        }
+        // wing first-floor slab (into the hall's level-1 slab group)
+        {
+          const st = newSB(), su = newSB();
+          const ix0 = wg.shared === "w" ? x1 : wx0 + 1;
+          const ix1 = wg.shared === "e" ? x0 : wx1 - 1;
+          const iz0 = wz0 + 1, iz1 = wg.shared === "s" ? z0 : wz1 - 1;
+          sbPlanks(st, ix0, iz0, ix1, iz1, STOREY_H + 0.02);
+          sbFlatRect(su, ix0, iz0, ix1, iz1, STOREY_H - 0.09);
+          sbMesh(st, matFlat(0x9a6b3a), rec, rec.slabs[0]);
+          sbMesh(su, matFlat(0x3c352c), rec, rec.slabs[0]);
+        }
+        // wing plinth (stops at the hall's plinth edge; no skirt on the shared side)
+        {
+          const ft = newSB(), ff = newSB();
+          const px0 = wg.shared === "w" ? x1 : wx0;
+          const px1 = wg.shared === "e" ? x0 : wx1;
+          const pz0 = wz0, pz1 = wg.shared === "s" ? z0 : wz1;
+          sbFloor(ft, floorKey, px0, pz0, px1, pz1, FLOOR_T);
+          if (wg.shared !== "w") sbWallFace(ff, frontKey, px0, pz0, px0, pz1, 0, FLOOR_T, SH_W);
+          if (wg.shared !== "e") sbWallFace(ff, frontKey, px1, pz0, px1, pz1, 0, FLOOR_T, SH_E);
+          sbWallFace(ff, frontKey, px0, pz0, px1, pz0, 0, FLOOR_T, SH_N);
+          if (wg.shared !== "s") sbWallFace(ff, frontKey, px0, pz1, px1, pz1, 0, FLOOR_T, SH_S);
+          sbMesh(ft, sharedMat, rec, group);
+          sbMesh(ff, matFlat(0x5c5f66), rec, group);
+        }
+        // wing hip roof, dying into the hall wall
+        if (wg.shared === "e") buildHipRoof(rec, roofGroup, wx0, wz0, x0, wz1, 2 * STOREY_H, rk, false);
+        else if (wg.shared === "w") buildHipRoof(rec, roofGroup, x1, wz0, wx1, wz1, 2 * STOREY_H, rk, false);
+        else buildHipRoof(rec, roofGroup, wx0, wz0, wx1, z0, 2 * STOREY_H, rk, false);
+      }
+      // archway crossing floors at first-floor level (through the shared walls)
+      const af = newSB();
+      for (const d of m.wingDoors) sbPlanks(af, d.x, d.y, d.x + 1, d.y + 1, STOREY_H + 0.02);
+      sbMesh(af, matFlat(0x9a6b3a), rec, rec.slabs[0]);
+    }
+
+    // the great telescope of an observatory: mount + tube on the first floor,
+    // wide objective end poking out through the roof toward the western sky
+    if (kind === "observatory") {
+      const cxm = (x0 + x1) / 2, czm = (z0 + z1) / 2;
+      const tilt = 0.38, ax = -Math.sin(tilt), ay = Math.cos(tilt);
+      const mount = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.1, 1.5), matPlain(0x454a55));
+      mount.position.set(cxm, STOREY_H + 0.57, czm);
+      rec.storeyGroups[1].group.add(mount);
+      rec.geoms.push(mount.geometry);
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.6, 3.8, 10), matPlain(0x3a5a8c));
+      tube.rotation.z = tilt;
+      tube.position.set(cxm + ax * 1.8, STOREY_H + 1.0 + ay * 1.8, czm);
+      rec.storeyGroups[1].group.add(tube);
+      rec.geoms.push(tube.geometry);
+      const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.74, 0.6, 1.1, 10), matPlain(0x2b4066));
+      bell.rotation.z = tilt;
+      bell.position.set(cxm + ax * 3.6, STOREY_H + 1.0 + ay * 3.6, czm);
+      roofGroup.add(bell);
+      rec.geoms.push(bell.geometry);
+    }
+
+    // interior volumes (for the roof/upper-storey hiding test) and the
+    // west-heading ground shadow — its length tracks the volume's full height
+    // (walls + roof), so towers/lighthouses throw long shadows and huts short
+    rec.vols = [{ x0, z0, x1, z1 }];
+    if (wings) for (const wg of wings)
+      rec.vols.push({ x0: wg.x0, z0: wg.y0, x1: wg.x0 + wg.w, z1: wg.y0 + wg.h });
+    {
+      // shadow footprints stretched by the volume's full height (walls + roof)
+      // — towers/lighthouses throw long shadows, huts short. Baked per sun
+      // direction by buildStructShadow; heights are group-relative (group is
+      // lifted by baseTier), sampled per tile so they drape over terrain steps.
+      const roofExtra = light ? 2.8 : battl ? 0.6 : kind === "spire" ? 3.2 : 1.5;
+      // rawStep, not groundY: a river-spanning building's centre tile can be
+      // water (groundY = water surface), but the structure rides the bank tier
+      rec.baseTier = rawStep(b.x0 + (b.w >> 1), b.y0 + (b.h >> 1));
+      rec.shadowFeet = [{ x0, z0, x1, z1, len: storeys * STOREY_H + roofExtra }];
+      if (wings) for (const wg of wings)
+        rec.shadowFeet.push({ x0: wg.x0, z0: wg.y0, x1: wg.x0 + wg.w, z1: wg.y0 + wg.h, len: 2 * STOREY_H + 1.5 });
+      buildStructShadow(rec);
+    }
+
+    // door leaves (open outward over their doorsteps), one per door on
+    // whichever wall it landed
+    const dKey = (stone && m.door.stone) ? "door_stone" : "door_wood";
+    for (const d2 of doorsArr) {
+      let leaf;
+      if (d2.angle === 3)
+        leaf = makeLeaf(rec, rec.storeyGroups[0].sides.s, dKey,
+          d2.x, FLOOR_T, z1 - 0.12, 1, 0, 0, 1, DOOR_H - 0.05, d2.x + "," + d2.y);
+      else if (d2.angle === 1)
+        leaf = makeLeaf(rec, rec.storeyGroups[0].sides.n, dKey,
+          d2.x, FLOOR_T, z0 + 0.12, 1, 0, 0, -1, DOOR_H - 0.05, d2.x + "," + d2.y);
+      else if (d2.angle === 0)
+        leaf = makeLeaf(rec, rec.storeyGroups[0].sides.w, dKey,
+          x0 + 0.12, FLOOR_T, d2.y, 0, 1, -1, 0, DOOR_H - 0.05, d2.x + "," + d2.y);
+      else
+        leaf = makeLeaf(rec, rec.storeyGroups[0].sides.e, dKey,
+          x1 - 0.12, FLOOR_T, d2.y, 0, 1, 1, 0, DOOR_H - 0.05, d2.x + "," + d2.y);
+      leaf.side = ["w", "n", "e", "s"][d2.angle];
+    }
+
+    // (the river channel under a spanning building is held up solely by the
+    // thick 1-tile stone_bridge#p piers the chunk stamp plants — no extra
+    // small posts)
+
+    // ---- upper storeys: bedrooms, studies and stores so floors above the
+    // ground aren't bare planks. Purely visual billboards, laid out with the
+    // same back-wall/side-wall scheme as ground floors, avoiding the ladder
+    // (and mansion archways); placed by syncDecor and hidden along with their
+    // storey when the player is inside on a lower floor.
+    rec.upperDecor = [];
+    // a plain one-room house (no shop/station) is the owner's BEDROOM: furnish its
+    // GROUND floor with a bed. Shop/station buildings are 2-storey (job → upstairs)
+    // and get their bedroom on the upper floor via the normal loop below.
+    const isHouse = storeys === 1 && !b.job;
+    if ((storeys > 1 || isHouse) && !light) {
+      const UP_TOWER = ["bookshelf_small", "desk", "candle_scrying", "brazier_iron", "strongbox", "easel"];
+      // main-branch bank hall: upper floors are the counting house + vault
+      const UP_BANK = ["strongbox", "treasure_chest", "lockbox", "desk", "candelabra", "bookshelf_small", "chest_storage", "jewelry_box"];
+      const UP_STONE = ["bed_fourposter", "wardrobe", "bookshelf_small", "dresser_mirror", "candelabra", "desk", "chest_storage", "stool"];
+      const UP_WOOD = ["bed_frame", "dresser", "chest_storage", "cupboard", "stool", "bookshelf_small", "bench_trestle", "bucket"];
+      const HOUSE = stone ? ["bed_fourposter", "chest_storage", "dresser_mirror", "stool", "wardrobe"]
+                          : ["bed_frame", "chest_storage", "dresser", "stool", "cupboard"];
+      const upList = isHouse ? HOUSE
+        : kind === "mainbank" ? UP_BANK
+        : (kind === "tower" || kind === "spire" || kind === "observatory" || kind === "keep")
+        ? UP_TOWER : stone ? UP_STONE : UP_WOOD;
+      const lx = m.ladder ? m.ladder.x : -1e9, lz = m.ladder ? m.ladder.y : -1e9;
+      const sFrom = isHouse ? 0 : 1, sTo = isHouse ? 1 : storeys;
+      for (let s = sFrom; s < sTo; s++) {
+        const cx3 = x0 + (w >> 1);
+        const slots = [];
+        const push3 = (tx2, tz2) => {
+          if (tx2 <= x0 || tx2 >= x1 - 1 || tz2 <= z0 || tz2 >= z1 - 1) return;
+          if (Math.abs(tx2 - lx) <= 1 && Math.abs(tz2 - lz) <= 1) return; // ladder clearance
+          if (wings && s === 1 && m.wingDoors &&
+              m.wingDoors.some(d3 => d3.x === tx2 && d3.y === tz2)) return;
+          if (slots.some(s3 => s3[0] === tx2 && s3[1] === tz2)) return;
+          slots.push([tx2, tz2]);
+        };
+        push3(cx3 - 1, z0 + 1); push3(cx3 + 1, z0 + 1);
+        push3(x0 + 1, z0 + 1); push3(x1 - 2, z0 + 1);
+        push3(x0 + 1, z0 + 2); push3(x1 - 2, z0 + 2);
+        push3(x0 + 1, z1 - 2); push3(x1 - 2, z1 - 2);
+        const hh = Math.abs((x0 * 73856093) ^ (z0 * 19349663) ^ (s * 83492791));
+        const count = Math.min(slots.length, 4 + (hh % 3));
+        for (let i = 0; i < count; i++) {
+          const key = upList[(isHouse ? i : (hh + i)) % upList.length];  // house: bed first
+          const ov = objForKey(key);
+          if (!ov) continue;
+          rec.upperDecor.push({
+            wx: slots[i][0] + 0.5, wz: slots[i][1] + 0.5,
+            y: rec.baseTier + s * STOREY_H + FLOOR_T + 0.02,
+            idx: ov.idx, scale: ov.scale, s,
+          });
+        }
+      }
+    }
+
+    // the whole structure rides its (flattened) terrain tier
+    group.position.y = rec.baseTier;
+    rec.baseY = group.position.y;
+    scene.add(group);
+    return rec;
+  }
+
+  // --- walled city ring structure ---
+  function buildVillageStruct(v) {
+    const R = v.R, cx = v.x, cz = v.y;
+    const group = new THREE.Group();
+    const rec = { group, geoms: [], storeyGroups: [], slabs: [], roofGroup: null, doors: [], v,
+      vols: [], cx, cz };
+    const H = CITYWALL_H;
+    const wat = (x, y) => world.isWater(x, y);
+    const sb = newSB(), fb = newSB();
+    // shadow footprints (per wall segment / turret), baked per sun direction by
+    // buildStructShadow; heights group-relative (ring rides the city tier)
+    rec.baseTier = groundY(cx, cz);
+    rec.shadowFeet = [];
+    // a straight wall box over tiles [ax..bx]x[az..bz] (inclusive tile coords,
+    // 1 tile thick), with walkway top and outer merlons. capA/capB draw the
+    // end cross-sections: false = none (run abuts a corner turret whose own
+    // face would z-fight in the same plane), true = full from yBot, a number
+    // = only from that height up (the exposed step above a lower neighbour
+    // sub-run, so coplanar caps never overlap).
+    // stepped terrain: the ring rides the city centre's tier (group offset);
+    // wall bottoms extend WB below it so slopes never show a gap underneath,
+    // and the TOP rises with the local ground (lift2) so high terrain around
+    // the city is still definitively walled off.
+    const WB = -4;
+    const lift = (x, y) => Math.max(0, Math.round((groundY(x, y) - rec.baseTier) / STEP_H) * STEP_H);
+    const run = (tx0, tz0, tx1, tz1, horiz, capA = true, capB = true, lift2 = 0, yBot = WB) => {
+      const ox0 = tx0, oz0 = tz0, ox1 = tx1 + 1, oz1 = tz1 + 1;
+      const yT = H + lift2;
+      sbWallFace(sb, "wall_stone", ox0, oz0, horiz ? ox1 : ox0, horiz ? oz0 : oz1, yBot, yT, horiz ? SH_N : SH_W);
+      sbWallFace(sb, "wall_stone", horiz ? ox0 : ox1, horiz ? oz1 : oz0, ox1, oz1, yBot, yT, horiz ? SH_S : SH_E);
+      const capY = c => c === true ? yBot : c;
+      if (capA !== false) sbWallFace(sb, "wall_stone", ox0, oz0, horiz ? ox0 : ox1, horiz ? oz1 : oz0, capY(capA), yT, horiz ? SH_W : SH_N);
+      if (capB !== false) sbWallFace(sb, "wall_stone", horiz ? ox1 : ox0, horiz ? oz0 : oz1, ox1, oz1, capY(capB), yT, horiz ? SH_E : SH_S);
+      sbFloor(sb, "floor_stone", ox0, oz0, ox1, oz1, yT); // walkway deck
+      if (horiz) {
+        const outerN = tz0 === cz - R;
+        sbMerlons(fb, ox0, outerN ? oz0 : oz1, ox1, outerN ? oz0 : oz1, yT, !outerN);
+      } else {
+        const outerW = tx0 === cx - R;
+        sbMerlons(fb, outerW ? ox0 : ox1, oz0, outerW ? ox0 : ox1, oz1, yT, !outerW);
+      }
+      rec.shadowFeet.push({ x0: ox0, z0: oz0, x1: ox1, z1: oz1, len: (yT + 0.4) * 0.95 });
+    };
+    // collect contiguous land spans of each side's ring tiles (gate gap |d|<=2
+    // is skipped, as are bridge decks — those get structural gates below;
+    // corners are separate turrets). Each span is then split into sub-runs of
+    // equal terrain lift so the walkway steps along like terraces.
+    const bridged = (x, y) => (world.getDecor(x, y) || "").startsWith("stone_bridge");
+    const turretAt = (sx, sz) => !wat(cx + sx * R, cz + sz * R);
+    const spans = (fixed, isRow) => {
+      let a = null;
+      for (let d = -R + 1; d <= R - 1; d++) {
+        const tx = isRow ? cx + d : fixed, tz = isRow ? fixed : cz + d;
+        const wall = Math.abs(d) > 2 && !wat(tx, tz) && !bridged(tx, tz);
+        if (wall && a === null) a = d;
+        if ((!wall || d === R - 1) && a !== null) {
+          const b2 = wall && d === R - 1 ? d : d - 1;
+          const sFix = isRow ? Math.sign(fixed - cz) : Math.sign(fixed - cx);
+          const capA = !(a === -R + 1 && (isRow ? turretAt(-1, sFix) : turretAt(sFix, -1)));
+          const capB = !(b2 === R - 1 && (isRow ? turretAt(1, sFix) : turretAt(sFix, 1)));
+          const lifts = [];
+          for (let d2 = a; d2 <= b2; d2++)
+            lifts.push(lift(isRow ? cx + d2 : fixed, isRow ? fixed : cz + d2));
+          let s0 = 0;
+          for (let i = 1; i <= lifts.length; i++) {
+            if (i < lifts.length && lifts[i] === lifts[s0]) continue;
+            const lv2 = lifts[s0];
+            const prevL = s0 > 0 ? lifts[s0 - 1] : null;
+            const nextL = i < lifts.length ? lifts[i] : null;
+            const cA = s0 === 0 ? capA : (lv2 > prevL ? H + prevL : false);
+            const cB = i === lifts.length ? capB : (lv2 > nextL ? H + nextL : false);
+            const dA = a + s0, dB = a + i - 1;
+            if (isRow) run(cx + dA, fixed, cx + dB, fixed, true, cA, cB, lv2);
+            else run(fixed, cz + dA, fixed, cz + dB, false, cA, cB, lv2);
+            s0 = i;
+          }
+          a = null;
+        }
+      }
+    };
+    spans(cz - R, true);
+    spans(cz + R, true);
+    spans(cx - R, false);
+    spans(cx + R, false);
+    // corner turrets (their tops ride the local terrain lift too)
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const tx = cx + sx * R, tz = cz + sz * R;
+      if (wat(tx, tz)) continue;
+      const T = H + 0.7 + lift(tx, tz);
+      sbWallFace(sb, "wall_stone", tx, tz, tx + 1, tz, WB, T, SH_N);
+      sbWallFace(sb, "wall_stone", tx, tz + 1, tx + 1, tz + 1, WB, T, SH_S);
+      sbWallFace(sb, "wall_stone", tx, tz, tx, tz + 1, WB, T, SH_W);
+      sbWallFace(sb, "wall_stone", tx + 1, tz, tx + 1, tz + 1, WB, T, SH_E);
+      sbFlatRect(fb, tx, tz, tx + 1, tz + 1, T);
+      for (const mx of [0.08, 0.62]) for (const mz of [0.08, 0.62])
+        sbBlock(fb, tx + mx, T, tz + mz, tx + mx + 0.3, T + 0.34, tz + mz + 0.3);
+      rec.shadowFeet.push({ x0: tx, z0: tz, x1: tx + 1, z1: tz + 1, len: (T + 0.4) * 0.95 });
+    }
+    // gate plugs (fixed wall pieces narrowing the road gap) + swinging leaves.
+    // Plugs on a bridge deck stand ON the deck (a wall gate over the crossing,
+    // boat lane below stays clear); land plugs and leaves sit at local ground
+    // level, which groundY flattens even across the gate apron.
+    for (const g of world.gatesForVillage(v)) {
+      const horiz = g.angle === 1 || g.angle === 3;
+      for (const [px2, pz2] of g.plugs || []) {
+        if (bridged(px2, pz2)) {
+          const base = bridgeDeckY(px2, pz2) + FLOOR_T - rec.baseTier;
+          run(px2, pz2, px2, pz2, horiz, true, true, base, base - 0.6);
+        } else if (!wat(px2, pz2)) {
+          run(px2, pz2, px2, pz2, horiz, true, true, lift(px2, pz2));
+        }
+      }
+      const onDeck = bridged(g.x, g.y);
+      if (!onDeck && wat(g.x, g.y)) continue; // open-water breach: no floating leaf
+      const gy2 = (onDeck ? bridgeDeckY(g.x, g.y) + FLOOR_T : groundY(g.x, g.y)) - rec.baseTier;
+      const owx = horiz ? 0 : Math.sign(g.x - cx), owz = horiz ? Math.sign(g.y - cz) : 0;
+      if (horiz) {
+        const hx = g.leaf === "l" ? g.x : g.x + 1;
+        makeLeaf(rec, group, "gate_leaf", hx, gy2, g.y + 0.5, g.leaf === "l" ? 1 : -1, 0, owx, owz, 2.0, g.x + "," + g.y);
+      } else {
+        const hz = g.leaf === "l" ? g.y : g.y + 1;
+        makeLeaf(rec, group, "gate_leaf", g.x + 0.5, gy2, hz, 0, g.leaf === "l" ? 1 : -1, owx, owz, 2.0, g.x + "," + g.y);
+      }
+    }
+    sbMesh(sb, matCityWall(), rec, group);
+    sbMesh(fb, matFlat(0x767a82), rec, group);
+    buildStructShadow(rec);
+    // the ring rides the city centre's terrain tier
+    group.position.y = groundY(cx, cz);
+    rec.baseY = group.position.y;
+    scene.add(group);
+    return rec;
+  }
+
+  function syncStructures() {
+    if (!world.buildingMeta || !world.structAt) return;
+    const px = player.x, py = player.y;
+    const seen = new Set();
+    // new structures build at most one per frame (they enter view range well
+    // before the camera reaches them, so spreading the builds out is
+    // invisible — stacking a village's worth into one frame was a hitch)
+    let buildBudget = 1;
+    for (const b of world.buildingsNear(px, py, 34)) {
+      const key = "b" + b.x0 + "," + b.y0;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let rec = structs.get(key);
+      if (!rec) {
+        if (badStructs.has(key) || buildBudget <= 0) continue;
+        buildBudget--;
+        try { rec = buildBuildingStruct(b); structs.set(key, rec); }
+        catch (e) { badStructs.add(key); console.error("structure build failed at", key, e); continue; }
+      }
+      rec.unseen = 0;
+      // interior visibility: while inside (hall or a mansion wing), the roof
+      // and the storeys/floors ABOVE the player hide, and the current
+      // storey's walls COLLAPSE — the wall boxes drop away and low kerbs (the
+      // wall tops at floor level) trace the room instead, so the whole
+      // interior is readable from any camera angle. Doors, ladders and
+      // furniture stay up; the walls still collide exactly as before.
+      const inside = rec.vols.some(vv => px >= vv.x0 && px < vv.x1 && py >= vv.z0 && py < vv.z1);
+      const lv = inside ? Math.min(player.level | 0, rec.m.storeys - 1) : -1;
+      rec.roofGroup.visible = !inside;
+      rec.storeyGroups.forEach((sg, s) => {
+        sg.group.visible = !inside || s <= lv;
+        const flat = inside && s === lv;
+        if (sg.wallMeshes) for (const wm of sg.wallMeshes) wm.visible = !flat;
+        if (sg.flat) sg.flat.visible = flat;
+      });
+      rec.slabs.forEach((slab, i) => { slab.visible = !inside || (i + 1) <= lv; });
+    }
+    if (world.walledVillagesNear) {
+      for (const v of world.walledVillagesNear(px, py, 60)) {
+        if (Math.abs(v.x - px) > v.R + 40 || Math.abs(v.y - py) > v.R + 40) continue;
+        const key = "v" + v.x + "," + v.y;
+        seen.add(key);
+        let rec = structs.get(key);
+        if (!rec) {
+          if (badStructs.has(key) || buildBudget <= 0) continue;
+          buildBudget--;
+          try { rec = buildVillageStruct(v); structs.set(key, rec); }
+          catch (e) { badStructs.add(key); console.error("city wall build failed at", key, e); continue; }
+        }
+        rec.unseen = 0;
+      }
+    }
+    // door/gate leaves ease toward their open/closed state
+    for (const rec of structs.values()) {
+      for (const d of rec.doors) {
+        const target = world.isDoorOpen(...d.key.split(",").map(Number)) ? d.sign * 1.9 : 0;
+        if (Math.abs(target - d.cur) > 0.001) {
+          d.cur += (target - d.cur) * 0.16;
+          d.grp.rotation.y = d.baseYaw + d.cur;
+        }
+      }
+    }
+    // structures well out of range get disposed (with hysteresis so brief
+    // radius jitter never thrashes a rebuild)
+    for (const [key, rec] of structs) {
+      if (seen.has(key)) continue;
+      rec.unseen = (rec.unseen || 0) + 1;
+      if (rec.unseen > 600) {
+        scene.remove(rec.group);
+        for (const g of rec.geoms) g.dispose();
+        for (const sm of rec.shadowMeshes || []) sm.geometry.dispose();
+        structs.delete(key);
+      }
+    }
+  }
+
+  // ---------- mix billboard NPCs (generated 8-direction characters) ----------
+  // The generated mix characters ship as atlas sheets (MIX_SHEETS data-URIs)
+  // + per-character frame placements (MIX_NPCS). Each NPC renders as a
+  // directional billboard: the visible frame is the one whose world facing,
+  // rotated into camera space, matches — same maths the 8-dir objects use.
+  const MIXR = (function () {
+    const ok = typeof MIX_NPCS !== "undefined" && MIX_NPCS && MIX_NPCS.list &&
+      typeof MIX_SHEETS !== "undefined" && MIX_SHEETS.length;
+    const list = ok ? MIX_NPCS.list : [];
+    const order = ok ? MIX_NPCS.order : [];
+    const S = ok ? MIX_NPCS.sheet : 2048;
+    const byKey = new Map(list.map(d => [d.key, d]));
+    const sheetRec = [];              // per-sheet {tex, mat, ready}
+    const geomCache = new Map();      // "key:frame" -> PlaneGeometry (atlas UV)
+    function ensureSheets() {
+      if (!ok || sheetRec.length) return;
+      for (let s = 0; s < MIX_SHEETS.length; s++) {
+        const img = new Image();
+        const tex = new THREE.Texture(img);
+        tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+        tex.generateMipmaps = false;
+        tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+        if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+        const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.4, side: THREE.DoubleSide });
+        tintPatch(mat);   // custom mobs share the world's light
+        const rec = { tex, mat, ready: false };
+        img.onload = () => { rec.ready = true; tex.needsUpdate = true; };
+        img.src = MIX_SHEETS[s];
+        sheetRec.push(rec);
+      }
+    }
+    function matFor(def) { ensureSheets(); return sheetRec[def.sheet] ? sheetRec[def.sheet].mat : null; }
+    function geomFor(def, frame) {
+      const gk = def.key + ":" + frame;
+      let g = geomCache.get(gk);
+      if (!g) {
+        g = new THREE.PlaneGeometry(def.fw / def.fh, 1);
+        const px0 = def.ax + frame * def.fw, px1 = px0 + def.fw;
+        const py0 = def.ay, py1 = def.ay + def.fh, e = 0.5;
+        const u0 = (px0 + e) / S, u1 = (px1 - e) / S;
+        const v1 = 1 - (py0 + e) / S, v0 = 1 - (py1 - e) / S; // atlas is top-down
+        const uv = g.attributes.uv;
+        uv.setXY(0, u0, v1); uv.setXY(1, u1, v1); uv.setXY(2, u0, v0); uv.setXY(3, u1, v0);
+        geomCache.set(gk, g);
+      }
+      return g;
+    }
+    // strip frame for a facing dir8 name, rotated into the current camera view
+    function frameFor(faceDir8) {
+      const wi = Math.max(0, DIR8.indexOf(faceDir8));
+      const disp = DIR8[(wi - camDir + 8) & 7];
+      const f = order.indexOf(disp);
+      return f < 0 ? 0 : f;
+    }
+    return { ok, list, order, byKey, matFor, geomFor, frameFor };
+  })();
+  const MIX_SCALE = CHAR_SCALE;     // unified with the player base scale so NPCs and
+                                    // player characters share ONE size reference
+                                    // (same h/w mins & maxs → identical world size)
+
+  function renderMixNpc(id, npc, def) {
+    const mat = MIXR.matFor(def);
+    if (!mat) return;
+    // a villager asleep on their OWN bed lies down on it (world-anchored flat
+    // sprite, like flat decor) instead of standing on the mattress. Requires a
+    // real _bed — chunk shopkeepers "sleep" at their post and stay upright.
+    const lying = !!npc._bed && typeof npcAsleep === "function" && npcAsleep(npc);
+    const frame = MIXR.frameFor(lying ? "south" : (npc.dir8 || "south"));
+    const g = MIXR.geomFor(def, frame);
+    let m = meshes.get(id);
+    if (m && !m.userData.isMix) {
+      scene.remove(m); if (m.userData.shadow) scene.remove(m.userData.shadow);
+      meshes.delete(id); m = null;
+    }
+    if (!m) {
+      m = new THREE.Mesh(g, mat); m.userData.isMix = true;
+      if (SHADOWS) {
+        const s = new THREE.Mesh(g, shadowMatFor(mat));
+        s.renderOrder = 2;
+        m.userData.shadow = s;
+        scene.add(s);
+      }
+      scene.add(m); meshes.set(id, m);
+    }
+    if (m.material !== mat) {
+      m.material = mat;
+      if (m.userData.shadow) m.userData.shadow.material = shadowMatFor(mat);
+    }
+    if (m.geometry !== g) m.geometry = g;
+    // the shadow silhouette is the 8-dir frame the SUN sees, not the camera's
+    if (m.userData.shadow) {
+      const fi = DIR8.indexOf(npc.dir8 || "south");
+      m.userData.shadowGeom = MIXR.geomFor(def, MIXR.frameFor(DIR8[((fi < 0 ? 0 : fi) - sunState.oct + 8) & 7]));
+    }
+    m.userData.seen = true; m.visible = true;
+    // an NPC on an upper storey is only visible when the player is inside the
+    // same building AND up on that storey (otherwise it's behind a floor/roof).
+    const lvl = npc.level | 0;
+    if (lvl > 0) {
+      const o = npc._owns;
+      const canSee = o && (player.level | 0) >= lvl &&
+        player.x >= o[0] && player.x < o[0] + o[2] && player.y >= o[1] && player.y < o[1] + o[3];
+      if (!canSee) { m.visible = false; if (m.userData.shadow) m.userData.shadow.visible = false; return; }
+    }
+    // interpolated position when walking (fluid, like the player), else the tile centre
+    const wx = npc.px != null ? WX(npc.px) : npc.x + 0.5;
+    const wz = npc.py != null ? WX(npc.py) : npc.y + 0.5;
+    // per-character build (character-stats.js): race/class-driven height & width
+    // replace the old subtle fh-measured hs. The geom already carries the fw/fh
+    // aspect, so scale.x multiplies width on top of that.
+    const _mst = (typeof mixStatsFor === "function") ? mixStatsFor(def) : null;
+    const _mh = _mst ? _mst.h : (def.hs || 1), _mw = _mst ? _mst.w : 1;
+    if (lying) {
+      // flat on the mattress: head to the pillow (beds stand against the north
+      // wall, and rotating -90° about X points the sprite's head to -z), body
+      // nudged toward the footboard so the headboard reads behind the head.
+      // Slightly shortened so even tall folk fit the 1.45-long bed_frame.
+      const baseY = liftAt(npc.x, npc.y) + lvl * STOREY_H + FLOOR_T;
+      m.position.set(wx, baseY + BED_LIE_Y, wz + 0.32);
+      m.rotation.set(-Math.PI / 2, 0, 0);
+      const ls = MIX_SCALE * _mh * 0.8;
+      m.scale.set(MIX_SCALE * _mw * 0.8, ls, 1);
+      if (m.userData.shadow) m.userData.shadow.visible = false;
+      return;
+    }
+    place(m, wx, wz, 1, MIX_SCALE * _mh, false, false, liftAt(npc.x, npc.y) + lvl * STOREY_H);
+    m.scale.x = MIX_SCALE * _mw;
+  }
+  // height of a bed's mattress top above its floor — where sleepers lie
+  // (bed_frame/bed_fourposter sprites at the furniture-pass scales)
+  const BED_LIE_Y = 0.62;
+
+  // ---- mix NPC population: reskin every shopkeeper as a mix character, and
+  // scatter a few wandering mix townsfolk at each nearby village/city (more in
+  // cities) plus one quest-giver at every quest-start map icon. Deterministic
+  // per site, despawned when the site leaves range. NPCs walk fluidly (the
+  // player's tile-to-tile interpolation) within a home radius. ------------------
+  const mixKeyed = new Map();      // site key -> [npc,...]
+  let mixMeshSeq = 0;
+  const MIX_LINES = [
+    "Well met, traveller.", "Fine day on the isle, isn't it?",
+    "Mind how you go out there.", "New face around here?",
+    "The roads have been quiet lately.", "Safe travels, friend.",
+    "Emberfall's a big place — easy to get lost.", "Trouble's always brewing somewhere.",
+  ];
+  const MIX_QUEST_LINES = [
+    "You there — I could use some help.", "A word, adventurer? There's work to be done.",
+    "You look capable. Perhaps you can aid me.", "Stranger! Fate may have sent you.",
+  ];
+  function mixHash(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  // ── DETERMINISTIC unique villager characters ─────────────────────────────
+  // Villagers are procedurally generated, not ephemeral — the SAME people always
+  // live in a given town. So the character (roster index) must be a pure function
+  // of a villager's stable identity (its SETTLEMENT + its BUILDING), never of load
+  // order. Each settlement gets a contiguous BLOCK of the roster; the villager in
+  // building #i takes `blockBase + i`, so every villager in a town is unique and
+  // always the same. A bounded, order-free nudge keeps a settlement's block clear
+  // of the blocks of EARLIER (canonically) nearby settlements, so two settlements
+  // within 1000 tiles don't share a character. (599 chars ≫ villagers/1000-tiles.)
+  const MIX_UNIQUE_R2 = 1000 * 1000;
+  const _stlBaseCache = new Map();               // memo only — result is position-pure
+  function settlementBlockBase(v) {
+    const N = MIXR.list.length;
+    if (!N) return 0;
+    const key = v.x + "," + v.y;
+    const memo = _stlBaseCache.get(key);
+    if (memo != null) return memo;
+    let base = mixHash("stl:" + key) % N;
+    const myN = Math.min(N, (v.buildings ? v.buildings.length : 12) + 1);
+    // earlier (row-major canonical order) settlements within 1000 tiles, by their
+    // RAW hash block (position-pure so no load-order dependence / no recursion)
+    const earlier = [];
+    let near = [];
+    try { near = (world.villagesNearPt && world.villagesNearPt(v.x, v.y, 1100)) || []; } catch (e) { }
+    for (const u of near) {
+      if (u.x === v.x && u.y === v.y) continue;
+      const dx = u.x - v.x, dy = u.y - v.y;
+      if (dx * dx + dy * dy > MIX_UNIQUE_R2) continue;
+      if (u.y < v.y || (u.y === v.y && u.x < v.x))
+        earlier.push([mixHash("stl:" + u.x + "," + u.y) % N, Math.min(N, (u.buildings ? u.buildings.length : 12) + 1)]);
+    }
+    if (earlier.length) {
+      const clash = start => earlier.some(([ub, un]) => {
+        for (let a = 0; a < myN; a++) { const d = (((start + a) - ub) % N + N) % N; if (d < un) return true; }
+        return false;
+      });
+      for (let sh = 0; sh < N; sh++) { const s = (base + sh) % N; if (!clash(s)) { base = s; break; } }
+    }
+    _stlBaseCache.set(key, base);
+    return base;
+  }
+  // roster def for the occupant of building index i in settlement v
+  function mixDefForBuilding(v, i) {
+    const N = MIXR.list.length;
+    return MIXR.list[(((settlementBlockBase(v) + i) % N) + N) % N];
+  }
+  // find the settlement + building index owning tile (x,y) — for chunk shopkeepers,
+  // so a shopkeeper shares the same per-building scheme as the residents around it
+  function buildingSlotAt(x, y) {
+    if (!world.villagesNearPt) return null;
+    let near = [];
+    try { near = world.villagesNearPt(x, y, 10) || []; } catch (e) { return null; }
+    for (const v of near) {
+      if (!v.buildings) continue;
+      for (let i = 0; i < v.buildings.length; i++) {
+        const b = v.buildings[i];
+        if (x >= b.x0 && x < b.x0 + b.w && y >= b.y0 && y < b.y0 + b.h) return { v, i };
+      }
+    }
+    return null;
+  }
+  function placeMixNpc(def, gx, gy, rng, maxR, radius, quest) {
+    for (let a = 0; a < 40; a++) {
+      const ang = rng() * Math.PI * 2, rad = 1 + rng() * maxR;
+      const tx = Math.round(gx + Math.cos(ang) * rad), ty = Math.round(gy + Math.sin(ang) * rad);
+      if (world.isBlocked(tx, ty) || world.isWater(tx, ty)) continue;
+      if (world.npcAt && world.npcAt(tx, ty, 0)) continue;    // townsfolk are placed on the ground floor
+      if (liftAt(tx, ty) > groundY(tx, ty) + 1.2) continue;   // no rooftops/upper storeys
+      const npc = {
+        name: def.name, x: tx, y: ty, px: PX(tx), py: PX(ty), look: -1, trader: false,
+        mix: def.key, mixTitle: def.title,
+        line: quest ? MIX_QUEST_LINES[mixHash(def.key) % MIX_QUEST_LINES.length]
+                    : MIX_LINES[mixHash(def.key + ":" + tx) % MIX_LINES.length],
+        dir8: DIR8[mixHash(def.key) % 8], _mid: "mix" + (mixMeshSeq++),
+        _home: [tx, ty], _r: radius, _wanderAt: performance.now() + 800 + rng() * 4000, _mt: performance.now(),
+        _questGiver: !!quest,   // quest-POI NPCs offer quests (gameplay/quests.js)
+      };
+      world.npcs.push(npc);
+      return npc;
+    }
+    return null;
+  }
+  // doors an NPC swung open (walking out of / into its building) -> close-time.
+  // Closed again once the timer elapses AND no one is standing in the doorway.
+  const NPC_DOOR_CLOSE = new Map();
+  // one greedy step toward (gx,gy): pick the best of a few directions, swing any
+  // door open on the way, and start the tile-to-tile glide. Returns true if a
+  // step was taken. Shared by the bedtime walk (and mirrors the lamp task).
+  function npcStepToward(npc, gx, gy, T) {
+    const cur2 = (npc.x - gx) * (npc.x - gx) + (npc.y - gy) * (npc.y - gy);
+    if (cur2 === 0) return false;
+    // Only ever take a step that gets STRICTLY closer to the goal, best first.
+    // Without a real pathfinder, an NPC that's walled off from its target used to
+    // sidestep/backstep to "make progress" and ping-ponged forever (the glitch:
+    // villagers pacing back and forth). Refusing non-progress steps means a
+    // blocked NPC simply STOPS (return false) — its caller's stuck-counter then
+    // abandons the target — instead of jittering. Diagonal steps that net-reduce
+    // distance still let it drift around small obstacles.
+    const cand = [];
+    for (const d of DIR8_DELTA) {
+      const dx = d[0], dy = d[1], nx = npc.x + dx, ny = npc.y + dy;
+      const nd2 = (nx - gx) * (nx - gx) + (ny - gy) * (ny - gy);
+      if (nd2 >= cur2) continue;
+      cand.push([nd2, dx, dy]);
+    }
+    cand.sort((a, b) => a[0] - b[0]);   // closest-reducing step first
+    for (const c of cand) {
+      const dx = c[1], dy = c[2], tx = npc.x + dx, ty = npc.y + dy;
+      if (world.isBlocked(tx, ty) || world.isWater(tx, ty)) continue;
+      // upstairs there's no floor beyond the walls — keep to the building interior
+      if ((npc.level | 0) > 0 && npc._owns &&
+          !(tx > npc._owns[0] && tx < npc._owns[0] + npc._owns[2] - 1 &&
+            ty > npc._owns[1] && ty < npc._owns[1] + npc._owns[3] - 1)) continue;
+      if (liftAt(tx, ty) > groundY(tx, ty) + 1.2) continue;
+      if ((tx === player.x && ty === player.y && (player.level | 0) === (npc.level | 0)) || (world.npcAt && world.npcAt(tx, ty, npc.level))) continue;
+      const di = DIR8_DELTA.findIndex(([ex, ey]) => ex === dx && ey === dy);
+      if (di >= 0) npc.dir8 = DIR8[di];
+      const door = world.doorAt && (world.doorAt(tx, ty) || world.doorAt(npc.x, npc.y));
+      if (door && world.isDoorOpen && !world.isDoorOpen(door.x, door.y)) {
+        world.setDoorOpen(door.x, door.y, true); NPC_DOOR_CLOSE.set(door.x + "," + door.y, T + 4500);
+      }
+      npc._lastStep = [dx, dy];
+      npc.moving = { fx: npc.x, fy: npc.y, tx, ty, t: 0, dur: 260 }; npc._mt = T;
+      return true;
+    }
+    return false;
+  }
+  // Route an NPC to its building's ladder and climb one storey at a time toward
+  // targetLevel (the player's own useLadder, but autonomous). Returns true while
+  // still busy climbing/walking to the ladder, so the caller skips its own move.
+  function npcClimbToward(npc, targetLevel, T) {
+    const cur = npc.level | 0;
+    if (cur === targetLevel || !npc._ladder) return false;
+    const lx = npc._ladder[0], ly = npc._ladder[1];
+    if (npc.x === lx && npc.y === ly) {                 // on the ladder — step a storey
+      if (T < npc._wanderAt) return true;
+      npc.level = cur + (targetLevel > cur ? 1 : -1);
+      npc.px = PX(npc.x); npc.py = PX(npc.y);
+      npc._wanderAt = T + 260 + Math.random() * 120;
+      return true;
+    }
+    if (T < npc._wanderAt) return true;
+    npc._wanderAt = T + 230 + Math.random() * 150;
+    npcStepToward(npc, lx, ly, T);                      // walk to the ladder foot/top
+    return true;
+  }
+  function stepMixNpc(npc) {
+    const T = performance.now();
+    if (npc.moving) {
+      const m = npc.moving;
+      m.t += Math.min(200, T - (npc._mt || T)) / m.dur;
+      npc._mt = T;
+      if (m.t >= 1) {
+        npc.x = m.tx; npc.y = m.ty; npc.px = PX(m.tx); npc.py = PX(m.ty); npc.moving = null;
+      } else {
+        npc.px = PX(m.fx) + (PX(m.tx) - PX(m.fx)) * m.t;
+        npc.py = PX(m.fy) + (PX(m.ty) - PX(m.fy)) * m.t;
+      }
+      return;
+    }
+    // lamplighter task: stride toward a candle spot / the store, ignoring the
+    // usual home-radius leash. Greedy step with fallbacks; abandons if stuck.
+    if (npc._lampTarget) {
+      if ((npc.level | 0) > 0) { npcClimbToward(npc, 0, T); return; } // candles are placed at street level
+      const gx = npc._lampTarget[0], gy = npc._lampTarget[1];
+      if (Math.abs(gx - npc.x) <= 1 && Math.abs(gy - npc.y) <= 1) {   // arrived
+        npc._lampTarget = null; npc._lampArrived = true; npc._lampStuck = 0; npc._wanderAt = T + 300 + Math.random() * 600; return;
+      }
+      if (T < npc._wanderAt) return;
+      npc._wanderAt = T + 230 + Math.random() * 150;                  // brisk pace
+      // shared progress-scored stepper (no ping-pong); count stuck frames so an
+      // unreachable candle spot is abandoned rather than paced against forever.
+      if (npcStepToward(npc, gx, gy, T)) npc._lampStuck = 0;
+      else { npc._lampStuck = (npc._lampStuck || 0) + 1; if (npc._lampStuck > 8) { npc._lampTarget = null; npc._lampStuck = 0; } }
+      return;
+    }
+    // bedtime (20:00–04:00): head home and stand on the bed (residents) or the
+    // home post (shopkeepers), instead of wandering. Overrides the idle wander.
+    if (typeof isBedtime === "function" && isBedtime(npc.x)) {   // NPC's own timezone
+      const bed = npc._bed || npc._home;
+      const bedLv = npc._bedLevel | 0;
+      if (bed) {
+        const home = npc._owns;
+        const inHome = home && npc.x >= home[0] && npc.x < home[0] + home[2] && npc.y >= home[1] && npc.y < home[1] + home[3];
+        // the bedroom is upstairs (2-storey shop/station homes): get inside, then
+        // climb the ladder to the bed's storey before walking to the bed itself.
+        if ((npc.level | 0) !== bedLv) {
+          if ((npc.level | 0) === 0 && home && !inHome) {            // still outside — head for the door first
+            if (T >= npc._wanderAt) { npc._wanderAt = T + 240 + Math.random() * 140;
+              npcStepToward(npc, home[0] + (home[2] >> 1), home[1] + home[3] - 2, T); }
+            return;
+          }
+          if (npcClimbToward(npc, bedLv, T)) return;                 // route to ladder & climb
+        }
+        if ((npc.level | 0) === bedLv && npc.x === bed[0] && npc.y === bed[1]) return; // in bed — stand
+        if (T < npc._wanderAt) return;
+        npc._wanderAt = T + 240 + Math.random() * 140;               // brisk walk home
+        // if we've wandered OUTSIDE our building (ground level), make for the doorway
+        // first (greedy stepping routes around walls poorly), then on to the bed.
+        const tgt = ((npc.level | 0) === 0 && home && !inHome) ? [home[0] + (home[2] >> 1), home[1] + home[3] - 2] : bed;
+        if (!npcStepToward(npc, tgt[0], tgt[1], T)) {                 // blocked
+          if (inHome || Math.max(Math.abs(npc.x - bed[0]), Math.abs(npc.y - bed[1])) <= 1) return; // settle at home
+        }
+        return;
+      }
+    }
+    // daytime: if we slept upstairs, climb back down before resuming the wander
+    if ((npc.level | 0) > 0) { npcClimbToward(npc, 0, T); return; }
+    if (T < npc._wanderAt) return;
+    npc._wanderAt = T + 1600 + Math.random() * 5000;
+    if (Math.random() < 0.5) return;                    // often just stand
+    const dx = (Math.random() * 3 | 0) - 1, dy = (Math.random() * 3 | 0) - 1;
+    if (!dx && !dy) return;
+    const tx = npc.x + dx, ty = npc.y + dy;
+    if (Math.abs(tx - npc._home[0]) > npc._r || Math.abs(ty - npc._home[1]) > npc._r) return;
+    if (world.isBlocked(tx, ty) || world.isWater(tx, ty)) return;
+    if (liftAt(tx, ty) > groundY(tx, ty) + 1.2) return;
+    if ((tx === player.x && ty === player.y && (player.level | 0) === (npc.level | 0)) || (world.npcAt && world.npcAt(tx, ty, npc.level))) return;
+    const di = DIR8_DELTA.findIndex(([ex, ey]) => ex === dx && ey === dy);
+    if (di >= 0) npc.dir8 = DIR8[di];
+    // swing open a door in the NPC's path — stepping onto it (or off it) as it
+    // walks out of / back into the building it lives in. Auto-closed later.
+    const door = world.doorAt && (world.doorAt(tx, ty) || world.doorAt(npc.x, npc.y));
+    if (door && world.isDoorOpen && !world.isDoorOpen(door.x, door.y)) {
+      world.setDoorOpen(door.x, door.y, true);
+      NPC_DOOR_CLOSE.set(door.x + "," + door.y, T + 4500);
+    }
+    npc.moving = { fx: npc.x, fy: npc.y, tx, ty, t: 0, dur: 300 };
+    npc._mt = T;
+  }
+  // close any NPC-opened doors whose timer has elapsed, unless someone is still
+  // standing in the doorway (retry shortly).
+  function tickNpcDoors(T) {
+    if (!NPC_DOOR_CLOSE.size || !world.setDoorOpen) return;
+    for (const [k, closeT] of NPC_DOOR_CLOSE) {
+      if (T < closeT) continue;
+      const c = k.indexOf(","), dx = +k.slice(0, c), dy = +k.slice(c + 1);
+      if ((player.x === dx && player.y === dy) || (world.npcAt && world.npcAt(dx, dy, 0))) { NPC_DOOR_CLOSE.set(k, T + 1500); continue; }
+      world.setDoorOpen(dx, dy, false);
+      NPC_DOOR_CLOSE.delete(k);
+    }
+  }
+  // hand out lamplighter jobs against the REAL candle spots. At dusk ("place")
+  // a villager walks to the storage room, picks up a candle stand, carries it
+  // to a specific unlit spot and SETS IT DOWN — the stand + its light appear at
+  // that moment (lampSpotSet). At dawn ("collect") they walk out to a standing
+  // stand, pick it up (it vanishes) and carry it back inside. Each villager
+  // keeps a target until it arrives (cleared in stepMixNpc, which raises
+  // _lampArrived), then gets its next leg here. `_lamp` = carried-flame glow;
+  // `_lampCarry` = the stand object visibly in their hands.
+  const _lampClaims = new Map();   // "x,y" → spot currently assigned to a villager
+  function _lampReset(npc) {
+    if (npc._lampClaimKey) { _lampClaims.delete(npc._lampClaimKey); npc._lampClaimKey = null; }
+    npc._lamp = false; npc._lampTarget = null; npc._lampLeg = null;
+    npc._lampCarry = null; npc._lampSpot = null; npc._lampArrived = false;
+  }
+  function assignLampTasks() {
+    const mode = (typeof lampMode === "function") ? lampMode() : null;
+    const setl = mode && (typeof currentSettlement === "function") ? currentSettlement() : null;
+    if (!mode || !setl) {
+      if (_lampClaims.size) _lampClaims.clear();
+      for (const npc of world.npcs) if (npc._lamp || npc._lampLeg || npc._lampCarry) _lampReset(npc);
+      return;
+    }
+    const v = setl.v, store = setl.store;
+    // outdoor spots still needing work this twilight (unclaimed): at dusk the
+    // not-yet-delivered ones, at dawn the ones still standing out
+    const pending = [];
+    if (typeof villageCandleSpots === "function" && typeof lampSpotPlaced === "function")
+      for (const s of villageCandleSpots(v)) {
+        if (s.inside) continue;                            // residents light their own homes
+        const st = lampSpotPlaced(v, s.x, s.y);
+        const done = mode === "place" ? st === true : st === false;
+        if (!done && !_lampClaims.has(s.x + "," + s.y)) pending.push(s);
+      }
+    const claim = (npc) => {       // nearest pending spot to this villager
+      let best = null, bd = Infinity;
+      for (const s of pending) {
+        if (_lampClaims.has(s.x + "," + s.y)) continue;
+        const d = Math.abs(s.x - npc.x) + Math.abs(s.y - npc.y);
+        if (d < bd) { bd = d; best = s; }
+      }
+      if (best) { _lampClaims.set(best.x + "," + best.y, best); npc._lampClaimKey = best.x + "," + best.y; }
+      return best;
+    };
+    for (const npc of world.npcs) {
+      if (!npc._home) continue;
+      // a villager already asleep in bed sleeps through the candle rounds —
+      // whoever is still up works the streets (short summer nights can push
+      // dusk past bedtime, and dawn gathering can start before 04:00)
+      if (typeof npcAsleep === "function" && npcAsleep(npc)) {
+        if (npc._lamp || npc._lampLeg || npc._lampCarry) _lampReset(npc);
+        continue;
+      }
+      if (Math.hypot(npc.x - v.x, npc.y - v.y) > v.R + 6) { if (npc._lampLeg || npc._lamp) _lampReset(npc); continue; }
+      // store legs land "close enough": the store tile is INSIDE a building, and
+      // two dozen villagers can't all stand on it — reaching the yard will do
+      if (npc._lampTarget && (npc._lampLeg === "restock" || npc._lampLeg === "return") &&
+          Math.hypot(npc.x - store.x, npc.y - store.y) < 4) { npc._lampTarget = null; npc._lampArrived = true; }
+      if (npc._lampTarget) continue;                       // still walking this leg
+      const arrived = npc._lampArrived; npc._lampArrived = false;
+      // finish the leg that just ended. Villagers work an ARMFUL at a time —
+      // they leave the store with several stands and place them one after
+      // another (and gather several before walking back) instead of a full
+      // store round-trip per candle, or the big towns would never get lit.
+      const ARMFUL = 6;
+      if (npc._lampLeg === "deliver") {
+        if (npc._lampClaimKey) { _lampClaims.delete(npc._lampClaimKey); npc._lampClaimKey = null; }
+        if (arrived && npc._lampSpot && typeof lampSpotSet === "function") {
+          // the stand is set down HERE — it pops into the world, lit
+          lampSpotSet(v, npc._lampSpot[0], npc._lampSpot[1], true);
+          npc._lampLoad = Math.max(0, (npc._lampLoad || 1) - 1);
+        }
+        npc._lampSpot = null;
+        const next = npc._lampLoad > 0 ? claim(npc) : null;
+        if (next) {                                        // still stands in the armful: straight on
+          npc._lampSpot = [next.x, next.y, next.stand];
+          npc._lampCarry = next.stand || npc._lampCarry;
+          npc._lampTarget = [next.x, next.y];              // leg stays "deliver"
+        } else {
+          npc._lamp = false; npc._lampCarry = null; npc._lampLoad = 0;
+          npc._lampTarget = [store.x, store.y]; npc._lampLeg = "restock";
+        }
+        continue;
+      }
+      if (npc._lampLeg === "goget") {
+        if (npc._lampClaimKey) { _lampClaims.delete(npc._lampClaimKey); npc._lampClaimKey = null; }
+        if (arrived && npc._lampSpot && typeof lampSpotSet === "function") {
+          // picked up: the stand vanishes from the street and rides home in hand
+          lampSpotSet(v, npc._lampSpot[0], npc._lampSpot[1], false);
+          npc._lamp = true; npc._lampCarry = npc._lampSpot[2] || npc._lampCarry || null;
+          npc._lampLoad = (npc._lampLoad || 0) + 1;
+          npc._lampSpot = null;
+          const next = npc._lampLoad < ARMFUL ? claim(npc) : null;
+          if (next) { npc._lampSpot = [next.x, next.y, next.stand]; npc._lampTarget = [next.x, next.y]; }   // gather more
+          else { npc._lampTarget = [store.x, store.y]; npc._lampLeg = "return"; }
+          continue;
+        }
+        npc._lampSpot = null;                              // unreachable — try another below
+      }
+      if (npc._lampLeg === "return" || npc._lampLeg === "restock") {
+        npc._lampLeg = null; npc._lamp = false; npc._lampCarry = null; npc._lampLoad = 0;
+      }
+      // idle: hand out the next job
+      const nearStore = Math.hypot(npc.x - store.x, npc.y - store.y) < 5;
+      const s = claim(npc);
+      if (!s) { if (npc._lamp || npc._lampCarry) { npc._lamp = false; npc._lampCarry = null; } continue; }
+      if (mode === "place") {
+        if (!nearStore) {                                  // must fetch from the store first
+          _lampClaims.delete(npc._lampClaimKey); npc._lampClaimKey = null;   // don't hold it while detouring
+          npc._lampTarget = [store.x, store.y]; npc._lampLeg = "restock";
+        } else {                                           // an armful of stands, off to the first spot
+          npc._lampSpot = [s.x, s.y, s.stand];
+          npc._lamp = true; npc._lampCarry = s.stand || null; npc._lampLoad = ARMFUL;
+          npc._lampTarget = [s.x, s.y]; npc._lampLeg = "deliver";
+        }
+      } else {                                             // dawn: go gather them off the street
+        npc._lampSpot = [s.x, s.y, s.stand];
+        npc._lamp = false; npc._lampCarry = null; npc._lampLoad = 0;
+        npc._lampTarget = [s.x, s.y]; npc._lampLeg = "goget";
+      }
+    }
+  }
+  function syncMixNpcs() {
+    if (!MIXR.ok || !MIXR.list.length) return;
+    // 1) every shopkeeper (and main-branch banker) becomes a mix character
+    //    (appearance only; keeps its trader/banker role, name and shop).
+    //    These are placed/removed by the chunk system, so we just tag any we
+    //    haven't yet.
+    for (const npc of world.npcs) {
+      if ((npc.trader || npc.banker) && !npc.mix) {
+        const h = mixHash("shop:" + npc.x + "," + npc.y);
+        // share the residents' per-building scheme: the shopkeeper of building #i
+        // in settlement v gets `blockBase(v)+i`, unique among that town's people
+        const slot = buildingSlotAt(npc.x, npc.y);
+        // bankers share a building, so the per-building def would clone them —
+        // they draw from the plain position hash instead
+        const def = slot && !npc.banker ? mixDefForBuilding(slot.v, slot.i) : MIXR.list[h % MIXR.list.length];
+        npc.mix = def.key;
+        npc._shopName = npc.name;          // keep original label for the shop/market
+        npc.name = def.name;               // show the mix character's own name
+        npc.mixTitle = npc.banker ? "banker" : def.title;
+        npc.dir8 = DIR8[h % 8];
+        npc.px = PX(npc.x); npc.py = PX(npc.y);
+        npc._mid = "shopmix" + npc.x + "_" + npc.y;
+        // shopkeepers now potter about their post too — a wide-enough radius to
+        // reach the doorway and step outside (opening the door) and back in.
+        // Bankers hold their counter instead of roaming the hall.
+        npc._home = [npc.x, npc.y]; npc._r = npc.banker ? 2 : 6;
+        npc._wanderAt = performance.now() + 1200 + (h % 4000); npc._mt = performance.now();
+      }
+    }
+    // 2) ambient townsfolk + quest-givers at nearby sites (map coords)
+    // map coords are half game-tile scale, so viewRadius/2 keeps townsfolk
+    // populated out to the view edges when zoomed out near a settlement
+    const mx = player.x / 2, my = player.y / 2, R = Math.max(26, Math.ceil(viewRadius() / 2));
+    const wanted = new Map();
+    try {
+      for (const v of world.villagesNearForMap(mx - R, my - R, mx + R, my + R, 20))
+        wanted.set("v:" + v.x + "," + v.y, { kind: "village", city: v.kind === "city",
+          x: Math.round(v.x * 2), y: Math.round(v.y * 2) });
+      if (world.iconsNearForMap)
+        for (const ic of world.iconsNearForMap(mx - R, my - R, mx + R, my + R))
+          if (ic.type === "quest")
+            wanted.set("q:" + ic.x + "," + ic.y, { kind: "quest", x: Math.round(ic.x * 2), y: Math.round(ic.y * 2) });
+    } catch (e) { /* feature queries must never break a frame */ }
+
+    for (const [key, listc] of mixKeyed) {
+      if (wanted.has(key)) continue;
+      for (const npc of listc) {
+        const i = world.npcs.indexOf(npc);
+        if (i >= 0) world.npcs.splice(i, 1);
+        const mm = meshes.get(npc._mid);
+        if (mm) { scene.remove(mm); if (mm.userData.shadow) scene.remove(mm.userData.shadow); meshes.delete(npc._mid); }
+      }
+      mixKeyed.delete(key);
+    }
+    for (const [key, site] of wanted) {
+      if (mixKeyed.has(key)) continue;
+      const h = mixHash(key), rng = mulberry32(h), listc = [];
+      if (site.kind === "village") {
+        // ONE RESIDENT PER BUILDING — each villager owns & wanders their own
+        // building. Trader/bank buildings are owned by their chunk shopkeeper;
+        // every other building (stations + plain houses) gets a resident.
+        let v = null;
+        if (world.villagesNearPt) {
+          const near = world.villagesNearPt(site.x, site.y, 6);
+          v = near.find(vv => Math.abs(vv.x - site.x) <= 3 && Math.abs(vv.y - site.y) <= 3) || near[0];
+        }
+        const vbuild = (v && v.buildings) || [];
+        for (let bIdx = 0; bIdx < vbuild.length; bIdx++) {
+          const b = vbuild[bIdx];
+          if (b.job === "trader" || b.job === "bank") continue;   // owned by the chunk shopkeeper/banker
+          // skip if an NPC (e.g. a station keeper) already stands inside this footprint
+          if (world.npcs.some(n => n.x >= b.x0 && n.x < b.x0 + b.w && n.y >= b.y0 && n.y < b.y0 + b.h)) continue;
+          const cx = b.x0 + (b.w >> 1), cy = b.y0 + b.h - 2;      // just inside the door
+          // per-building deterministic character: blockBase(v)+bIdx, unique within
+          // the town and stable forever (the same person always lives here)
+          const def = mixDefForBuilding(v, bIdx);
+          const npc = placeMixNpc(def, cx, cy, rng, 2, Math.max(3, Math.max(b.w, b.h)), false);
+          if (npc) {
+            npc._owns = [b.x0, b.y0, b.w, b.h];
+            npc._bjob = b.job || null;   // the building's trade — drives dialogue role (npc-chat.js)
+            // the resident's bed tile (matches buildStruct's furnishing: slots[0]
+            // = back-wall centre interior tile). They walk here and stand on it at
+            // night (isBedtime). For 2-storey shop/station homes the bedroom is
+            // UPSTAIRS, so the bed sits on the top storey and the resident climbs
+            // the ladder to reach it (npcClimbToward).
+            const bm = world.buildingMeta ? world.buildingMeta(b) : null;
+            const storeys = (bm && bm.storeys) || 1;
+            npc._bed = [b.x0 + (b.w >> 1) - 1, b.y0 + 1];
+            npc._bedLevel = storeys > 1 ? storeys - 1 : 0;
+            if (storeys > 1 && bm.ladder) npc._ladder = [bm.ladder.x, bm.ladder.y];
+            listc.push(npc);
+          }
+        }
+      } else {
+        const def = MIXR.list[h % MIXR.list.length];               // quest-start icon: a single quest-giver (isolated POI — plain deterministic hash)
+        const npc = placeMixNpc(def, site.x, site.y, rng, 3, 3, true);
+        if (npc) listc.push(npc);
+      }
+      mixKeyed.set(key, listc);
+    }
+    // 2.4) one-owner-per-building: a resident may have spawned before its
+    //    building's shopkeeper chunk-loaded. If a trader now stands in a
+    //    resident's footprint, the shopkeeper owns it — retire the resident.
+    for (const [, listc] of mixKeyed) {
+      for (let i = listc.length - 1; i >= 0; i--) {
+        const n = listc[i]; if (!n._owns) continue;
+        const bx = n._owns[0], by = n._owns[1], bw = n._owns[2], bh = n._owns[3];
+        if (world.npcs.some(o => o !== n && o.trader && o.x >= bx && o.x < bx + bw && o.y >= by && o.y < by + bh)) {
+          const gi = world.npcs.indexOf(n); if (gi >= 0) world.npcs.splice(gi, 1);
+          const mm = meshes.get(n._mid); if (mm) { scene.remove(mm); if (mm.userData.shadow) scene.remove(mm.userData.shadow); meshes.delete(n._mid); }
+          listc.splice(i, 1);
+        }
+      }
+    }
+    // 2.5) lamplighters: at dusk the townsfolk carry candles out from the store
+    //    and fan across the settlement; at dawn they gather back to it. Candle
+    //    lighting itself is time-driven (daynight.settlementLights) so it stays
+    //    consistent when you're away; this just animates the villagers doing it.
+    assignLampTasks();
+    // 3) fluid wander for EVERY npc that has a home post — ambient townsfolk,
+    //    quest-givers AND shopkeepers (who now step out of their shops too).
+    for (const npc of world.npcs) if (npc._home) stepMixNpc(npc);
+    tickNpcDoors(performance.now());
+  }
+
+  function syncEntities() {
+    syncMixNpcs();
+    // monsters
+    monsters.forEach((mon, i) => {
+      const id = "mob" + i;
+      if (!mon.alive) { const e = meshes.get(id); if (e) { e.visible = false; e.userData.seen = true; if (e.userData.shadow) e.userData.shadow.visible = false; } return; }
+      const def = MONSTERS[mon.kind];
+      let dispDir = mon.dir8 || "south";
+      if (def.dirSpr && camDir) {
+        const wi = Math.max(0, DIR8.indexOf(dispDir));
+        dispDir = DIR8[(wi - camDir + 8) & 7];
+      }
+      let sprKey = def.dirSpr ? "mon_" + mon.kind + "_" + dispDir : "mon_" + mon.kind;
+      // husbandry: a sheared/post-lay/milked animal shows its spent-state
+      // sprite — the DIRECTIONAL spent frame when one exists (animal-spent-
+      // dirs.js derives a full 8-dir set), so a recovering animal still faces
+      // the way it walks; the single fixed pose made it look like it was
+      // walking backwards half the time.
+      if (typeof husbSpriteKey === "function") {
+        const hk = husbSpriteKey(mon);
+        if (hk) sprKey = (def.dirSpr && atlas && atlas.cells[hk + "_" + dispDir]) ? hk + "_" + dispDir : hk;
+      }
+      const m = getMesh(id, sprKey, { shadow: true });
+      // directional monsters shadow the side the SUN currently sees (facing
+      // minus the sun's octant), not the camera-facing frame
+      m.userData.shadowGeom = def.dirSpr
+        ? geomFor("mon_" + mon.kind + "_" + DIR8[(Math.max(0, DIR8.indexOf(mon.dir8 || "south")) - sunState.oct + 8) & 7])
+        : null;
+      let bob = mon.moving ? Math.abs(Math.sin(now / 90)) * 0.08 : 0;
+      // swimmers ride a slow ocean swell instead of the walk-cycle hop, and
+      // sit swimY below the surface: half-out on a surface cruise (the water
+      // plane clips the body — shark-fin style), gone entirely on a deep dive
+      const sink = mon.canSwim ? (mon.swimY || 0) : 0;
+      if (mon.canSwim) bob = Math.sin(now / 420 + i) * 0.05;
+      let lx = 0, lz = 0;
+      if (now - (mon.lungeT || -9999) < 180) {
+        const p = 1 - (now - mon.lungeT) / 180;
+        lx = (WX(player.px) - WX(mon.px)) * 0.12 * p;
+        lz = (WX(player.py) - WX(mon.py)) * 0.12 * p;
+      }
+      m.userData.lift = bob;
+      const mScale = def.scale * (mon.giant ? 1.5 : 1);
+      place(m, WX(mon.px) + lx, WX(mon.py) + lz, 1, mScale, !def.dirSpr && mon.facing < 0, false, liftAt(mon.x, mon.y) - sink);
+      if (sink > 0.6) {
+        // mostly under: no sun shadow (the body is below the surface) — show
+        // a dark silhouette gliding flat just under the waterline instead, so
+        // a diver reads as a shape in the water rather than vanishing outright
+        if (m.userData.shadow) m.userData.shadow.visible = false;
+        const sub = getMesh("mobsub" + i, sprKey);
+        sub.material = shadowMatFor(sharedMat);
+        sub.renderOrder = 2;
+        const shrink = Math.max(0.45, 1 - sink * 0.12); // deeper = smaller shape
+        place(sub, WX(mon.px) + lx, WX(mon.py) + lz, 1, mScale * shrink,
+          !def.dirSpr && mon.facing < 0, true, liftAt(mon.x, mon.y));
+      }
+    });
+    // npcs
+    const _vr = viewRadius();
+    world.npcs.forEach((npc, i) => {
+      if (Math.abs(npc.x - player.x) > _vr || Math.abs(npc.y - player.y) > _vr) return;
+      if (npc.mix && MIXR.ok) {
+        const def = MIXR.byKey.get(npc.mix);
+        if (def) { renderMixNpc(npc._mid || ("npc" + i), npc, def); return; }
+      }
+      const npcM = getMesh("npc" + i, npc.look >= 0 ? "vill" + npc.look : "npc0", { shadow: true });
+      const lvl = npc.level | 0;
+      if (lvl > 0) {
+        const o = npc._owns;
+        const canSee = o && (player.level | 0) >= lvl &&
+          player.x >= o[0] && player.x < o[0] + o[2] && player.y >= o[1] && player.y < o[1] + o[3];
+        if (!canSee) { npcM.visible = false; return; }
+      }
+      place(npcM, npc.x + 0.5, npc.y + 0.5, 1, 1, true, false, liftAt(npc.x, npc.y) + lvl * STOREY_H);
+    });
+    // lamplighters visibly CARRY the candle stand between the storage room and
+    // its street spot (assignLampTasks sets _lampCarry to the stand object key)
+    world.npcs.forEach((npc, i) => {
+      if (!npc._lampCarry) return;
+      if (Math.abs(npc.x - player.x) > _vr || Math.abs(npc.y - player.y) > _vr) return;
+      const ov = objForKey(npc._lampCarry);
+      if (!ov) return;
+      const m = getObjMesh("lampc_" + (npc._mid || "npc" + i), ov.idx);
+      if (!m) return;
+      const bx = (npc.px != null) ? WX(npc.px) : npc.x + 0.5;
+      const by = (npc.py != null) ? WX(npc.py) : npc.y + 0.5;
+      place(m, bx + 0.26, by + 0.16, 1, ov.scale * 0.55, false, false,
+        liftAt(npc.x, npc.y) + 0.35 + Math.sin(now / 210 + i) * 0.05);
+    });
+    // player (+ boat when sailing)
+    const pm = getMesh("player", "ply", { shadow: true });
+    const bm = meshes.get("pboat");
+    if (player.sailing) {
+      // the hull's OBJ_MAP key lives in ITEMS[id].place (furniture.js VESSELS
+      // map, e.g. galleon → ship_galleon); looking up the raw item id only hit
+      // the few hulls whose ids match an object, so most proper ships fell
+      // back to the tiny flat icon below. ov.scale carries the per-hull size.
+      const sit = ITEMS[player.sailing];
+      const ov = objForKey((sit && sit.place) || player.sailing);
+      let existing = meshes.get("pboat");
+      if (ov) {
+        // 8-directional hull, oriented to the player's heading and the orbiting camera
+        const wi = Math.max(0, DIR8.indexOf(player.dir8 || "south"));
+        const gf = ov.idx * 8 + ((wi - camDir + 8) & 7);
+        if (existing && !existing.userData.isObj) {
+          scene.remove(existing); if (existing.userData.shadow) scene.remove(existing.userData.shadow);
+          meshes.delete("pboat"); existing = null;
+        }
+        let m = existing;
+        if (!m) { m = new THREE.Mesh(objGeomFor(gf), objMat); m.userData.isObj = true; scene.add(m); meshes.set("pboat", m); }
+        if (m.userData.objFrame !== gf) { m.geometry = objGeomFor(gf); m.userData.objFrame = gf; }
+        m.userData.lift = 0;
+        m.userData.seen = true; m.visible = true;
+        place(m, WX(player.px), WX(player.py) + 0.12, 1, ov.scale || 1.5, false, false);
+        // sit low on the water — groundY, not liftAt: under a bridge liftAt
+        // is the deck, but the boat rides the surface beneath it
+        m.position.y = groundY(player.x, player.y) + 0.7 + Math.sin(now / 300) * 0.03;
+      } else {
+        const b = getMesh("pboat", ITEMS[player.sailing].icon);
+        b.position.set(WX(player.px), groundY(player.x, player.y) + 0.66 + Math.sin(now / 300) * 0.03, WX(player.py) + 0.12);
+        b.rotation.x = TILT;
+        b.scale.set(player.facing < 0 ? -1.15 : 1.15, 1.15, 1.15);
+      }
+    } else if (bm) { bm.visible = false; bm.userData.seen = true; }
+    let bob = player.moving || player.forced ? Math.abs(Math.sin(now / 90)) * 0.08 : 0;
+    let lx = 0, lz = 0;
+    if (now - player.lungeT < 200) {
+      const p = 1 - (now - player.lungeT) / 200;
+      lx = player.lungeDir[0] * 0.18 * p;
+      lz = player.lungeDir[1] * 0.18 * p;
+    }
+    // riding a placed vessel: nudge the character north (into the hull) so they
+    // stand in the middle of the deck rather than at the raft's front edge
+    if (typeof ridingEnt === "function" && !player.sailing && ridingEnt()) lz -= 0.28;
+    // playable character sprite (8-directional) overrides the default hero
+    const usingChar = typeof CHAR_LIST !== "undefined" && player.character != null && CHAR_LIST[player.character];
+    if (usingChar) {
+      const cm = getCharMesh();
+      // camera orbit: show the frame for the facing rotated by -camDir so the
+      // character presents the correct side as the view turns around it.
+      const wi = Math.max(0, CHAR_DIRS.indexOf(player.dir8 || "south"));
+      const di = (wi - camDir + 8) & 7;
+      const shDi = (wi - sunState.oct + 8) & 7;      // the frame the SUN sees, for the shadow
+      if (!cm.userData.shadowGeomOwn) cm.userData.shadowGeomOwn = new THREE.PlaneGeometry(1, 1);
+      // a non-Idle OUTFIT swaps the mesh onto its embedded outfit sheet at the
+      // state's frame (base+dir); falls back to the Idle CHAR_SHEET until the
+      // sheet image has loaded.
+      const _folder = CHAR_LIST[player.character].folder;
+      const _fr = (player.outfit && player.outfit !== "Idle" && typeof OUTFIT_FRAME !== "undefined")
+        ? OUTFIT_FRAME[_folder + "|" + player.outfit] : null;
+      const _os = _fr ? ensureOutfitSheet(_fr[0]) : null;
+      if (_fr && _os && _os.w) {
+        cm.material = _os.mat;
+        if (cm.userData.shadow) cm.userData.shadow.material = _os.shadowMat;
+        setSheetUV(cm.geometry, _fr[1] + di, OUTFIT_SHEET_COLS, OUTFIT_SHEET_CELL, _os.w, _os.h);
+        cm.userData.shadowGeom = setSheetUV(cm.userData.shadowGeomOwn, _fr[1] + shDi, OUTFIT_SHEET_COLS, OUTFIT_SHEET_CELL, _os.w, _os.h) ? cm.userData.shadowGeomOwn : null;
+      } else {
+        cm.material = charMat;
+        if (cm.userData.shadow) cm.userData.shadow.material = shadowMatFor(charMat);
+        setCharUV(cm.geometry, player.character * CHAR_DIRS.length + di);
+        cm.userData.shadowGeom = setCharUV(cm.userData.shadowGeomOwn, player.character * CHAR_DIRS.length + shDi)
+          ? cm.userData.shadowGeomOwn : null;
+      }
+      cm.userData.lift = bob;
+      cm.visible = true;
+      // per-character build: height scales the billboard (feet stay grounded via
+      // place()), width is applied on top independently so races read as taller/
+      // shorter and wider/narrower (character-stats.js).
+      const _cst = (typeof playerCharStats === "function") ? playerCharStats() : null;
+      const _ch = _cst ? _cst.h : 1, _cw = _cst ? _cst.w : 1;
+      // compensate for the cell headroom so visible height == CHAR_SCALE*_ch (the
+      // same body height an NPC of build _ch renders at), then ground the feet
+      const _ps = CHAR_SCALE / CHAR_FILL_H;
+      place(cm, WX(player.px) + lx, WX(player.py) + lz, 1, _ps * _ch, false, false, playerLiftY - CHAR_FEET_FRAC * _ps * _ch);
+      cm.scale.x = _ps * _cw;
+      // equipped metal armour, tailored to this character's body + tinted to its
+      // metal tier, drawn as a second billboard exactly over the character.
+      if (typeof ArmourOverlay !== "undefined") {
+        const ov = ArmourOverlay.playerCanvas();
+        if (!armourMesh) {
+          armourMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+            new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, alphaTest: 0.02 }));
+          armourMesh.renderOrder = 6;
+          scene.add(armourMesh);
+        }
+        if (ov) {
+          if (armourMesh.userData.sig !== ov.sig) {
+            if (armourMesh.material.map) armourMesh.material.map.dispose();
+            const t = new THREE.CanvasTexture(ov.canvas);
+            t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+            armourMesh.material.map = t; armourMesh.material.needsUpdate = true;
+            armourMesh.userData.sig = ov.sig;
+          }
+          setSheetUV(armourMesh.geometry, di, ov.cols, ov.cell, ov.w, ov.h);
+          armourMesh.userData.lift = bob;
+          place(armourMesh, WX(player.px) + lx, WX(player.py) + lz, 1, _ps * _ch, false, false, playerLiftY - CHAR_FEET_FRAC * _ps * _ch);
+          armourMesh.scale.x = _ps * _cw;
+          armourMesh.visible = true;
+        } else armourMesh.visible = false;
+      }
+      pm.visible = false;
+      if (pm.userData.shadow) pm.userData.shadow.visible = false;
+    } else {
+      pm.userData.lift = bob;
+      place(pm, WX(player.px) + lx, WX(player.py) + lz, 1, 1, player.facing < 0, false, playerLiftY);
+      if (charMesh) { charMesh.visible = false; if (charMesh.userData.shadow) charMesh.userData.shadow.visible = false; }
+      if (armourMesh) armourMesh.visible = false;
+    }
+    _playerBB = (charMesh && charMesh.visible) ? charMesh : pm;
+    // held tool
+    const act = player.act;
+    let held = null;
+    if (act && act.kind === "gather") {
+      const tool = NODE_TYPES[act.node.type].tool;
+      held = tool === "axe" ? "i_axe" : tool === "pickaxe" ? "i_pick" : tool === "rod" ? "i_rod" : null;
+    } else if (act && act.kind === "combat" && player.equip.weapon) {
+      held = ITEMS[player.equip.weapon].icon; // wands and staves show too
+    }
+    const hm = meshes.get("held");
+    if (held) {
+      const h = getMesh("held", held);
+      h.position.set(WX(player.px) + lx + player.facing * 0.42, playerLiftY + 0.55 + bob, WX(player.py) + lz + 0.05);
+      h.rotation.z = -player.facing * (0.5 + Math.sin(now / 160) * 0.7);
+      h.scale.set(player.facing < 0 ? -0.7 : 0.7, 0.7, 0.7);
+    } else if (hm) { hm.visible = false; hm.userData.seen = true; }
+    // a candle equipped in the OFFHAND (shield slot) is visibly held in the
+    // player's off hand the whole time — the light you carry has a source you
+    // can see (its glow comes from candleInHand via collectNightLights)
+    const offId = player.equip && player.equip.shield;
+    const offDef = offId && ITEMS[offId];
+    const ohm = meshes.get("heldOff");
+    if (offDef && offDef.light && offDef.icon) {
+      const h = getMesh("heldOff", offDef.icon);
+      h.position.set(WX(player.px) + lx - player.facing * 0.36, playerLiftY + 0.5 + bob, WX(player.py) + lz + 0.06);
+      h.rotation.z = Math.sin(now / 420) * 0.06;   // a gentle sway, no tool-swing
+      h.scale.set(player.facing < 0 ? -0.55 : 0.55, 0.55, 0.55);
+    } else if (ohm) { ohm.visible = false; ohm.userData.seen = true; }
+    // dyn nodes (fires, carcasses)
+    const fireTiles = new Set();   // campfire tiles already drawn, so the station-heat pass skips them
+    for (const d of dynNodes) {
+      const id = "d" + d.id;
+      if (d.type === "campfire") {
+        const m = getMesh(id, "campfire");
+        // hotter fires burn BIGGER & brighter (heat drives scale + flicker amplitude)
+        const hf = typeof stationHeatNow === "function" ? stationHeatNow(d) / (HEAT_MAX || 1000) : 0;
+        const dying = typeof stationBurnLeft === "function" ? stationBurnLeft(d) < 8 : (d.expireAt - now < 8000);
+        const s = (0.8 + hf * 1.0) * (1 + Math.sin(now / 120) * (0.05 + hf * 0.08)) - (dying ? 0.2 : 0);
+        place(m, d.x + 0.5, d.y + 0.5, 1, Math.max(0.35, s), false, false, liftAt(d.x, d.y));
+        fireTiles.add(d.x + "," + d.y);
+      } else if (d.type === "unlit_fire") {
+        // a laid-but-unlit pile of logs, awaiting a spark
+        const m = getMesh(id, "campfire_ring");
+        place(m, d.x + 0.5, d.y + 0.5, 1, 0.7, false, false, liftAt(d.x, d.y));
+      } else {
+        const m = getMesh(id, "mon_" + d.kind);
+        place(m, d.x + 0.5, d.y + 0.5, 1, 0.9, false, true, liftAt(d.x, d.y));
+        m.rotation.z = Math.PI / 2;
+      }
+    }
+    // pilot fires under fixed heat stations (furnaces, kilns, cauldrons…): draw a
+    // heat-scaled flame at each hot station on this floor (campfire tiles already
+    // drew their own flame above)
+    if (typeof stationHeat !== "undefined" && stationHeat.size) {
+      const pl = player.level | 0;
+      for (const [key, rec] of stationHeat) {
+        const p = key.split(","); const sx = +p[0], sy = +p[1], sl = +p[2];
+        if (sl !== pl || fireTiles.has(sx + "," + sy)) continue;
+        const frac = 1 - (now - rec.stokedAt) / rec.burnMs;
+        if (frac <= 0) continue;
+        const hf = (rec.peak * frac) / (HEAT_MAX || 1000);
+        const m = getMesh("sh" + key, "campfire");
+        const s = (0.45 + hf * 0.75) * (1 + Math.sin(now / 120) * (0.06 + hf * 0.08));
+        place(m, sx + 0.5, sy + 0.5, 1, Math.max(0.3, s), false, false, liftAt(sx, sy));
+      }
+    }
+    // physical candles the villagers set out at dusk (inside buildings + all
+    // around outside) and gather at dawn — lit ones only, drawn as upright candle
+    // billboards (same path as dropped items: getMesh with the item icon).
+    if (typeof settlementCandleObjects === "function") {
+      if (_candleKey === undefined) _candleKey = ["candle", "rushlight", "taper", "beeswax_candle"].map(id => ITEMS[id] && ITEMS[id].icon).find(Boolean) || null;
+      for (const s of settlementCandleObjects()) {
+        const cx = Math.round(s.x), cy = Math.round(s.y);
+        const fl = 1 + Math.sin(now / 130 + cx * 1.7 + cy) * 0.06;
+        // outdoor candles ride a floor candle-stand (an 8-dir world object with
+        // a lit candle + flame baked in); indoor ones are the small billboard.
+        const ov = s.stand ? objForKey(s.stand) : null;
+        if (ov) {
+          const om = getObjMesh("cstand_" + cx + "_" + cy, ov.idx);
+          if (om) { place(om, cx + 0.5, cy + 0.5, 1, ov.scale, false, false, liftAt(cx, cy)); continue; }
+        }
+        if (_candleKey) {
+          const m = getMesh("cndl_" + cx + "_" + cy, _candleKey);
+          place(m, cx + 0.5, cy + 0.5, 1, 0.5 * fl, false, false, liftAt(cx, cy));
+        }
+      }
+    }
+    // ground items (dropped on the player's storey; hidden from other floors)
+    for (const gi of groundItems) {
+      const lv = gi.level | 0;
+      if (!levelVisible(gi.x, gi.y, lv)) continue;
+      const m = getMesh("g" + gi.x + "_" + gi.y + "_" + gi.id, ITEMS[gi.id].icon);
+      place(m, gi.x + 0.5, gi.y + 0.5, 1, 0.55, false, false, liftAt(gi.x, gi.y) + lv * STOREY_H);
+    }
+  }
+
+  function sweep() {
+    for (const [id, m] of meshes) {
+      if (!m.userData.seen) {
+        scene.remove(m);
+        if (m.userData.shadow) scene.remove(m.userData.shadow);
+        meshes.delete(id);
+      } else m.userData.seen = false;
+    }
+  }
+
+  // ---------- day/night light pass ----------
+  // Darken the whole view by how far it is into night at the player's latitude,
+  // then "punch" light back in around fires, carried candles, bioluminescent
+  // monsters and glowing biomes. Runs on the 2D overlay (octx) — the 3D world
+  // uses unlit materials, so this screen-space light-map is how night reads.
+  function drawNight() {
+    if (typeof nightState !== "function") return;
+    const W = overlayCssW, H = overlayCssH;
+    const ns = nightState();
+    const dark = ns.dark;
+    if (dark < 0.03) return;                    // broad daylight: nothing to draw
+    const TILEPX = (typeof PX === "function") ? PX(1) : 48;
+
+    // px-per-tile on screen, from two ground points one tile apart
+    const p0 = project(player.px, player.py, 0.1);
+    const p1 = project(player.px + TILEPX, player.py, 0.1);
+    const pxTile = Math.max(6, Math.hypot(p1.x - p0.x, p1.y - p0.y));
+
+    // project each world light to screen at GROUND level, so the glow is an even
+    // circle centred on the source's footprint (not stretched by its height)
+    const world_l = (typeof collectNightLights === "function") ? collectNightLights() : [];
+    const lights = [];
+    for (const L of world_l) {
+      const tileX = Math.round(L.px / TILEPX - 0.5), tileY = Math.round(L.py / TILEPX - 0.5);
+      const h = (typeof liftAt === "function") ? liftAt(tileX, tileY) + 0.05 : 0.1;
+      const p = project(L.px, L.py, h);
+      if (p.behind) continue;
+      const r = L.r * pxTile;
+      if (p.x < -r || p.x > W + r || p.y < -r || p.y > H + r) continue;
+      lights.push({ x: p.x, y: p.y, r, s: L.s, col: L.col, gr: (L.gr != null ? L.gr * pxTile : null), gs: L.gs });
+    }
+    // bioluminescent biome decor: each mushroom/tree/rock is its own soft glow
+    for (const bl of _bioLights) {
+      const p = project(PX(bl.wx), PX(bl.wz), (typeof liftAt === "function" ? liftAt(Math.round(bl.wx - 0.5), Math.round(bl.wz - 0.5)) : 0) + 0.35);
+      if (p.behind) continue;
+      const r = 1.5 * pxTile;   // tight: each object is its own glowing point, dark between them
+      if (p.x < -r || p.x > W + r || p.y < -r || p.y > H + r) continue;
+      lights.push({ x: p.x, y: p.y, r, s: 0.5, col: bl.col, gr: 0.9 * pxTile, gs: 0.32 });
+    }
+
+    // darkness with even circular holes (offscreen buffer → one clean composite)
+    paintDarkness(octx, W, H, dark, lights, "rgb(4,6,16)");
+
+    // additive warm/coloured glow (per light). Bio biomes are NOT washed as a
+    // whole — the glow comes from the individual objects above.
+    octx.save();
+    octx.globalCompositeOperation = "lighter";
+    if (ns.town) { octx.globalAlpha = dark * 0.03; octx.fillStyle = "rgb(255,190,120)"; octx.fillRect(0, 0, W, H); octx.globalAlpha = 1; }
+    for (const li of lights) {
+      if (!li.col) continue;
+      // a light may carry a tight glow core (gr/gs) distinct from its wide
+      // illumination radius — so many candles don't stack into a colour flare.
+      const gr = (li.gr != null ? li.gr : li.r * 0.85);
+      const ga = (li.gs != null ? li.gs : li.s * 0.26);
+      const g = octx.createRadialGradient(li.x, li.y, 0, li.x, li.y, gr);
+      g.addColorStop(0, `rgba(${li.col[0]},${li.col[1]},${li.col[2]},${ga})`);
+      g.addColorStop(1, `rgba(${li.col[0]},${li.col[1]},${li.col[2]},0)`);
+      octx.fillStyle = g;
+      octx.beginPath(); octx.arc(li.x, li.y, gr, 0, Math.PI * 2); octx.fill();
+    }
+    octx.restore();
+  }
+
+  // ---------- weather pass ----------
+  // Screen-space precipitation + overcast dimming from the deterministic
+  // weather field (gameplay/weather.js). Particles live in screen space and
+  // wrap — heaviness sets how many are alive, their speed and their alpha.
+  const WX_MAX = 260;
+  const wxDrops = [];
+  let wxLastT = 0, wxFlash = 0;
+  function drawWeather() {
+    if (typeof weatherNow !== "function") return;
+    const w = weatherNow();
+    if (!w) return;
+    const W = overlayCssW, H = overlayCssH;
+    const dt = Math.min(100, Math.max(0, now - wxLastT)); wxLastT = now;
+    // overcast flattens the daylight with a cool grey wash (day only — night
+    // darkness is drawNight's job)
+    const L = (typeof daylightNow === "function") ? daylightNow() : 1;
+    const dim = (w.cloud * 0.22 + w.precip * 0.08) * L;
+    if (dim > 0.01) {
+      octx.globalAlpha = dim;
+      octx.fillStyle = "rgb(88,96,112)";
+      octx.fillRect(0, 0, W, H);
+      octx.globalAlpha = 1;
+    }
+    if (w.precip <= 0.02) { wxDrops.length = 0; return; }
+    const snow = w.kind === "snow";
+    const want = Math.round(Math.pow(w.precip, 0.8) * WX_MAX * (snow ? 0.7 : 1));
+    while (wxDrops.length < want) wxDrops.push({
+      x: Math.random() * W, y: Math.random() * H,
+      v: snow ? 45 + Math.random() * 55 : 620 + Math.random() * 420,   // px/s fall speed
+      r: 1.0 + Math.random() * 1.6,                                     // flake radius (snow)
+      ph: Math.random() * Math.PI * 2,                                  // flutter phase (snow)
+    });
+    if (wxDrops.length > want) wxDrops.length = want;
+    // the LOCAL wind slants the fall (strong on a deep low's flank, calm under
+    // a high) — projected onto the current camera heading so the slant swings
+    // round as the view orbits
+    const wv = w.wind || { x: 0.85, y: 0 };
+    const slant = (wv.x * Math.cos(camYaw) - wv.y * Math.sin(camYaw)) * (snow ? 34 : 140);
+    const fall = dt / 1000;
+    octx.save();
+    if (snow) {
+      octx.fillStyle = "rgba(236,242,252,0.8)";
+      octx.beginPath();
+      for (const d of wxDrops) {
+        d.y += d.v * fall;
+        d.x += (slant + Math.sin(now / 700 + d.ph) * 24) * fall;
+        if (d.y > H) { d.y -= H + 4; d.x = Math.random() * W; }
+        if (d.x > W) d.x -= W; else if (d.x < 0) d.x += W;
+        octx.moveTo(d.x + d.r, d.y);
+        octx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      }
+      octx.fill();
+    } else {
+      octx.strokeStyle = "rgba(178,198,228," + (0.2 + w.precip * 0.25).toFixed(2) + ")";
+      octx.lineWidth = 1.1;
+      const len = 9 + w.precip * 13;
+      octx.beginPath();
+      for (const d of wxDrops) {
+        d.y += d.v * fall;
+        d.x += slant * fall;
+        if (d.y > H) { d.y -= H + 6; d.x = Math.random() * W; }
+        if (d.x > W) d.x -= W; else if (d.x < 0) d.x += W;
+        const k = len / d.v;
+        octx.moveTo(d.x, d.y);
+        octx.lineTo(d.x - slant * k, d.y - d.v * k);
+      }
+      octx.stroke();
+      // thunderstorm: an occasional sheet-lightning flash across the sky
+      if (w.precip > 0.85 && Math.random() < dt * 0.00035) wxFlash = now + 130;
+      if (now < wxFlash) {
+        octx.globalAlpha = 0.28 * ((wxFlash - now) / 130);
+        octx.fillStyle = "#eaf2ff";
+        octx.fillRect(0, 0, W, H);
+        octx.globalAlpha = 1;
+      }
+    }
+    octx.restore();
+  }
+
+  // ---------- overlay ----------
+  function drawOverlay() {
+    const W = overlayCssW, H = overlayCssH;
+    octx.clearRect(0, 0, W, H);
+    // overhead-UI scale: camera distance grows linearly with camZoom, so
+    // sprites shrink ∝ 1/camZoom — bars/labels/badges multiply their pixel
+    // sizes AND their above-the-head pixel offsets by this so they keep a
+    // constant size and position relative to the character at any zoom
+    // (1 at the default zoom; Dream Forest's magnifier counts as zooming in)
+    const uiK = ((typeof DREAM !== "undefined" && DREAM.active) ? DREAM.zoomIn : 1) / camZoom;
+    const nameFont = `bold ${(11 * uiK).toFixed(1)}px OpenDyslexic, Verdana`;
+    // the player's overhead anchors (hp bar, bubbles, speech, weave) were tuned
+    // for a build-1.0 sprite — multiply by the character's height so they ride
+    // just above the head of tall and short races alike (character-stats.js)
+    const pch = (typeof charHeightMul === "function") ? charHeightMul() : 1;
+    // exact screen-space head anchor for the player: the top of the billboard
+    // actually rendered this frame (per-character build scale, walk bob and the
+    // HD-2D camera lean all baked into its transform), pulled down by the char
+    // sheet's empty cell headroom. A fixed world-height can't do this — the
+    // lean shifts the projected head top by a camera-dependent amount, and
+    // every character's build height differs (character-stats.js).
+    let headPt = null;
+    if (_playerBB && _playerBB.visible) {
+      const frac = _playerBB === charMesh ? (CHAR_FEET_FRAC + CHAR_FILL_H - 0.5) : 0.5;
+      _vHead.set(0, frac * Math.abs(_playerBB.scale.y), 0)
+        .applyQuaternion(_playerBB.quaternion).add(_playerBB.position).project(camera);
+      if (_vHead.z <= 1) headPt = { x: (_vHead.x + 1) / 2 * W, y: (1 - _vHead.y) / 2 * H };
+    }
+    // hover tile outline (projected quad, on the hovered tile's tier or the
+    // player's current floor plane when upstairs)
+    if (hover && hover.tileX !== undefined) {
+      const hy = (player.level | 0) > 0
+        ? groundY(player.x, player.y) + (player.level | 0) * STOREY_H + 0.04
+        // locked to river level under a span: outline hugs the water surface,
+        // not the deck overhead
+        : (player.deck === false && !pickHigh && pickDual(hover.tileX, hover.tileY))
+        ? groundY(hover.tileX, hover.tileY) + 0.02
+        : liftAt(hover.tileX, hover.tileY) + 0.02; // liftAt: bridge decks sit above the water tier
+      const c = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([ox, oz]) => {
+        _v.set(hover.tileX + ox, hy, hover.tileY + oz).project(camera);
+        return [(_v.x + 1) / 2 * W, (1 - _v.y) / 2 * H];
+      });
+      octx.strokeStyle = "#ffe97a";
+      octx.lineWidth = 2;
+      octx.beginPath();
+      octx.moveTo(c[0][0], c[0][1]);
+      for (let i = 1; i < 4; i++) octx.lineTo(c[i][0], c[i][1]);
+      octx.closePath();
+      octx.stroke();
+    }
+    // air bubbles while drowning: a shrinking row bobbing just above the
+    // waterline over the player's head; each bubble ≈ one second of air
+    if (typeof AIR_MAX !== "undefined" && player.air !== undefined && player.air < AIR_MAX) {
+      const p = project(player.px, player.py, playerLiftY + playerSink + 1.5 * pch);
+      if (!p.behind) {
+        const n = Math.max(0, Math.ceil(player.air));
+        octx.fillStyle = "rgba(190,230,255,0.85)";
+        octx.strokeStyle = "rgba(255,255,255,0.9)";
+        octx.lineWidth = 1;
+        for (let i = 0; i < n; i++) {
+          const bx = p.x + (i - (n - 1) / 2) * 11 * uiK;
+          const byy = p.y + Math.sin(now / 260 + i * 1.7) * 2;
+          octx.beginPath();
+          octx.arc(bx, byy, 3.6 * uiK, 0, Math.PI * 2);
+          octx.fill();
+          octx.stroke();
+        }
+      }
+    }
+    // hp bars
+    function barAt(x, y, frac) {
+      const bw = 40 * uiK, bh = Math.max(1.5, 5 * uiK);
+      octx.fillStyle = "#300";
+      octx.fillRect(x - bw / 2, y, bw, bh);
+      octx.fillStyle = "#3c3";
+      octx.fillRect(x - bw / 2, y, bw * Math.max(0, frac), bh);
+    }
+    function bar(px, py, frac, h) {
+      const p = project(px, py, h);
+      if (!p.behind) barAt(p.x, p.y, frac);
+    }
+    for (const mon of monsters) {
+      if (!mon.alive) continue;
+      const def = MONSTERS[mon.kind];
+      if (mon.hp < def.hp || mon.target) bar(mon.px, mon.py, mon.hp / def.hp, def.scale * (mon.giant ? 1.5 : 1) * 1.35 + liftPx(mon.px, mon.py));
+    }
+    // mob name / level labels — same projection as hp bar, fixed pixel size.
+    // No extra letterSpacing — OpenDyslexic doesn't need artificial tracking
+    // on top of its own already-wide letterforms (see the identical note on
+    // the world map's settlement labels, gameplay/world.js).
+    octx.font = nameFont;
+    octx.textAlign = "center";
+    // matches monsters.js's aggro gate: near a village/city or a road, a
+    // monster that would otherwise be dangerous reads as calm instead
+    const peaceful = world.inPeacefulZone && world.inPeacefulZone(player.x, player.y);
+    for (const mon of monsters) {
+      if (!mon.alive) continue;
+      const def = MONSTERS[mon.kind];
+      const p = project(mon.px, mon.py, def.scale * (mon.giant ? 1.5 : 1) * 1.35 + liftPx(mon.px, mon.py));
+      if (p.behind) continue;
+      const danger = def.lvl > 2 * combatLevel() && !peaceful;
+      octx.shadowColor = "rgba(0,0,0,0.9)";
+      octx.shadowBlur = 3 * uiK;
+      octx.fillStyle = danger ? "#ff4444" : "#ffd700";
+      octx.fillText(`${(typeof monName === "function" ? monName(mon) : def.name)} (lvl ${def.lvl})`, p.x, p.y - 8 * uiK);
+    }
+    // mix NPC name labels + overhead speech — shown whenever the NPC is on
+    // screen (in render range and not behind the camera)
+    if (MIXR.ok) {
+      const T = performance.now();
+      octx.shadowColor = "rgba(0,0,0,0.9)"; octx.shadowBlur = 3 * uiK;
+      for (const npc of world.npcs) {
+        if (!npc.mix) continue;
+        if (Math.abs(npc.x - player.x) > 40 || Math.abs(npc.y - player.y) > 40) continue;
+        // hide the nameplate of an NPC that's on an upper storey the player can't
+        // see into (matches the billboard cull in renderMixNpc)
+        const lvl = npc.level | 0;
+        if (lvl > 0) {
+          const o = npc._owns;
+          const canSee = o && (player.level | 0) >= lvl &&
+            player.x >= o[0] && player.x < o[0] + o[2] && player.y >= o[1] && player.y < o[1] + o[3];
+          if (!canSee) continue;
+        }
+        const def = MIXR.byKey.get(npc.mix);
+        const px = npc.px != null ? npc.px : PX(npc.x), py = npc.py != null ? npc.py : PX(npc.y);
+        // per-character build height — the same multiplier renderMixNpc scales
+        // the billboard by, so the nameplate tracks tall/short NPCs' heads
+        // (def.hs is the pre-build-system fallback)
+        const _nh = (typeof mixStatsFor === "function" && def) ? mixStatsFor(def).h : ((def && def.hs) || 1);
+        const hh = MIX_SCALE * _nh + liftPx(px, py) + lvl * STOREY_H + 0.15;
+        const p = project(px, py, hh);
+        if (p.behind) continue;
+        octx.fillStyle = "#bfe6ff";
+        octx.fillText(npc.name, p.x, p.y - 6 * uiK);
+        // quest-giver badge: a ✦ floats above their name — gold when they have a
+        // quest to offer, blue while you're mid-quest for them (quests.js)
+        if (npc._questGiver && typeof Quests !== "undefined") {
+          const qs = Quests.giverState(npc);
+          octx.fillStyle = qs === "active" ? "#7fd0ff" : "#ffe14a";
+          octx.font = `bold ${(15 * uiK).toFixed(1)}px OpenDyslexic, Verdana`;
+          octx.fillText("✦", p.x, p.y - 20 * uiK);
+          octx.font = nameFont;
+        }
+        // overhead speech bubble (set by talkTo), fades after a few seconds.
+        // Word-wraps to a max width and grows the background to fit any text.
+        if (npc._say && T < npc._say.until) {
+          octx.font = "bold 12px OpenDyslexic, Verdana";
+          const maxW = 240, padX = 9, padY = 6, lineH = 15;
+          const words = String(npc._say.text).split(/\s+/);
+          const lines = [];
+          let cur = "";
+          for (const word of words) {
+            const trial = cur ? cur + " " + word : word;
+            if (octx.measureText(trial).width + padX * 2 > maxW && cur) { lines.push(cur); cur = word; }
+            else cur = trial;
+          }
+          if (cur) lines.push(cur);
+          let tw = 0;
+          for (const ln of lines) tw = Math.max(tw, octx.measureText(ln).width);
+          const w = tw + padX * 2, h = lines.length * lineH + padY * 2;
+          const bx = p.x - w / 2, by = p.y - 34 * uiK - h;
+          octx.shadowBlur = 0;
+          octx.fillStyle = "rgba(20,24,32,0.9)";
+          if (octx.roundRect) { octx.beginPath(); octx.roundRect(bx, by, w, h, 6); octx.fill(); }
+          else octx.fillRect(bx, by, w, h);
+          octx.fillStyle = "#fff";
+          for (let li = 0; li < lines.length; li++)
+            octx.fillText(lines[li], p.x, by + padY + li * lineH + 11);
+          octx.font = nameFont;
+          octx.shadowColor = "rgba(0,0,0,0.9)"; octx.shadowBlur = 3 * uiK;
+        }
+      }
+    }
+    // the player's own speech bubble — mirrors the chat bar as you type, and
+    // holds briefly once spoken (set by npc-chat.js playerSay)
+    if (player._say && performance.now() < player._say.until) {
+      const pp = headPt ? { x: headPt.x, y: headPt.y - 14 * uiK, behind: false }
+        : project(player.px, player.py, 1.55 * pch + playerLiftY);
+      if (!pp.behind) {
+        octx.font = "bold 12px OpenDyslexic, Verdana";
+        octx.shadowColor = "rgba(0,0,0,0.9)"; octx.shadowBlur = 3;
+        const maxW = 240, padX = 9, padY = 6, lineH = 15;
+        const words = String(player._say.text).split(/\s+/);
+        const lines = [];
+        let cur = "";
+        for (const word of words) {
+          const trial = cur ? cur + " " + word : word;
+          if (octx.measureText(trial).width + padX * 2 > maxW && cur) { lines.push(cur); cur = word; }
+          else cur = trial;
+        }
+        if (cur) lines.push(cur);
+        let tw = 0;
+        for (const ln of lines) tw = Math.max(tw, octx.measureText(ln).width);
+        const w = tw + padX * 2, h = lines.length * lineH + padY * 2;
+        const bx = pp.x - w / 2, by = pp.y - 34 * uiK - h;
+        octx.shadowBlur = 0;
+        octx.fillStyle = "rgba(26,34,26,0.9)";      // a green-tinged bubble = the player's voice
+        if (octx.roundRect) { octx.beginPath(); octx.roundRect(bx, by, w, h, 6); octx.fill(); }
+        else octx.fillRect(bx, by, w, h);
+        octx.fillStyle = "#eaffea";
+        octx.textAlign = "center";
+        for (let li = 0; li < lines.length; li++)
+          octx.fillText(lines[li], pp.x, by + padY + li * lineH + 11);
+      }
+    }
+    octx.shadowBlur = 0;
+    octx.letterSpacing = "0px";
+    const inCombat = monsters.some(m => m.alive && m.target === player);
+    if (inCombat || player.hp < maxHp()) {
+      if (headPt) barAt(headPt.x, headPt.y - 9 * uiK, player.hp / maxHp());
+      else bar(player.px, player.py, player.hp / maxHp(), 1.35 * pch + playerLiftY);
+    }
+    // Vanished (veil+shadow technique): grey wisps mark the unseen caster
+    if (player.unseenUntil && now < player.unseenUntil) {
+      const pu = project(player.px, player.py, 1.1 * pch + playerLiftY);
+      if (!pu.behind) {
+        octx.globalAlpha = 0.5;
+        octx.fillStyle = "#8a7aa8";
+        for (let i = 0; i < 3; i++) {
+          const a = now / 700 + i * (Math.PI * 2 / 3);
+          octx.beginPath();
+          octx.arc(pu.x + Math.cos(a) * 13, pu.y + Math.sin(a) * 9, 4.5, 0, 7);
+          octx.fill();
+        }
+        octx.globalAlpha = 1;
+      }
+    }
+    // the Weave: gathered rune words orbit the caster until the sentence casts
+    if (player.weave && player.weave.asp.length) {
+      const pw = headPt ? { x: headPt.x, y: headPt.y - 10 * uiK, behind: false }
+        : project(player.px, player.py, 1.7 * pch + playerLiftY);
+      if (!pw.behind) {
+        player.weave.asp.forEach((wd, i) => {
+          const a = now / 450 + i * (Math.PI * 2 / player.weave.asp.length);
+          octx.globalAlpha = 0.9;
+          octx.fillStyle = (wd && wd.col) || "#fff";
+          octx.beginPath();
+          octx.arc(pw.x + Math.cos(a) * 16, pw.y + Math.sin(a) * 6 - 4, 3.5, 0, 7);
+          octx.fill();
+          octx.globalAlpha = 1;
+        });
+      }
+    }
+    // projectiles
+    for (const pr of projectiles) {
+      const t = Math.min(1, (now - pr.t0) / pr.dur);
+      if (pr.kind === "arrow" && pr.h0 !== undefined) {
+        // ballistic arc (combat.js): linear ground track to the COMMITTED
+        // landing tile with a parabolic lift in absolute world height — the
+        // arrow was aimed at a predicted position and nothing steers it once
+        // loosed. It rests at the landing point through its `stick` grace
+        // (hitT < 1 = the arc dipped into something solid short of the aim).
+        // Screen tilt comes from a trailing sample so it stays stable at rest.
+        const arcH = tt => pr.h0 + (pr.h1 - pr.h0) * tt + 4 * pr.peak * tt * (1 - tt);
+        const cap = pr.hitT !== undefined ? pr.hitT : 1;
+        const tt = Math.min(cap, t);
+        const tb = Math.max(0, tt - 0.05);
+        const p = project(pr.x0 + (pr.x1 - pr.x0) * tt, pr.y0 + (pr.y1 - pr.y0) * tt, arcH(tt));
+        const pb = project(pr.x0 + (pr.x1 - pr.x0) * tb, pr.y0 + (pr.y1 - pr.y0) * tb, arcH(tb));
+        if (p.behind) continue;
+        const ang = Math.atan2(p.y - pb.y, p.x - pb.x);
+        octx.strokeStyle = "#c9a06a";
+        octx.lineWidth = 3;
+        octx.beginPath();
+        octx.moveTo(p.x - Math.cos(ang) * 10, p.y - Math.sin(ang) * 10);
+        octx.lineTo(p.x + Math.cos(ang) * 6, p.y + Math.sin(ang) * 6);
+        octx.stroke();
+        octx.fillStyle = "#ddd";
+        octx.fillRect(p.x + Math.cos(ang) * 6 - 2, p.y + Math.sin(ang) * 6 - 2, 4, 4);
+        continue;
+      }
+      const a = project(pr.x0, pr.y0, 0.55 + liftPx(pr.x0, pr.y0)), b = project(pr.x1, pr.y1, 0.55 + liftPx(pr.x1, pr.y1));
+      const x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+      if (pr.kind === "arrow") {
+        const ang = Math.atan2(b.y - a.y, b.x - a.x);
+        octx.strokeStyle = "#c9a06a";
+        octx.lineWidth = 3;
+        octx.beginPath();
+        octx.moveTo(x - Math.cos(ang) * 10, y - Math.sin(ang) * 10);
+        octx.lineTo(x + Math.cos(ang) * 6, y + Math.sin(ang) * 6);
+        octx.stroke();
+        octx.fillStyle = "#ddd";
+        octx.fillRect(x + Math.cos(ang) * 6 - 2, y + Math.sin(ang) * 6 - 2, 4, 4);
+      } else {
+        // woven-spell bolts carry their dominant aspect's colour
+        octx.fillStyle = pr.col ? pr.col : pr.kind === "fire" ? "#ff8030" : "#e8f4ff";
+        octx.beginPath();
+        octx.arc(x, y, 7 - t * 2, 0, 7);
+        octx.fill();
+      }
+    }
+    // splats
+    for (const s of splats) {
+      if (now < s.t) continue; // delayed splat: lands with its arrow (addSplat)
+      const e = s.ent;
+      const p = project(e === player ? player.px : e.px, e === player ? player.py : e.py, 0.55 + (e === player ? playerLiftY : liftPx(e.px, e.py)));
+      if (p.behind) continue;
+      octx.globalAlpha = Math.max(0, 1 - (now - s.t) / 900);
+      octx.fillStyle = s.val > 0 ? "#c22" : "#22a";
+      octx.beginPath();
+      octx.arc(p.x, p.y, 11, 0, 7);
+      octx.fill();
+      octx.fillStyle = "#fff";
+      octx.font = "bold 13px OpenDyslexic, Verdana";
+      octx.textAlign = "center";
+      octx.fillText(String(s.val), p.x, p.y + 5);
+      octx.globalAlpha = 1;
+    }
+    // floats
+    for (const f of floats) {
+      const prog = (now - f.t) / 1500;
+      const p = project(f.x, f.y, 1.3 + prog * 0.9 + groundY(Math.floor(f.x), Math.floor(f.y)));
+      if (p.behind) continue;
+      octx.globalAlpha = 1 - prog;
+      octx.fillStyle = f.color;
+      octx.font = `bold ${f.size}px OpenDyslexic, Verdana`;
+      octx.textAlign = "center";
+      octx.fillText(f.text, p.x, p.y);
+      octx.globalAlpha = 1;
+    }
+    // weather BEFORE night: precipitation + overcast dim first, then darkness
+    // falls over the rain too — at night you only see rain where there's light.
+    try { drawWeather(); } catch (e) { octx.globalAlpha = 1; }
+    // day/night LAST: darken the whole view (world + name labels + bars) with
+    // circular light holes. Guarded so a light-pass edge case can't blank the game.
+    try { drawNight(); } catch (e) { octx.globalCompositeOperation = "source-over"; octx.globalAlpha = 1; }
+    if (now < player.stunUntil) {
+      octx.fillStyle = "rgba(255,80,80,0.12)";
+      octx.fillRect(0, 0, W, H);
+    }
+  }
+
+  // ---------- river current: drifting foam streaks ----------
+  // A small pool of flat pale streaks rides the rivers, each following the
+  // local downstream direction from world.riverFlowAt — the water visibly
+  // "flows". Streaks spawn on carved-water tiles near the player and die when
+  // they run aground or time out.
+  const FLOW_N = 36;
+  const flowPool = [];
+  let flowMat = null, flowGeom = null, flowLastT = 0;
+  function syncFlow() {
+    if (!flowMat) {
+      flowMat = new THREE.MeshBasicMaterial({ color: 0xd4ecff, transparent: true, opacity: 0.38, depthWrite: false });
+      flowGeom = new THREE.PlaneGeometry(0.55, 0.09);
+    }
+    const dt = Math.min(100, Math.max(0, now - flowLastT));
+    flowLastT = now;
+    for (let tries = 0; tries < 3; tries++) {
+      let slot = flowPool.find(p => p.die <= now);
+      if (!slot && flowPool.length < FLOW_N) {
+        const m = new THREE.Mesh(flowGeom, flowMat);
+        m.rotation.order = "YXZ";
+        m.rotation.x = -Math.PI / 2;
+        m.visible = false;
+        scene.add(m);
+        slot = { m, die: 0, x: 0, y: 0, fx: 1, fy: 0 };
+        flowPool.push(slot);
+      }
+      if (!slot) break;
+      const wx = player.x + ((Math.random() * 29) | 0) - 14;
+      const wy = player.y + ((Math.random() * 29) | 0) - 14;
+      const wb = waterBit(wx, wy);
+      if (wb !== 2 && wb !== 3) { slot.m.visible = false; continue; }
+      const f = world.riverFlowAt ? world.riverFlowAt(wx, wy) : null;
+      if (!f) { slot.m.visible = false; continue; }
+      slot.x = wx + 0.15 + Math.random() * 0.7;
+      slot.y = wy + 0.15 + Math.random() * 0.7;
+      slot.fx = f[0]; slot.fy = f[1];
+      slot.die = now + 1600 + Math.random() * 1800;
+      slot.m.visible = true;
+    }
+    // tiles per second of drift — a river in flood visibly races
+    const sp = 1.35 * (1 + floodLvl * 0.9) * dt / 1000;
+    for (const p of flowPool) {
+      if (p.die <= now) { p.m.visible = false; continue; }
+      p.x += p.fx * sp; p.y += p.fy * sp;
+      const tx = Math.floor(p.x), ty = Math.floor(p.y);
+      const wb = waterBit(tx, ty);
+      if (wb < 1 || wb > 3) { p.die = 0; p.m.visible = false; continue; }
+      const f = world.riverFlowAt ? world.riverFlowAt(tx, ty) : null;
+      if (f) { p.fx = f[0]; p.fy = f[1]; } // bend with the river
+      p.m.position.set(p.x, waterLevelAt(tx, ty) + 0.05, p.y);
+      p.m.rotation.y = -Math.atan2(p.fy, p.fx);
+    }
+  }
+
+  // ---------- frame ----------
+  let lastT = 0;
+  function frame() {
+    if (!ready) return;
+    const dt = Math.min(100, now - lastT);
+    lastT = now;
+    // --- camera follow + orbit smoothing (must run before billboards are placed) ---
+    const tx = WX(player.px), tz = WX(player.py);
+    if (followX === null) { followX = tx; followZ = tz; followY = playerLiftY; }
+    const kf = 1 - Math.exp(-dt * 0.006);
+    followX += (tx - followX) * kf;
+    followZ += (tz - followZ) * kf;
+    followY += (playerLiftY - followY) * kf; // camera rides the terrain tiers smoothly
+    // snap the view directly between the 4 cardinal angles (90° each) — never ease
+    // through a diagonal, so the terrain grid is only ever shown axis-aligned and the
+    // switch goes straight S→E→N→W (or reverse). Camera stays on its orbit circle, so
+    // the snap doesn't dip toward the player.
+    camYaw = (camStep & 3) * (Math.PI / 2);
+    camDir = (camStep & 3) * 2; // matching cardinal sprite frame (S/E/N/W)
+    // the sun is world-anchored and tracks the day/night clock: update its
+    // azimuth/elevation each frame, and rebake the static shadows whenever it
+    // has moved a real step (every few minutes of daylight — sunBakeKey
+    // quantizes azimuth+length so this never churns per-frame)
+    updateSun();
+    updateShadowFade();
+    if (sunState.key !== sunBakeKey) {
+      sunBakeKey = sunState.key;
+      for (const g of chunkMeshes.values()) if (g.userData.shSprites) buildChunkShadow(g);
+      for (const rec of structs.values()) if (rec.shadowFeet) buildStructShadow(rec);
+    }
+    // snow cover: one uniform, all patched materials follow (no rebakes)
+    if (typeof snowNow === "function") snowUni.value = snowNow();
+    // colour temperature: neutral white under a high sun, golden as it sinks
+    // (grazing light — permanent through subarctic winter days and under the
+    // Fullday Pole's midnight sun), the cool blue hour once it's down. Eased
+    // over ~2 s so sunset never pops; the sky and fog ride the same light.
+    {
+      let tr = 1, tg = 1, tb = 1;
+      if (sunState.up) {
+        const w = Math.pow(Math.max(0, Math.min(1, (0.45 - sunState.elev) / 0.4)), 1.3);
+        tg = 1 - 0.14 * w; tb = 1 - 0.30 * w;
+      } else { tr = 0.78; tg = 0.84; }
+      const tc = tintUni.value, k = Math.min(1, dt / 1800);
+      tc.r += (tr - tc.r) * k; tc.g += (tg - tc.g) * k; tc.b += (tb - tc.b) * k;
+      if (scene.background) scene.background.setHex(SKY).multiply(tc);
+      if (scene.fog) scene.fog.color.copy(scene.background);
+    }
+    // river flood: when the flood integral (weather.js) has genuinely moved,
+    // adopt the new quantized bucket, drop the level/ground caches and queue
+    // the carved-water chunks for a rebake — worked off two per frame so a
+    // rising river never stalls a frame. Hysteresis (0.18 vs 0.25 buckets)
+    // stops the level see-sawing at a bucket boundary.
+    if (typeof floodNow === "function") {
+      const fl = floodNow();
+      if (Math.abs(fl - floodLvl) > 0.18) {
+        floodLvl = Math.round(fl * 4) / 4;
+        waterLevelCache.clear();
+        groundYCache.clear();
+        _floodRebuild.length = 0;
+        for (const key of chunkMeshes.keys()) {
+          const p = key.split(",");
+          if (waterBitsFor(+p[0], +p[1]).cw) _floodRebuild.push(key);
+        }
+      }
+      for (let i = 0; i < 2 && _floodRebuild.length; i++) {
+        const key = _floodRebuild.pop();
+        const group = chunkMeshes.get(key);
+        if (!group) continue;
+        scene.remove(group);
+        group.userData.groundGeom.dispose();
+        if (group.userData.wallGeom) group.userData.wallGeom.dispose();
+        for (const sm of group.userData.shadowMeshes || []) sm.geometry.dispose();
+        for (const eg of group.userData.extraGeoms || []) eg.dispose();
+        chunkMeshes.delete(key);   // syncChunks rebuilds it at the new level
+      }
+    }
+    const sy = Math.sin(camYaw), cyw = Math.cos(camYaw);
+    // shared billboard orientation: yaw to face the camera, then lean by TILT about
+    // the camera-right axis (cos,0,-sin) so the lean stays screen-consistent at every
+    // angle — Euler YXZ flipped the tilt sign on back-facing views (upside-down sprites).
+    _qYaw.setFromAxisAngle(_up, camYaw);
+    _qTilt.setFromAxisAngle(_tiltAxis.set(cyw, 0, -sy), TILT);
+    _bbQuat.multiplyQuaternions(_qTilt, _qYaw);
+    // --- world + entities ---
+    // wading in deep water sinks the body below the surface (playerSinkY:
+    // quarter step per 1% of seabed altitude below the coast; 0 on land,
+    // decks, boats and rivers)
+    playerSink = typeof playerSinkY === "function" ? playerSinkY() : 0;
+    playerLiftY = ((player.level | 0) > 0
+      // upstairs: stack storeys from the ground-floor SLAB. A building spanning a
+      // river carries its floor on piers at DECK height (deckAt), not the riverbed
+      // groundY — using groundY dropped the player through the floor on the way up.
+      ? ((() => { const d = deckAt(player.x, player.y);
+          return (d != null ? d : groundY(player.x, player.y)); })()
+          + (player.level | 0) * STOREY_H + 0.02)
+      // sailing rides the water surface (groundY); on a two-level tile the
+      // player's deck/under state picks the deck slab or the bank below it
+      : player.sailing ? groundY(player.x, player.y) + 0.45
+      : (() => {
+          const d = deckAt(player.x, player.y);
+          // under the span (deck === false) the player follows the bank or
+          // water surface — groundY, never liftAt (liftAt returns the deck
+          // for water tiles, which teleported under-walkers up on top)
+          return d != null && player.deck !== false ? d
+            : d != null ? groundY(player.x, player.y)
+            : liftAt(player.x, player.y);
+        })()) - playerSink;
+    // riding a placed vessel (ridingEnt): raise the character onto the deck — the
+    // hull stays at the water line in syncPlaced — so they stand ON the raft
+    // instead of at its front edge / the water. (player.sailing has its own +0.45.)
+    if (typeof ridingEnt === "function" && !player.sailing && ridingEnt()) playerLiftY += 0.4;
+    syncChunks();
+    syncNodes();
+    syncPlaced();
+    syncDecor();
+    syncStructures();
+    syncEntities();
+    syncFlow();
+    sweep();
+    // --- place the camera exactly on its orbit circle (no chord dip = no nausea) ---
+    // Dream Forest magnifies the ground as you sink deeper (eased DREAM.zoomIn) so
+    // tiles interpolate into a dreamy smear and more detail packs in; the ease is
+    // slow (no lurch) and manual zoom-out is clamped (see updateZoom).
+    const _cz = camZoom / ((typeof DREAM !== "undefined" && DREAM.active) ? DREAM.zoomIn : 1);
+    const dist = 9.6 * _cz, hgt = 9.2 * _cz, fb = 0.5 * _cz;
+    camera.position.set(followX + sy * dist, hgt + followY, followZ + cyw * dist);
+    camPos.copy(camera.position);
+    camera.lookAt(followX + sy * fb, 0.4 + followY, followZ + cyw * fb);
+    // rain closes the fog in (a downpour swallows the horizon); overcast alone
+    // hazes it only slightly
+    const wfog = (typeof weatherNow === "function") ? weatherNow() : null;
+    const fogK = wfog ? Math.max(0.45, 1 - wfog.precip * 0.4 - wfog.cloud * 0.08) : 1;
+    scene.fog.near = 28 * _cz * fogK;
+    scene.fog.far = 52 * _cz * fogK;
+    renderer.render(scene, camera);
+    drawOverlay();
+  }
+
+  // lightweight runtime diagnostics (leak hunting / perf triage from the console)
+  function _structDetail() {
+    const out = [];
+    for (const [key, r] of structs) {
+      out.push({
+        key, baseY: r.baseY, groupVisible: r.group.visible,
+        roofVisible: r.roofGroup ? r.roofGroup.visible : null,
+        vols: r.vols,
+        storeys: r.storeyGroups.map(sg => ({
+          groupVis: sg.group.visible,
+          walls: sg.wallMeshes ? sg.wallMeshes.map(w => w.visible) : null,
+          flatVis: sg.flat ? sg.flat.visible : null,
+        })),
+      });
+    }
+    return out;
+  }
+  function _diag() {
+    let structGeoms = 0;
+    for (const r of structs.values()) structGeoms += r.geoms.length;
+    return {
+      meshes: meshes.size,
+      chunks: chunkMeshes.size,
+      structs: structs.size,
+      structGeoms,
+      glGeoms: renderer ? renderer.info.memory.geometries : -1,
+      glTex: renderer ? renderer.info.memory.textures : -1,
+      calls: renderer ? renderer.info.render.calls : -1,
+      gyPerf: { ...gyPerf },
+      wlPerf: { ...wlPerf },
+    };
+  }
+
+  return {
+    init, frame, resize, pickTile, _diag, _structDetail, _meshLog: meshLog,
+    _sunDebug: () => ({ ...sunState, bakeKey: sunBakeKey, mats: _shadowMats.size }),
+    // altitude probes for gameplay (movement picks deck vs. under level when
+    // stepping onto a two-level tile): walkable ground height / deck height
+    groundLevel: (x, y) => groundY(x, y),
+    deckLevel: (x, y) => deckAt(x, y),
+    get ready() { return ready; },
+  };
+})();

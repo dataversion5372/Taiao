@@ -1,0 +1,517 @@
+/* OpenDyslexic (SIL OFL 1.1, see fonts/OFL.txt) — a dyslexia-friendly
+   typeface, weighted bottoms and exaggerated ascenders/descenders resist
+   letter-flipping/swapping. Applied everywhere: this @font-face plus the
+   font-family below covers every DOM element (`*` inherits from html/body
+   unless overridden, and nothing in this stylesheet overrides font-family),
+   and every canvas-drawn text string in js/ (world labels, HP/level text,
+   floating combat numbers, minimap village names, the compass letters) was
+   updated in place to reference "OpenDyslexic" too, since canvas text reads
+   its own `ctx.font` string and is NOT affected by CSS at all. */
+@font-face { font-family: "OpenDyslexic"; src: url("../fonts/OpenDyslexic-Regular.woff") format("woff"); font-weight: normal; font-style: normal; font-display: swap; }
+@font-face { font-family: "OpenDyslexic"; src: url("../fonts/OpenDyslexic-Bold.woff") format("woff"); font-weight: bold; font-style: normal; font-display: swap; }
+@font-face { font-family: "OpenDyslexic"; src: url("../fonts/OpenDyslexic-Italic.woff") format("woff"); font-weight: normal; font-style: italic; font-display: swap; }
+@font-face { font-family: "OpenDyslexic"; src: url("../fonts/OpenDyslexic-BoldItalic.woff") format("woff"); font-weight: bold; font-style: italic; font-display: swap; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #1a1620; color: #ddd; font-family: "OpenDyslexic", "Verdana", "Geneva", sans-serif; font-size: 12px; overflow: hidden; }
+#wrap { display: flex; height: 100%; }
+#gamecol { position: relative; flex: 1; background: #0d0b12; min-width: 0; overflow: hidden; }
+#game { display: block; width: 100%; height: 100%; cursor: crosshair; background: #87b5d4; }
+#overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+#hovertext {
+  position: absolute; top: 8px; left: 10px; pointer-events: none;
+  color: #ffe97a; text-shadow: 1px 1px 0 #000; font-size: 13px; font-weight: bold;
+}
+#log {
+  position: absolute; left: 10px; bottom: 8px; width: 46%; max-width: 460px;
+  pointer-events: none; font-size: 12px; line-height: 1.35;
+  text-shadow: 1px 1px 0 #000;
+}
+#log .msg {
+  color: #eee;
+  /* full dark outline (not just the shared 1px offset) so the text stays legible
+     over any terrain/lighting, matching the red warnings — covers white plus
+     blue (.sys) and yellow (.gold), which don't override text-shadow */
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 3px #000;
+}
+#log .msg.xp { color: #8ff08f; text-shadow: 1px 1px 0 #000; } /* green keeps the plain offset */
+#log .msg.warn {
+  color: #ff6a6a; font-weight: bold;
+  /* full dark outline (not just the shared 1px offset) so warnings stay legible
+     over any terrain/lighting behind the transparent log */
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 3px #000;
+}
+#log .msg.gold { color: #ffd75e; }
+#log .msg.sys { color: #9ecbff; }
+
+#ctxmenu {
+  /* fixed + viewport coords: the menu opens exactly at the pointer whether the
+     right-click came from the game canvas, the sidebar inventory, or the
+     centred trade window (absolute-in-gamecol clamped sidebar clicks to the
+     wrong edge) */
+  position: fixed; display: none; background: #26202e; border: 1px solid #584d6d;
+  box-shadow: 0 4px 12px #000a; z-index: 80; min-width: 150px; font-size: 12px;
+}
+#ctxmenu .ctxtitle { padding: 4px 10px; background: #3a3147; color: #cbbdf4; font-weight: bold; }
+#ctxmenu .ctxitem { padding: 5px 10px; cursor: pointer; color: #ddd; }
+#ctxmenu .ctxitem:hover { background: #4a3f5e; color: #fff; }
+
+#sidebar {
+  width: 330px; background: #221c2b; border-left: 2px solid #453a58;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+/* The minimap FLEXES vertically: it grows to fill the sidebar on tall screens
+   but shrinks first (before the inventory) on short ones, so the full 8-row
+   inventory + its 15px padding always fits without a scrollbar. */
+#minimapbox { padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 5px; background: #1b1622; border-bottom: 1px solid #38304a; flex: 10 10 auto; min-height: 190px; max-height: 380px; }
+/* The wrap is the visible viewport (4:3); the terrain/icon canvases inside are
+   SQUARE and larger, centered, and CSS-rotated with the camera (js sets the
+   rotate() transform). A square rotated by the camera's 90° steps always covers
+   the viewport, so cropping the overhang (overflow:hidden) never shows a gap. */
+#minimapwrap { position: relative; width: 312px; flex: 1 1 auto; min-height: 90px; overflow: hidden; border: 1px solid #584d6d; }
+#minimapwrap #minimap, #minimapwrap #minimap-icons {
+  position: absolute; left: 50%; top: 50%; width: 364px; height: 364px;
+  transform: translate(-50%, -50%); transform-origin: 50% 50%; will-change: transform;
+}
+/* Terrain/dot layer above is pixel-art (pixelated on purpose, see #minimap
+   rule) upscaled 1.25x by CSS. That upscale — and its nearest-neighbor
+   rendering — pixelated the flat bitmap map-icon art too when it lived on
+   the same canvas, so icons get their own layer: internal buffer matches
+   this box 1:1 (240x180, no CSS scaling at all) with the browser's normal
+   smooth scaling, so they stay crisp/anti-aliased regardless of anything
+   the terrain layer does. */
+#minimapwrap #minimap-icons { pointer-events: none; }
+#compass { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; border-radius: 50%; background: rgba(20,16,28,0.7); border: 1px solid #584d6d; pointer-events: none; }
+#minimap-btnrow { display: flex; gap: 4px; width: 312px; }
+#mapbtn, #questbtn, #bestiarybtn, #charbtn, #soapbtn { flex: 1; min-width: 0; padding: 4px 2px; background: #2a2335; color: #a99cc4; border: 1px solid #4c4160; cursor: pointer; font-size: 10px; white-space: nowrap; }
+#mapbtn:hover, #questbtn:hover, #bestiarybtn:hover, #charbtn:hover, #soapbtn:hover { background: #453a58; color: #fff; }
+#interactmodebtn { width: 312px; margin-top: 4px; padding: 4px; background: #2a2335; color: #a99cc4; border: 1px solid #4c4160; cursor: pointer; font-size: 11px; }
+#interactmodebtn:hover { filter: brightness(1.25); color: #fff; }
+#interactmodebtn.combat { background: #3a2020; color: #e6a3a3; border-color: #6e3a3a; }
+#interactmodebtn.husbandry { background: #203320; color: #a3d6a3; border-color: #3d6e3a; }
+
+#worldmap {
+  position: absolute; inset: 0; display: none; z-index: 60;
+  background: #141019;
+}
+#wmcanvas { display: block; width: 100%; height: 100%; cursor: grab; }
+#wmcanvas:active { cursor: grabbing; }
+#wmtip {
+  position: absolute; display: none; pointer-events: none; z-index: 61;
+  background: #26202e; border: 1px solid #584d6d; padding: 4px 8px;
+  color: #ffe97a; font-size: 12px; box-shadow: 0 3px 8px #000a; white-space: nowrap;
+}
+#wmclose {
+  position: absolute; top: 10px; right: 10px; z-index: 61;
+  width: 34px; height: 34px; background: #453a58; color: #fff;
+  border: 1px solid #6b5c8a; cursor: pointer; font-size: 15px;
+}
+#wmclose:hover { background: #574870; }
+#wmbtns {
+  position: absolute; top: 10px; right: 54px; z-index: 61; display: flex; gap: 6px; align-items: stretch;
+}
+#wmbtns button {
+  height: 34px; padding: 0 12px; background: #453a58; color: #fff;
+  border: 1px solid #6b5c8a; cursor: pointer; font-size: 13px; font-family: inherit; white-space: nowrap;
+}
+#wmbtns button:hover { background: #574870; }
+/* checkbox toggles styled as compact pill buttons, kept on one line */
+#wmbtns label {
+  display: flex; align-items: center; gap: 5px; height: 34px; padding: 0 10px;
+  background: #453a58; color: #fff; border: 1px solid #6b5c8a; cursor: pointer;
+  font-size: 13px; white-space: nowrap; user-select: none;
+}
+#wmbtns label:hover { background: #574870; }
+#wmbtns label input { margin: 0; cursor: pointer; }
+#wm-biome {
+  height: 34px; padding: 0 8px; background: #453a58; color: #fff;
+  border: 1px solid #6b5c8a; cursor: pointer; font-size: 13px; font-family: inherit;
+}
+#wm-biome:hover { background: #574870; }
+#wmcoords {
+  position: absolute; left: 10px; bottom: 10px; z-index: 61; pointer-events: none;
+  background: #26202e; border: 1px solid #584d6d; padding: 4px 10px;
+  color: #ffe97a; font-size: 13px; box-shadow: 0 3px 8px #000a; white-space: nowrap;
+}
+
+/* ----- character selector (C) ----- */
+#charselect {
+  position: absolute; inset: 0; display: none; z-index: 62;
+  background: rgba(16, 12, 22, 0.94); flex-direction: column;
+}
+#charselect.open { display: flex; }
+#charselect-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; color: #ffe97a; font-size: 16px; font-weight: bold;
+  border-bottom: 1px solid #3a3050; letter-spacing: 1px;
+}
+#csclose {
+  width: 32px; height: 32px; background: #453a58; color: #fff;
+  border: 1px solid #6b5c8a; cursor: pointer; font-size: 15px;
+}
+#csclose:hover { background: #574870; }
+#cs-back {
+  height: 32px; padding: 0 12px; background: #453a58; color: #fff;
+  border: 1px solid #6b5c8a; cursor: pointer; font-size: 14px; font-weight: bold;
+}
+#cs-back:hover { background: #574870; }
+#charselect-grid {
+  flex: 1; overflow-y: auto; padding: 12px;
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  align-content: start;
+}
+.cspanel {
+  background: #201a2b; border: 1px solid #3a3050; border-radius: 6px;
+  cursor: pointer; display: flex; flex-direction: column; align-items: center;
+  padding: 6px 4px 8px; transition: background 0.1s, border-color 0.1s;
+}
+.cspanel:hover { background: #2c2440; border-color: #7a68a8; }
+.cspanel.selected { border-color: #ffe97a; background: #33294a; }
+.cspanel canvas {
+  width: 88px; height: 88px; image-rendering: pixelated;
+  background: #171320; border-radius: 4px;
+}
+.cspanel .csname {
+  margin-top: 5px; color: #e9e2f5; font-size: 12px; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 96px;
+}
+#minimap { image-rendering: pixelated; }
+
+#statbar { padding: 8px 10px 4px; }
+#cmblevel { color: #ffe97a; font-size: 11px; margin: 2px 0 4px 2px; }
+
+#terrainbar { padding: 4px 10px 6px; border-bottom: 1px solid #38304a; font-size: 11px; }
+.tbrow { display: flex; align-items: baseline; gap: 4px; line-height: 1.7; }
+.tblabel { color: #7a6e92; min-width: 26px; }
+.tbrow span:not(.tblabel) { color: #c8bedd; flex: 1; }
+.tbrow span.tbmed { flex: 2; }   /* span.x beats span:not() — same specificity, later wins */
+.tbrow span.tbwide { flex: 3; }
+.tbrow span.tbfit { flex: 0 0 auto; white-space: nowrap; }   /* size to content (Sky/Wx); the tbwide neighbour absorbs the slack */
+.statline { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.statline > span:first-child { width: 22px; font-weight: bold; color: #ffb3b3; }
+.bar { position: relative; flex: 1; height: 16px; background: #3a1010; border: 1px solid #000; }
+.bar #hpbar { height: 100%; background: linear-gradient(#e05b5b, #a32222); width: 100%; transition: width .25s; }
+.bar span { position: absolute; inset: 0; text-align: center; font-size: 11px; line-height: 15px; color: #fff; text-shadow: 1px 1px 0 #000; }
+/* stink metre — its own colours; the bar fill colour is set live in renderStink */
+#stinkline { margin-top: 2px; }
+#stinkline > span:first-child { width: auto; min-width: 34px; color: #b7c98f; }
+#stinkline .bar { background: #1c2114; }
+#stinkbar { height: 100%; width: 0%; background: #6a9a4a; transition: width .25s, background .25s; }
+#stinkline.stink-shop > span:first-child { color: #f0b968; }
+#stinkline.stink-city > span:first-child { color: #ff8f8f; }
+/* ----- Soaps menu (Left-Shift+S) ----- */
+#soapsmenu { position: absolute; inset: 0; display: none; z-index: 63; background: rgba(16,12,22,0.9); }
+#soapsmenu.open { display: flex; align-items: center; justify-content: center; }
+.soaps-panel { width: min(940px, 96%); height: 86%; display: flex; flex-direction: column; background: #221c2b; border: 1px solid #4c4160; box-shadow: 0 8px 30px #000b; }
+.soaps-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; color: #cbe6b0; font-size: 16px; font-weight: bold; border-bottom: 1px solid #3a3050; }
+#soapsclose { width: 30px; height: 30px; background: #453a58; color: #fff; border: 1px solid #6b5c8a; cursor: pointer; font-size: 15px; }
+#soapsclose:hover { background: #574870; }
+.soaps-hint { padding: 8px 14px; font-size: 11px; color: #a99cc4; border-bottom: 1px solid #2a2335; }
+.soaps-body { overflow: auto; padding: 4px 6px; overscroll-behavior: contain; }
+.soaprow { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-bottom: 1px solid #2a2335; width: max-content; min-width: 100%; }
+.soaprow.owned { cursor: pointer; }
+.soaprow.owned:hover { background: #2d2740; }
+.soap-ico { width: 32px; height: 32px; image-rendering: pixelated; flex: none; }
+.soap-name { width: 150px; flex: none; font-size: 12px; color: #cdc4e0; }
+.soaprow.owned .soap-name { color: #f0ecfb; }
+.soap-have { color: #ffe97a; font-weight: bold; }
+.soap-tag { color: #7f8fae; font-size: 10px; }
+.soap-bar { flex: none; display: flex; height: 20px; border: 1px solid #000; overflow: hidden; background: #14101a; }
+.soap-seg { display: flex; align-items: center; justify-content: center; font-size: 9px; color: #10100a; font-weight: bold; min-width: 0; overflow: hidden; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+#tabs { display: flex; border-bottom: 1px solid #38304a; }
+.tab { flex: 1; padding: 7px 4px; background: #2a2335; color: #a99cc4; border: none; border-right: 1px solid #38304a; cursor: pointer; font-size: 12px; }
+.tab:hover { background: #352c44; }
+.tab.active { background: #453a58; color: #fff; font-weight: bold; }
+
+/* ALL tab panels share one layout + uniform 15px top/bottom padding. #panels is
+   sized by the INVENTORY (the always-in-flow sizer); equip/skills/help overlay
+   that SAME box (position:absolute), so the flexible minimap above stays the
+   same height on every tab. Long panels (skills/help) scroll inside the box.
+   #sidebar-spacer (flex:1) soaks up the rest of the column below #panels. */
+#panels { position: relative; flex: 0 1 auto; min-height: 0; }
+.panel { display: none; overflow-y: auto; padding: 15px 10px; }
+.panel.active { display: block; }
+#panel-inv { display: block; }                  /* always in flow → sizes #panels */
+#panel-inv:not(.active) { visibility: hidden; }  /* hidden but still the sizer */
+#panel-equip, #panel-skills, #panel-help { position: absolute; inset: 0; }
+#sidebar-spacer { flex: 1 1 auto; min-height: 0; }
+
+/* Plain labeled rows, not a body-shaped layout — one row per slot, label on
+   the left, icon box on the right. Row order (index.html) is just a sensible
+   reading order (weapon/shield, head-to-foot, quiver), not a spatial map. */
+#equipbox, #runepouch { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
+.eqrow {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 2px 2px 2px 4px;
+}
+.eqrowlabel { color: #a99cc4; font-size: 11px; }
+.eqslot {
+  width: 36px; height: 36px; flex: 0 0 36px; background: #191423; border: 1px solid #4c4160;
+  position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.eqslot canvas { image-rendering: pixelated; width: 78%; height: 78%; }
+.eqslot .eqqty {
+  position: absolute; bottom: 0; right: 1px; font-size: 9px; color: #ffe97a;
+  text-shadow: 1px 1px 0 #000; pointer-events: none;
+}
+#runepouchlabel { color: #a99cc4; font-size: 11px; margin: 6px 0 4px; }
+
+#invgrid, #bankgrid, #depositgrid, #sellgrid, #shopgrid, #equipgrid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
+}
+/* the sidebar inventory + equip get 6 columns now the sidebar is wider */
+#invgrid, #equipgrid { grid-template-columns: repeat(6, 1fr); }
+/* equipment is a dynamic grid: only worn items get a slot, in equip order */
+.equip-empty { grid-column: 1 / -1; color: #a99cc4; font-size: 11px; padding: 6px 2px; }
+/* in the wide centred trade window, keep slots compact instead of stretching
+   four across — many more items fit on screen at once */
+#trade #shopgrid, #trade #sellgrid, #trade #bankgrid, #trade #depositgrid {
+  grid-template-columns: repeat(auto-fill, 56px);
+}
+.slot {
+  position: relative; aspect-ratio: 1; background: #191423; border: 1px solid #4c4160;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.slot:hover { border-color: #8f7bbf; }
+.slot[draggable="true"] { cursor: grab; }
+.slot.dragging { opacity: 0.4; }
+.slot.dragover { outline: 2px solid #ffe97a; outline-offset: -2px; border-color: #ffe97a; }
+.slot canvas { image-rendering: pixelated; pointer-events: none; }
+.slot .qty { position: absolute; top: 1px; left: 3px; font-size: 10px; color: #ffe97a; text-shadow: 1px 1px 0 #000; pointer-events: none; }
+.slot .price { position: absolute; bottom: 1px; right: 3px; font-size: 9px; color: #8ff08f; text-shadow: 1px 1px 0 #000; pointer-events: none; }
+
+.skillgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin-bottom: 6px; }
+#panel-skills .skillcat { display: flex; align-items: center; gap: 6px; cursor: pointer; margin: 8px 0 4px; padding-bottom: 2px; border-bottom: 1px solid #38304a; color: #c9b8f2; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: .04em; user-select: none; }
+#panel-skills .skillcat:first-child { margin-top: 0; }
+#panel-skills .skillcat .skillcat-arrow { color: #7c5fd3; width: 10px; }
+#panel-skills .skillcat .skillcat-n { color: #6f6488; font-weight: normal; }
+#skillguide-body .sgmastery { margin-top: 14px; }
+#skillguide-body .sgmastery .mrow { display: flex; justify-content: space-between; font-size: 12px; color: #cdbff0; padding: 2px 0; }
+#skillguide-body .sgmastery .mrow b { color: #ffe97a; font-weight: normal; }
+#panel-skills .skillrow { margin-bottom: 2px; }
+#panel-skills .skillname { display: flex; justify-content: space-between; margin-bottom: 1px; font-size: 11px; }
+#panel-skills .skillname b { color: #e8dcff; font-weight: normal; }
+#panel-skills .skillname span { color: #ffe97a; font-weight: bold; }
+#panel-skills .skillname span.lvl-t1 { color: #ffe97a; } /* 1-8 */
+#panel-skills .skillname span.lvl-t2 { color: #4fa8ff; } /* 9-16 */
+#panel-skills .skillname span.lvl-t3 { color: #ff6fb5; } /* 17-24 */
+#panel-skills .skillname span.lvl-t4 { color: #6fdc7a; } /* 25-32 */
+#panel-skills .skillname span.buffed { color: #7fd4ff; }
+#panel-skills .xbar { height: 5px; background: #191423; border: 1px solid #000; }
+#panel-skills .xbar div { height: 100%; background: #7c5fd3; }
+#panel-skills .total { margin-top: 10px; padding-top: 8px; border-top: 1px solid #38304a; color: #ffe97a; font-weight: bold; }
+
+#panel-help h3 { color: #e8dcff; margin-bottom: 6px; }
+#panel-help p, #panel-help ul { margin-bottom: 8px; line-height: 1.4; }
+#panel-help ul { padding-left: 16px; }
+#panel-help li { margin-bottom: 3px; }
+.credits { color: #77689a; font-size: 11px; }
+#resetbtn { background: #5e2430; color: #ffb3b3; border: 1px solid #a04; padding: 5px 10px; cursor: pointer; margin: 6px 0; }
+#exportbtn, #importbtn { background: #2a3d5e; color: #b3d4ff; border: 1px solid #3a68a4; padding: 5px 10px; cursor: pointer; margin: 6px 6px 0 0; }
+
+#panel-shop h3, #panel-bank h3, #panel-craft h3 { color: #ffd75e; margin-bottom: 8px; }
+.hint { color: #a99cc4; font-size: 11px; margin: 8px 0 6px; line-height: 1.3; }
+.closebtn { margin-top: 10px; width: 100%; padding: 6px; background: #453a58; color: #fff; border: 1px solid #6b5c8a; cursor: pointer; }
+.closebtn:hover { background: #574870; }
+
+#craftlist .recipe {
+  display: flex; align-items: center; gap: 8px; padding: 6px; margin-bottom: 5px;
+  background: #191423; border: 1px solid #4c4160; cursor: pointer;
+}
+#craftlist .recipe:hover { border-color: #8f7bbf; }
+#craftlist .recipe.locked { opacity: .45; cursor: default; }
+#craftlist .recipe canvas { image-rendering: pixelated; }
+#craftlist .rinfo { flex: 1; }
+#craftlist .rname { color: #e8dcff; font-weight: bold; }
+#craftlist .rreq { color: #a99cc4; font-size: 11px; }
+
+/* ----- per-skill info button + progression guide modal ----- */
+#panel-skills .skillname { align-items: center; }
+#panel-skills .skv { display: flex; align-items: center; gap: 7px; }
+.skillinfo {
+  width: 16px; height: 16px; line-height: 14px; padding: 0;
+  border-radius: 50%; border: 1px solid #6b5c8a; background: #3a3050;
+  color: #cdbff0; font-size: 11px; font-weight: bold; cursor: pointer;
+}
+.skillinfo:hover { background: #574870; color: #fff; }
+#skillguide {
+  position: absolute; inset: 0; display: none; z-index: 63;
+  background: rgba(16, 12, 22, 0.94); flex-direction: column;
+}
+#skillguide.open { display: flex; }
+#skillguide-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; color: #ffe97a; font-size: 16px; font-weight: bold;
+  border-bottom: 1px solid #3a3050; letter-spacing: 1px;
+}
+#sgclose {
+  width: 32px; height: 32px; background: #453a58; color: #fff;
+  border: 1px solid #6b5c8a; cursor: pointer; font-size: 15px;
+}
+#sgclose:hover { background: #574870; }
+#skillguide-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+#skillguide-body .sgintro { color: #cdbff0; font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
+#skillguide-body table { width: 100%; border-collapse: collapse; }
+#skillguide-body th {
+  text-align: left; color: #ffe97a; font-size: 12px; padding: 4px 8px;
+  border-bottom: 1px solid #3a3050;
+}
+#skillguide-body td { padding: 4px 8px; font-size: 13px; color: #e8dcff; border-bottom: 1px solid #241d31; }
+#skillguide-body td.sglvl { color: #7fd4ff; font-weight: bold; white-space: nowrap; }
+#skillguide-body td.sgxp { color: #a99cc4; text-align: right; white-space: nowrap; }
+#skillguide-body .sgicon { width: 28px; padding: 2px 2px 2px 8px; }
+#skillguide-body td.sgicon { text-align: center; line-height: 0; }
+#skillguide-body td.sgicon canvas { width: 24px; height: 24px; vertical-align: middle; image-rendering: pixelated; }
+#skillguide-body tr:hover td { background: #221b30; }
+
+/* ---- bestiary ---- */
+#bestiary { position: absolute; inset: 0; display: none; z-index: 63; background: rgba(16, 12, 22, 0.96); flex-direction: column; }
+#bestiary.open { display: flex; }
+#bestiary-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: #ffe97a; font-size: 16px; font-weight: bold; border-bottom: 1px solid #3a3050; letter-spacing: 1px; }
+#bestiary-title { flex: 0 0 auto; }
+#bestiary-search { flex: 1; max-width: 320px; padding: 5px 8px; background: #1c1626; color: #e8dcff; border: 1px solid #4c4160; font-size: 12px; font-weight: normal; letter-spacing: 0; }
+#bestiary-biome { flex: 0 0 auto; padding: 5px 8px; background: #1c1626; color: #e8dcff; border: 1px solid #4c4160; font-size: 12px; font-weight: normal; letter-spacing: 0; cursor: pointer; }
+#bestiaryclose { margin-left: auto; width: 32px; height: 32px; background: #453a58; color: #fff; border: 1px solid #6b5c8a; cursor: pointer; font-size: 15px; }
+#bestiaryclose:hover { background: #574870; }
+/* Quest journal modal (mirrors bestiary) */
+#questlog { position: absolute; inset: 0; display: none; z-index: 63; background: rgba(16, 12, 22, 0.96); flex-direction: column; }
+#questlog.open { display: flex; }
+#questlog-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: #ffe97a; font-size: 16px; font-weight: bold; border-bottom: 1px solid #3a3050; letter-spacing: 1px; }
+#questlog-title { flex: 0 0 auto; }
+#questlogclose { margin-left: auto; width: 32px; height: 32px; background: #453a58; color: #fff; border: 1px solid #6b5c8a; cursor: pointer; font-size: 15px; }
+#questlogclose:hover { background: #574870; }
+#questlog-body { flex: 1; overflow-y: auto; padding: 14px 18px; color: #e8dcff; }
+#questlog-body .ql-empty { color: #b7a9d4; font-style: italic; }
+#questlog-body .ql-quest { margin: 0 0 18px; padding: 12px 14px; background: #1c1626; border: 1px solid #3a3050; border-radius: 4px; }
+#questlog-body .ql-title { color: #ffe97a; font-size: 15px; font-weight: bold; margin-bottom: 8px; }
+#questlog-body .ql-steps { margin: 0 0 8px 20px; }
+#questlog-body .ql-steps li { margin: 3px 0; }
+#questlog-body .ql-done2, #questlog-body li.ql-done { color: #7fce7f; }
+#questlog-body li.ql-cur { color: #ffe97a; font-weight: bold; }
+#questlog-body li.ql-todo { color: #8f83ac; }
+#questlog-body .ql-reward { color: #cbbdf4; font-size: 12px; margin-top: 6px; }
+#questlog-body .ql-tier { color: #9ecbff; font-size: 12px; font-weight: normal; }
+#questlog-body .ql-done { color: #9ecbff; margin-top: 10px; }
+#bestiary-body { flex: 1; overflow-y: auto; padding: 12px 16px; }
+#bestiary-body .bintro { color: #cdbff0; font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
+#bestiary-body table { width: 100%; border-collapse: collapse; }
+#bestiary-body th { text-align: left; color: #ffe97a; font-size: 12px; padding: 5px 8px; border-bottom: 1px solid #3a3050; position: sticky; top: -12px; background: #16101a; }
+#bestiary-body td { padding: 5px 8px; font-size: 13px; color: #e8dcff; border-bottom: 1px solid #241d31; vertical-align: middle; }
+#bestiary-body td.bspr { width: 44px; text-align: center; line-height: 0; }
+#bestiary-body td.bspr canvas { width: 40px; height: 40px; image-rendering: pixelated; vertical-align: middle; }
+#bestiary-body td.blvl { color: #7fd4ff; font-weight: bold; white-space: nowrap; text-align: center; width: 44px; }
+#bestiary-body td.bname { font-weight: bold; color: #fff; white-space: nowrap; }
+#bestiary-body td.bslain { text-align: center; color: #ffb0b0; font-weight: bold; white-space: nowrap; width: 52px; }
+#bestiary-body td.bbiome { color: #b8e0b0; font-size: 12px; }
+#bestiary-body td.bdrop { color: #d8c8a8; font-size: 12px; }
+#bestiary-body td.bdrop .bdropline { display: flex; align-items: center; gap: 6px; padding: 1px 0; white-space: nowrap; }
+#bestiary-body td.bdrop .bdropline canvas { width: 20px; height: 20px; image-rendering: pixelated; flex: 0 0 auto; }
+#bestiary-body tr.locked td { color: #6a5f80; font-style: italic; }
+#bestiary-body tr:hover td { background: #221b30; }
+
+/* crafting: batch selector + passive job rows */
+.batchbar { display: flex; gap: 6px; margin-bottom: 8px; }
+.batchbtn { flex: 1; padding: 4px 0; background: #191423; color: #cdbff0; border: 1px solid #38304a; border-radius: 3px; font-size: 12px; cursor: pointer; }
+.batchbtn.active { background: #7c5fd3; color: #fff; border-color: #7c5fd3; }
+.batchbtn:hover { border-color: #7c5fd3; }
+.jobrow { font-size: 12px; color: #ffe97a; padding: 4px 6px; margin-bottom: 4px; background: #191423; border: 1px solid #38304a; border-radius: 3px; }
+
+/* market: contracts + demand pricing */
+/* centred trade window (shops + banks) over the game view */
+#trade {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(620px, 94%); max-height: 86%;
+  display: none; flex-direction: column; z-index: 60;
+  background: #1d1729; border: 1px solid #6b5c8a; border-radius: 6px;
+  box-shadow: 0 10px 34px #000d;
+}
+#trade.open { display: flex; }
+/* bank: fixed size — switching category tabs must not resize the window */
+#trade.bankmode { width: min(940px, 96%); height: 86%; }
+#bankbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+#banksearch {
+  flex: 0 0 200px; padding: 5px 8px; background: #191423; color: #ddd;
+  border: 1px solid #4c4160; border-radius: 3px; font: inherit; font-size: 12px;
+}
+#banksearch:focus { outline: none; border-color: #8f7bbf; }
+#bankcats { display: flex; gap: 4px; flex-wrap: wrap; }
+#bankcats button {
+  padding: 4px 10px; background: #2a2335; color: #a99cc4; border: 1px solid #4c4160;
+  border-radius: 3px; cursor: pointer; font-size: 11px;
+}
+#bankcats button:hover { background: #3a3147; color: #ddd; }
+#bankcats button.active { background: #7c5fd3; color: #fff; border-color: #7c5fd3; }
+#bankdepbtns { display: flex; gap: 4px; margin-left: auto; }
+#bankdepbtns button {
+  padding: 4px 10px; background: #2f5a35; color: #cfe8d2; border: 1px solid #4d8a56;
+  border-radius: 3px; cursor: pointer; font-size: 11px;
+}
+#bankdepbtns button:hover { background: #3d7346; color: #fff; }
+
+/* station output box: passive-job goods waiting for collection */
+.outputbox {
+  margin: 8px 0 10px; padding: 8px; background: #191423;
+  border: 1px solid #4c4160; border-radius: 4px;
+}
+.outputrow { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0; }
+.outputrow .slot { width: 52px; }
+.outputrow .slot.ready { border-color: #4d8a56; box-shadow: 0 0 6px #2f5a3555; cursor: pointer; }
+.outputrow .slot.cooking { opacity: .55; cursor: default; }
+.outputrow .cooktime {
+  position: absolute; top: 1px; left: 3px; font-size: 9px; color: #ffd75e;
+  text-shadow: 1px 1px 0 #000; pointer-events: none;
+}
+.collectbtn {
+  margin-top: 4px; padding: 5px 12px; background: #2f5a35; color: #cfe8d2;
+  border: 1px solid #4d8a56; border-radius: 3px; cursor: pointer; font-size: 12px;
+}
+.collectbtn:hover { background: #3d7346; color: #fff; }
+.heatbox {
+  margin: 2px 0 10px; padding: 7px 10px; border-radius: 4px;
+  background: linear-gradient(#3a2415, #241207); border: 1px solid #6b3d1c;
+}
+.heatinfo { font-size: 12px; color: #f2c8a0; margin-bottom: 6px; }
+.heatinfo b { color: #ffd27a; }
+.heatinfo .heatmax { color: #9a6b48; }
+.heatinfo .heatflame { margin-right: 3px; }
+.stokebtn {
+  padding: 5px 12px; background: #7a3b16; color: #ffe0b8;
+  border: 1px solid #b5652c; border-radius: 3px; cursor: pointer; font-size: 12px;
+}
+.stokebtn:hover:not(:disabled) { background: #9c4d1d; color: #fff; }
+.stokebtn:disabled { opacity: .5; cursor: default; }
+#trade-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; color: #ffd75e; font-size: 15px; font-weight: bold;
+  border-bottom: 1px solid #3a3050; letter-spacing: .5px;
+}
+#tradeclose {
+  background: #453a58; color: #fff; border: 1px solid #6b5c8a;
+  padding: 2px 9px; cursor: pointer; border-radius: 3px;
+}
+#tradeclose:hover { background: #574870; }
+#trade-body { flex: 1; overflow-y: auto; padding: 12px 14px; overscroll-behavior: contain; }
+
+#contractlist { margin: 8px 0; }
+#contractlist .contracthdr { color: #c9b8f2; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+#contractlist .contract { display: flex; align-items: center; gap: 6px; justify-content: space-between; font-size: 12px; color: #cdbff0; padding: 4px 6px; margin-bottom: 4px; background: #191423; border: 1px solid #38304a; border-radius: 3px; }
+#contractlist .contract.ready { border-color: #7c5fd3; }
+#contractlist .contract i { color: #7a6e92; font-style: normal; }
+#contractlist .contract button { padding: 3px 8px; background: #2a2335; color: #cdbff0; border: 1px solid #4c4160; border-radius: 3px; cursor: pointer; font-size: 11px; white-space: nowrap; }
+#contractlist .contract.ready button { background: #7c5fd3; color: #fff; border-color: #7c5fd3; }
+#contractlist .contract button:disabled { opacity: .5; cursor: default; }
+.slot .price.demand { color: #ffd75e; font-weight: bold; }
+
+/* main-branch bank account signup (ui.js openBankSignup) */
+#banksignup { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 64; background: rgba(16, 12, 22, 0.6); }
+#banksignup .bswin { width: min(460px, 92vw); background: #1c1626; border: 1px solid #6b5c8a; padding-bottom: 14px; }
+#banksignup .bshead { padding: 10px 14px; color: #ffe97a; font-size: 16px; font-weight: bold; border-bottom: 1px solid #3a3050; letter-spacing: 1px; }
+#banksignup .bsbody { padding: 12px 14px; color: #cdbff0; font-size: 13px; line-height: 1.55; }
+#banksignup .bsbody p { margin: 0 0 10px; }
+#banksignup .bsbody b { color: #ffe97a; font-weight: normal; }
+#banksignup .bsbtns { display: flex; gap: 10px; padding: 0 14px; }
+#banksignup .bsbtns button { flex: 1; padding: 8px 6px; background: #453a58; color: #fff; border: 1px solid #6b5c8a; cursor: pointer; font-size: 13px; }
+#banksignup .bsbtns button:hover { background: #574870; }
+#banksignup .bsbtns button.bsno { background: #2a2335; color: #a99cc4; }

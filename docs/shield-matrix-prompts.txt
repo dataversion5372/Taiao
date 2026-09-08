@@ -1,0 +1,117 @@
+ISLE OF EMBERFALL — SHIELD MATRIX PROMPTS (two sheets)
+======================================================
+Two spritesheets, each a MATRIX: one ROW per shield kind, 16 COLUMNS = the 16
+ARMOUR METALS in roster order (tier 1 -> 16, left to right). Within a row the
+shield SHAPE is identical; only the metal changes across the row. Sheet 1 =
+5 martial kinds (80 icons). Sheet 2 = 6 cultural kinds (96 icons). Cells are
+64x64 px (downscaled to 32x32 in game). Integration: slice each sheet row-major
+into 64px cells and repoint <kind>_<metal>.icon for every equip:"shield" family
+(geartiers.js ARMOR_KINDS), 16 metals per row.
+
+ARMOUR METALS (the 16 columns, ALWAYS this order):
+  1 Bronze (warm reddish-brown) · 2 Zinc (cool blue-white) · 3 Lead (dull dark
+  blue-grey) · 4 Nickel (pale greenish-silver) · 5 Titanium (grey, faint teal
+  sheen) · 6 Mithril (pale glowing blue) · 7 Orichalcum (rose-gold) ·
+  8 Starmetal (deep navy flecked with silver stars) · 9 Frostiron (icy pale
+  blue-white rime) · 10 Duskmetal (twilight violet-grey) · 11 Dawnmetal (warm
+  gold-pink) · 12 Chronite (brassy clockwork-gold) · 13 Voidforged steel
+  (purple-black, dark sheen) · 14 Twilight alloy (dusky violet-grey, faint
+  glow) · 15 Nickel silver (bright white-silver) · 16 Cupronickel (warm pale
+  gold-silver)
+
+
+##############################################################################
+PROMPT 1 — MARTIAL SHIELDS   (Grid: 16 cols x 5 rows = 80 icons)
+##############################################################################
+
+A transparent-background pixel-art sprite sheet of 80 shield inventory icons in
+16-bit / 'HD-2D' pixel-art style — the look of roguelike NES RPGs and classic
+RuneScape item sprites. Uniform grid of 16 columns x 5 rows, 64x64 px per cell,
+one shield per cell, even margins, NO gridlines drawn. Each shield is drawn
+FRONT-ON (a hair of 3/4 so the boss and curve read), centred and filling most
+of its cell, with a bold readable silhouette, a thin dark outline, a limited
+flat palette with light dithered shading, and soft light from the upper-left
+giving the metal a domed sheen. Riveted rims and a raised central boss where the
+kind calls for it; leave the heraldic field blank (no painted crests). Fully
+transparent background, no drop shadows, text, numbers, labels or frames.
+
+Each ROW is ONE shield shape; the shape stays IDENTICAL across that row and only
+the METAL changes, left to right, in this exact 16-metal order — each instantly
+tellable by its colour and finish:
+  1 Bronze — warm reddish-brown · 2 Zinc — cool blue-white · 3 Lead — dull dark
+  blue-grey · 4 Nickel — pale greenish-silver · 5 Titanium — grey with a faint
+  teal sheen · 6 Mithril — pale glowing blue · 7 Orichalcum — rose-gold ·
+  8 Starmetal — deep navy flecked with silver stars · 9 Frostiron — icy pale
+  blue-white rime · 10 Duskmetal — twilight violet-grey · 11 Dawnmetal — warm
+  gold-pink · 12 Chronite — brassy clockwork-gold · 13 Voidforged steel —
+  purple-black with a dark sheen · 14 Twilight alloy — dusky violet-grey with a
+  faint glow · 15 Nickel silver — bright white-silver · 16 Cupronickel — warm
+  pale gold-silver.
+
+The five rows, top to bottom:
+  ROW 1 — HEATER shield: the classic knight's shield ("square" shield) — flat
+    straight top edge, straight sides tapering to a rounded point at the bottom,
+    a subtle raised vertical spine down the centre, riveted rim.
+  ROW 2 — KITE shield: tall Norman kite/almond shield — broad rounded top
+    narrowing to a long point at the bottom (teardrop), a central vertical
+    ridge, riveted edging, a small round rivet-boss near the top.
+  ROW 3 — ROUND shield: Viking-style circular shield — radial plank/plate
+    banding, a domed central iron boss, a studded reinforced rim.
+  ROW 4 — BUCKLER: small circular fist-shield — dominated by a strong domed
+    central boss, a narrow reinforced rim, gripped from behind (no straps
+    shown); clearly smaller/lighter than the round shield.
+  ROW 5 — TOWER shield: tall rectangular shield — full-height rounded-corner
+    rectangle with a gentle vertical convex curve, two or three horizontal
+    reinforcing bands and corner rivets; heavy and imposing.
+
+
+##############################################################################
+PROMPT 2 — CULTURAL SHIELDS   (Grid: 16 cols x 6 rows = 96 icons)
+##############################################################################
+
+A transparent-background pixel-art sprite sheet of 96 shield inventory icons in
+16-bit / 'HD-2D' pixel-art style — the look of roguelike NES RPGs and classic
+RuneScape item sprites. Uniform grid of 16 columns x 6 rows, 64x64 px per cell,
+one shield per cell, even margins, NO gridlines drawn. Each shield is drawn
+FRONT-ON (a hair of 3/4 so the boss and curve read), centred and filling most
+of its cell, with a bold readable silhouette, a thin dark outline, a limited
+flat palette with light dithered shading, and soft light from the upper-left
+giving the metal a domed sheen. Leave the heraldic field blank of painted
+crests — the shape's own studwork/banding is the decoration, rendered in the
+cell's metal. Fully transparent background, no drop shadows, text, numbers,
+labels or frames.
+
+Each ROW is ONE shield shape; the shape stays IDENTICAL across that row and only
+the METAL changes, left to right, in this exact 16-metal order — each instantly
+tellable by its colour and finish:
+  1 Bronze — warm reddish-brown · 2 Zinc — cool blue-white · 3 Lead — dull dark
+  blue-grey · 4 Nickel — pale greenish-silver · 5 Titanium — grey with a faint
+  teal sheen · 6 Mithril — pale glowing blue · 7 Orichalcum — rose-gold ·
+  8 Starmetal — deep navy flecked with silver stars · 9 Frostiron — icy pale
+  blue-white rime · 10 Duskmetal — twilight violet-grey · 11 Dawnmetal — warm
+  gold-pink · 12 Chronite — brassy clockwork-gold · 13 Voidforged steel —
+  purple-black with a dark sheen · 14 Twilight alloy — dusky violet-grey with a
+  faint glow · 15 Nickel silver — bright white-silver · 16 Cupronickel — warm
+  pale gold-silver.
+
+The six rows, top to bottom:
+  ROW 1 — ASPIS (Greek hoplon): large deep-dished round shield — a broad flat
+    offset rim ring around a domed bowl, a single small central boss, clean
+    classical lines.
+  ROW 2 — SCUTUM (Roman): large convex rectangular legionary shield — curved to
+    wrap the body, a horizontal spindle-shaped central iron boss (umbo), a
+    vertical reinforcing spine top-to-bottom, rounded top and bottom edges.
+  ROW 3 — TARGE (Scottish): round highland shield — concentric rings of tooled
+    brass studwork and rosettes radiating from a small central domed boss (with
+    a short central spike), a studded rim.
+  ROW 4 — CHIMALLI (Aztec): round Mesoamerican war shield — concentric radial
+    bands and a stepped-fret (greca) motif around a central boss, a suggested
+    fringe of feathers along the lower rim; the plated face and boss carry the
+    metal, the banding reads as inlay.
+  ROW 5 — DHAL (Indian): small convex round shield — four evenly-spaced domed
+    bosses set in a square around the centre, a decorated raised rim, a shallow
+    overall dome.
+  ROW 6 — PAVISE (crossbowman's): tall standing shield — a full-height rounded-
+    rectangle with a pronounced vertical central gutter/ridge running its whole
+    length (a shallow "roof" fold), a flat riveted face, broad and flat-bottomed
+    so it could stand on the ground.

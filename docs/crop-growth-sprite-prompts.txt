@@ -1,0 +1,201 @@
+ISLE OF EMBERFALL — CROP GROWTH-STAGE REFERENCE SHEETS
+One sheet per agriculture skill (Cerealiculture/Olericulture/Pomiculture/
+Herbiculture/Fibriculture), each covering all 32 of that skill's crops
+across 4 growth stages. These are the IN-FIELD PLANT sprites (what's
+actually planted in a farm plot), NOT inventory icons — the seed and
+harvested-good icons for these same 32-crop lists already exist as flat
+item icons (see docs/sprite-generation-prompts.txt); this is the missing
+piece, since farm plots currently render every crop with one of only two
+generic placeholder plant sprites regardless of what's actually planted.
+Same labelled-reference-chart convention as assets/assorted sprites/
+Tools.png / weapons.png / armour.png / ingots.png / arrows.png, so it can
+go through the same extraction pipeline once generated.
+
+------------------------------------------------------------------------------
+GLOBAL STYLE (applies to all 5 sheets below)
+------------------------------------------------------------------------------
+Pixel-art front-on farm-plot plant sprites in an HD-2D RPG farming-sim style
+(Stardew-Valley-like growth staging, rendered in the same crisp pixel-art
+look as the rest of this game's world sprites). Each plant is shown growing
+directly out of tilled brown soil, viewed from a 3/4 top-down angle matching
+an overhead farm plot. Fully transparent background around each sprite
+(alpha, no soil/background baked in beyond a small mound of dirt right at
+the base of the stem/roots where it meets the "ground" — trim the dirt
+close, don't draw a full soil tile square). No drop shadows beyond a soft
+contact shadow at the base. No text, numbers, gridlines or borders baked
+into the individual sprites themselves — only the sheet-level labels below.
+Consistent scale and light source (soft light from upper-left) across every
+sprite on every sheet, so they read as one coherent set once cropped out.
+
+Every crop is shown across exactly 4 growth stages, always in this order:
+  Stage 1 — Seedling: a tiny fresh sprout just breaking the soil, one or two
+    small pale-green leaves, mostly bare dirt still visible.
+  Stage 2 — Growing: a young leafy plant, noticeably bigger, healthy green,
+    no fruit/grain/flower yet, still clearly immature.
+  Stage 3 — Mature: full-sized foliage, budding or flowering, the first hint
+    of colour from whatever the plant will produce, but not yet ripe.
+  Stage 4 — Ready to Harvest: fully grown and ripe/laden — the plant at its
+    most visually distinct and colourful, obviously ready to pick (fruit,
+    grain heads, bulbs, or fibre stalks clearly visible and mature-coloured).
+
+Layout: a 4-column x 8-row grid of 32 crop GROUPS (one group per crop, in
+the exact order listed per sheet below). Each group is its own labelled
+block: the crop's name centred above in small bold white pixel-font text on
+the dark background, and below the label a horizontal strip of its 4 growth
+stages left-to-right in the order above, each stage a small distinct sprite
+with a little even spacing between stages and between groups (no gridlines
+needed — spacing alone separates blocks, matching the Tools.png reference
+sheet's layout). Background of the whole sheet: solid black (or very dark
+neutral), so the transparent per-sprite regions crop out cleanly. At the
+very bottom of the sheet, add a small labelled legend row showing the 4
+stage names in order ("Seedling", "Growing", "Mature", "Ready to Harvest")
+under one example plant, confirming the stage order used in every group
+above (same legend-row convention as the Tools.png / arrows.png sheets).
+
+==============================================================================
+SHEET 1 — CEREALICULTURE (grains)
+==============================================================================
+PROMPT (paste as one block):
+------------------------------------------------------------------------------
+Using the exact global style described above (front-facting farm-plot pixel-art
+plants, 4 growth stages per crop: Seedling/Growing/Mature/Ready to Harvest,
+transparent background, 4-column x 8-row grid of labelled crop groups, stage
+legend at the bottom), create a "CEREALICULTURE — CROP GROWTH STAGES" sheet
+covering all 32 grains below, low tier to high tier, real cereals first
+shading into fantasy grains toward the end (make the fantasy ones read as
+clearly magical/otherworldly variants of a real grain's growth habit — e.g.
+Voidcorn as a dark, faintly glowing corn stalk; Aethergrain with a subtle
+sparkle on its ripe grain heads):
+   1. Wheat            9. Chickpeas        17. Fonio           25. Emberrye
+   2. Barley           10. Sorghum         18. Triticale       26. Voidcorn
+   3. Rye              11. Spelt           19. Durum           27. Starrice
+   4. Oats             12. Quinoa          20. Kamut           28. Dreamoats
+   5. Corn             13. Amaranth        21. Freekeh         29. Aethergrain
+   6. Rice             14. Teff            22. Moonwheat       30. Bloodmaize
+   7. Millet           15. Emmer           23. Sunmillet       31. Shadowspelt
+   8. Buckwheat        16. Farro           24. Frostbarley     32. Celestial quinoa
+Ready-to-harvest stage should show each grain's distinctive ripe seed-head
+(wheat/barley/rye's bearded ears, corn's cob and tassel, rice's drooping
+panicle, quinoa/amaranth's dense seed clusters, etc.) in warm golden-tan
+real-grain tones, shifting to jewel-toned/glowing palettes for the fantasy
+grains (Moonwheat pale silvery, Emberrye warm orange-red, Voidcorn deep
+purple-black, Starrice white with sparkle flecks, Aethergrain cyan-tinged,
+Bloodmaize deep red, Shadowspelt near-black, Celestial quinoa iridescent).
+
+==============================================================================
+SHEET 2 — OLERICULTURE (vegetables)
+==============================================================================
+PROMPT (paste as one block):
+------------------------------------------------------------------------------
+Using the exact global style described above (front-facting farm-plot pixel-art
+plants, 4 growth stages per crop: Seedling/Growing/Mature/Ready to Harvest,
+transparent background, 4-column x 8-row grid of labelled crop groups, stage
+legend at the bottom), create an "OLERICULTURE — CROP GROWTH STAGES" sheet
+covering all 32 vegetables below (this list is entirely real-world, no
+fantasy variants — keep every stage grounded and naturalistic):
+    1. Potato           9. Leek            17. Peas            25. Sweetcorn
+    2. Cabbage          10. Garlic         18. Beans           26. Artichoke
+    3. Onion            11. Celery         19. Cucumber        27. Asparagus
+    4. Carrot           12. Lettuce        20. Courgette       28. Yam
+    5. Turnip           13. Spinach        21. Pumpkin         29. Okra
+    6. Parsnip          14. Kale           22. Squash          30. Fennel
+    7. Radish           15. Broccoli       23. Aubergine       31. Kohlrabi
+    8. Beetroot         16. Cauliflower    24. Pepper          32. Sweet potato
+Distinguish root vegetables (potato/carrot/turnip/parsnip/radish/beetroot/
+onion/garlic/leek/yam/sweet potato/kohlrabi) by showing their bulb/root just
+starting to bulge up out of the soil at the Mature stage and fully exposed
+at Ready to Harvest; distinguish leafy/head vegetables (cabbage/lettuce/
+spinach/kale/broccoli/cauliflower) by full leaf-rosette or head formation;
+distinguish fruiting vegetables (peas/beans/cucumber/courgette/pumpkin/
+squash/aubergine/pepper/sweetcorn/okra) by visible pods/fruit hanging or
+sitting among the foliage at Mature and Ready to Harvest. Varied natural
+vegetable-garden greens with each crop's true colour showing at ripeness
+(orange carrot top, purple aubergine, red pepper, orange pumpkin, etc.).
+
+==============================================================================
+SHEET 3 — POMICULTURE (fruits)
+==============================================================================
+PROMPT (paste as one block):
+------------------------------------------------------------------------------
+Using the exact global style described above (front-facting farm-plot pixel-art
+plants, 4 growth stages per crop: Seedling/Growing/Mature/Ready to Harvest,
+transparent background, 4-column x 8-row grid of labelled crop groups, stage
+legend at the bottom), create a "POMICULTURE — CROP GROWTH STAGES" sheet
+covering all 32 fruits below. Render every one as a low bush, vine, or small
+sapling/shrub scaled to fit a farm-plot tile (not a full-size tree — these
+are cultivated soft-fruit plants, not orchard trees), low tier real fruits
+first shading into fantasy fruits toward the end:
+    1. Apple            9. Orange          17. Melon           25. Persimmon
+    2. Pear             10. Lemon          18. Watermelon      26. Mulberry
+    3. Cherry           11. Lime           19. Pomegranate     27. Elderberry
+    4. Plum             12. Strawberry     20. Quince          28. Dragonfruit
+    5. Peach            13. Raspberry      21. Mango           29. Starfruit
+    6. Apricot          14. Blackberry     22. Papaya          30. Moonberry
+    7. Fig              15. Blueberry      23. Pineapple       31. Sunapple
+    8. Grape            16. Gooseberry     24. Kiwi            32. Worldfruit
+Ready-to-harvest stage shows each fruit hanging/nestled in its foliage at
+full ripe colour and size (berries in visible clusters, citrus/stone fruits
+as a few round fruits among the leaves, grape as a small hanging bunch,
+melon/watermelon/pineapple/dragonfruit resting at the plant's base since
+they're heavy). Fantasy fruits get a magical tell at Ready to Harvest:
+Dragonfruit fiery scale-like skin, Starfruit faintly glowing star-shaped
+cross-section fruit, Moonberry pale silver-blue and softly luminous, Sunapple
+warm golden glow, Worldfruit iridescent multi-hued skin.
+
+==============================================================================
+SHEET 4 — HERBICULTURE (herbs)
+==============================================================================
+PROMPT (paste as one block):
+------------------------------------------------------------------------------
+Using the exact global style described above (front-facting farm-plot pixel-art
+plants, 4 growth stages per crop: Seedling/Growing/Mature/Ready to Harvest,
+transparent background, 4-column x 8-row grid of labelled crop groups, stage
+legend at the bottom), create a "HERBICULTURE — CROP GROWTH STAGES" sheet
+covering all 32 herbs below — these are almost entirely fantasy/apothecary
+herbs (only a few read as mundane), so lean into small magical tells even at
+low tiers (a faint glow, an unusual leaf shape, a subtle colour that isn't
+quite natural) that intensify toward the high-tier herbs:
+    1. Sageleaf          9. Kingsfoil       17. Gloomshade      25. Wyrmgrass
+    2. Bitterroot        10. Wolfsbane      18. Dreamfoil       26. Angelica
+    3. Marshweed         11. Sunpetal       19. Ghostflower     27. Demonfern
+    4. Tanglefern        12. Mooncress      20. Ironweed        28. Runeblossom
+    5. Yarrow            13. Bloodthistle   21. Dawnrose        29. Spiritsage
+    6. Feverbalm         14. Frostmint      22. Duskvine        30. Timewort
+    7. Nightcap          15. Emberleaf      23. Starbud         31. Aethergrass
+    8. Silverthorn       16. Stormnettle    24. Voidmoss        32. Worldroot
+Ready-to-harvest stage should show each herb at peak potency: small flowers,
+berries, glowing motes, or colour-shifted leaves depending on the herb —
+Frostmint faintly frosted/pale-blue leaves, Emberleaf glowing orange-red
+edges, Ghostflower pale translucent petals, Voidmoss dark with tiny purple
+spore-glow, Starbud with a tiny star-shaped luminous flower, Runeblossom
+petals faintly etched with glowing rune-like markings.
+
+==============================================================================
+SHEET 5 — FIBRICULTURE (fibre crops)
+==============================================================================
+PROMPT (paste as one block):
+------------------------------------------------------------------------------
+Using the exact global style described above (front-facting farm-plot pixel-art
+plants, 4 growth stages per crop: Seedling/Growing/Mature/Ready to Harvest,
+transparent background, 4-column x 8-row grid of labelled crop groups, stage
+legend at the bottom), create a "FIBRICULTURE — CROP GROWTH STAGES" sheet
+covering all 32 fibre plants below, low tier real fibre crops first shading
+into fantasy fibre plants toward the end:
+    1. Flax              9. Spidersilk vine  17. Yucca            25. Cloudthread
+    2. Cotton            10. Aetherbloom     18. Agave            26. Mistcotton
+    3. Hemp               11. Nettle          19. Piña             27. Frostflax
+    4. Jute               12. Coir            20. Banana fibre     28. Emberhemp
+    5. Sisal               13. Abaca           21. Kapok            29. Voidfibre
+    6. Ramie                14. Bamboo fibre   22. Lotus fibre      30. Starcotton
+    7. Kenaf                15. Raffia         23. Sea silk         31. Aetherweave
+    8. Silkgrass            16. Milkweed       24. Nettle silk      32. Worldsilk
+Since the "crop" here is the fibre itself rather than a fruit or grain, show
+the Ready-to-harvest stage as tall, upright, slightly dry/fibrous-looking
+stalks or a bulging cotton-boll/seed-pod cluster (whichever suits the real
+plant — flax/hemp/jute/ramie/kenaf/nettle as tall fibrous stalks, cotton/
+kapok/milkweed/silkgrass as a plant topped with a puffy fibre boll, sisal/
+yucca/agave as a spiky rosette). Fantasy fibre plants get a magical tell at
+Ready to Harvest: Aetherbloom's fibres faintly shimmering, Cloudthread pale
+and wispy like a captured cloud, Voidfibre dark strands with a faint violet
+sheen, Starcotton's boll dusted with tiny sparkle flecks, Worldsilk a subtle
+rainbow sheen along each strand.

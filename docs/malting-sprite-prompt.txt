@@ -1,0 +1,106 @@
+ISLE OF EMBERFALL — MALTING ICON PROMPT
+=======================================
+AUDIT: the Malting skill (js/skills/fillout.js) has 32 recipes — one per grain,
+"Malt <grain>" — but they all funnel into just ~6 shared malt items (malt,
+dark_malt, crystal_malt, wheat_malt, rye_malt, smoked_malt), every one a
+hue-tinted recolour of the base i_wheat sprite. So all 32 malting products look
+alike in the pack, malthouse and skill guide. This sheet gives Malting a full
+per-grain malt line: 32 distinct malts, one for each of the 32 Cerealiculture
+grains (content.js GRAIN_NAMES, Wheat -> Celestial quinoa), each the KILNED
+(malted) form of that grain — toasted whole kernels, glossy, ready for the mash.
+
+==============================================================================
+GLOBAL STYLE
+==============================================================================
+Art style: 16-bit / 'HD-2D' pixel-art inventory icons in the look of the
+roguelike NES RPGs and classic RuneScape item sprites. One malt per cell,
+centred and filling most of the cell: a small rounded HEAP of malted grain with
+a few loose kernels scattered at the front — clearly KILNED/ROASTED whole grain
+(toasted, glossy, with a little dithered sheen), NOT flour/powder, NOT a sack,
+NOT a growing plant. Bold readable silhouette, thin dark outline, limited flat
+palette, soft light from the upper-left. Fully TRANSPARENT background (alpha),
+no drop shadows, no text, numbers, labels, containers, borders or frames.
+Consistent heap scale, framing and lighting across the whole sheet so the 32
+icons read as one matched malt set. Every cell is a DIFFERENT malt — tell them
+apart by kernel shape/size, roast colour and any signature glow.
+
+TWO signals distinguish the cells:
+  · KERNEL CHARACTER — each grain's kernels keep their own form (barley's
+    creased husked kernel, corn's big flat maize kernel, rice's polished grain,
+    millet's tiny beads, quinoa's ringed disc, etc.).
+  · ROAST / TIER GRADIENT — reading left-to-right, top-to-bottom the kiln
+    deepens: pale straw-gold at the start, through amber and caramel, into
+    brown and dark-roast; the final magical grains glow rather than merely
+    darken. Keep glow subtle so the heap of kernels still carries the shape.
+
+Output: one PNG sprite sheet, a uniform grid of 8 columns x 4 rows, 64x64 px
+per cell (draw at 64x64; the game downscales to 32x32), one icon per cell, even
+margins, no gridlines drawn, in the EXACT left-to-right / top-to-bottom order
+below.
+
+==============================================================================
+SHEET: Malts   |   Skill: Malting   |   Grid: 8 cols x 4 rows (32 icons)
+==============================================================================
+ROW 1 (pale straw-gold roasts)
+   1. Wheat malt      — plump pale-gold rounded kernels, light straw roast.
+   2. Barley malt     — the classic malt: tan creased kernels with pale husk, a
+      warm biscuity gold.
+   3. Rye malt        — slender blue-grey kernels, light amber toast.
+   4. Oat malt        — fuzzy pale cream groats, soft and rounded.
+   5. Corn malt       — big flat golden-yellow maize kernels, bright.
+   6. Rice malt       — small polished white grains with a faint toast.
+   7. Millet malt     — tiny round pale-yellow beads heaped up, gold.
+   8. Buckwheat malt  — angular brown-grey triangular groats, nutty tan.
+
+ROW 2 (amber / caramel roasts)
+   9. Chickpea malt   — round pale-buff pulse kernels, light gold.
+  10. Sorghum malt    — round russet-red kernels, warm amber.
+  11. Spelt malt      — long reddish-tan husked kernels, toasted gold.
+  12. Quinoa malt     — tiny pale discs each with a curled germ-ring, cream.
+  13. Amaranth malt   — a mound of minuscule ivory seeds, pale caramel.
+  14. Teff malt       — the tiniest seeds, a fine reddish-brown heap.
+  15. Emmer malt      — plump ancient-wheat kernels, deep gold.
+  16. Farro malt      — long chestnut-brown kernels, brown roast.
+
+ROW 3 (brown / dark roasts, then first magic grains)
+  17. Fonio malt      — very fine pale-straw grains, gold (fine-textured).
+  18. Triticale malt  — hybrid plump grey-gold kernels, amber-brown.
+  19. Durum malt      — hard amber-gold glassy kernels, rich amber.
+  20. Kamut malt      — large elongated golden kernels, deep amber.
+  21. Freekeh malt    — roasted young green-brown wheat, smoky khaki, a wisp of
+      smoke.
+  22. Moonwheat malt  — pale silver-white kernels with a soft moonlit glow.
+  23. Sunmillet malt  — glowing golden beads radiating warm light.
+  24. Frostbarley malt— icy pale-blue creased kernels dusted with frost crystals.
+
+ROW 4 (fantastical malts — glow, not just darker)
+  25. Emberrye malt   — dark kernels veined with glowing orange embers, curl of
+      smoke.
+  26. Voidcorn malt   — matte purple-black maize kernels with a violet void-sheen.
+  27. Starrice malt   — deep-blue grains flecked with tiny points of starlight.
+  28. Dreamoats malt  — soft lavender groats with a dreamy pastel glow.
+  29. Aethergrain malt— iridescent rainbow-sheened kernels, a weightless aether-glow.
+  30. Bloodmaize malt — deep crimson corn kernels, dark blood-red gloss.
+  31. Shadowspelt malt— near-black shadowy kernels wrapped in a dark haze.
+  32. Celestial quinoa malt — radiant gold-white haloed seeds threaded with
+      light; the ultimate malt.
+
+INTEGRATION (after the PNG is generated):
+  - DATA CHANGE FIRST: give each grain its own malt item. In js/skills/fillout.js
+    the MALTING loop currently reuses ~6 shared outputs (maltOut cycling
+    malt/dark_malt/crystal_malt/wheat_malt/rye_malt/smoked_malt); instead create
+    a distinct item per grain (e.g. ids malt_0 = "malt" for wheat, malt_1 ..
+    malt_31, names "<Grain> malt", value scaling by tier, prov:"batch") and set
+    each malt_species_i recipe's `out` to malt_<i>. Keep Brewing's inputs working
+    (map the common brew inputs — malt_grist / dark_grist / wheat_malt — onto the
+    appropriate new ids, or leave those brew recipes pointing at retained base
+    ids).
+  - Then wire the art like herb-icons-data.js / shield-icons-data.js: a
+    self-registering js/sprites/malt-icons-data.js with a FREE 2-letter key
+    (existing: aa ab ag ah al aw bi cb cf cg ch ci co cp fg fi fs ft hb hi jw mb
+    mi ms nl sh tg wg wt — e.g. "ml" or "mt"), SHEET_TILE[key]=64, slice
+    row-major into 64px cells, register SPR and repoint ITEMS[malt_<i>].icon.
+  - Cell index i (row-major, 0..31) = GRAINS[i]'s malt, matching GRAIN_NAMES
+    order (Wheat=0 .. Celestial quinoa=31) exactly.
+  - Include the script in index.html AFTER the malt items are defined (after
+    js/skills/fillout.js) so ITEMS exist and the repoint wins.

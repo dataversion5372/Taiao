@@ -1,0 +1,131 @@
+================================================================================
+MONSTER-REAGENT ICON SPRITESHEET — 68 drop-exclusive crafting reagents
+================================================================================
+These are the materials that only drop from slain monsters and gate the crafting
+skills (see js/skills/bestiary-drops.js). One sheet, 68 icons, laid out on a
+regular grid so it can be sliced by the content-aware packer (pack_ca.py) and
+wired into a self-registering "rg" sheet.
+
+--------------------------------------------------------------------------------
+GLOBAL STYLE  (must match the game's existing inventory-item icons)
+--------------------------------------------------------------------------------
+- Chunky, readable hand-painted RPG *inventory item* icons — the object floating
+  alone, three-quarter/front view, as it would appear in a bag slot. NOT a scene,
+  NOT on a surface, no ground plane, no props behind it.
+- Bold silhouette, clear rim light, single consistent light source from the TOP-
+  LEFT, soft ambient occlusion underneath. Slight painterly texture, crisp edges.
+- Consistent visual scale: every icon fills roughly 70-80% of its cell, CENTERED,
+  with a clear empty margin (gutter) on all four sides. Nothing touches a cell
+  edge or bleeds into a neighbour.
+- Each "lesser / greater" PAIR is the same object family: the GREATER version is
+  visibly more refined / larger / brighter / with a magical glow, so the two read
+  as tiers of one material.
+- Colour-code by monster theme (listed per block below) so a glance tells you the
+  source family.
+
+--------------------------------------------------------------------------------
+SHEET / GRID (critical for automated slicing)
+--------------------------------------------------------------------------------
+- Solid PURE BLACK background (#000000), edge to edge, no vignette, no gradient,
+  no border frame, no grid lines drawn.
+- Exactly 8 COLUMNS x 9 ROWS = 72 cells, filled LEFT-TO-RIGHT, TOP-TO-BOTTOM.
+  The first 68 cells are the icons below (in order); the last 4 cells (row 9,
+  columns 5-8) are EMPTY black.
+- Square cells, uniform size, generous even spacing between every icon so the
+  gutters between icons are clearly empty black.
+- NO text, NO labels, NO numbers, NO captions, NO borders, NO drop shadows that
+  reach into the gutters. Just the 68 objects on black.
+- Suggested canvas: 8*256 x 9*256 = 2048 x 2304 px (or larger, square cells).
+
+--------------------------------------------------------------------------------
+CELLS IN READING ORDER (1 = top-left, across then down)
+--------------------------------------------------------------------------------
+
+### BEAST family — warm ivory / tan / chestnut / amber (cells 1-14)
+ 1  Beast sinew — a loose coil of pale ivory tendon fibre, frayed wispy ends.
+ 2  Thick sinew — a thicker braided bundle of glossy amber sinew, denser.
+ 3  Raw tannin — a small loose heap of coarse reddish-brown bark tanning powder.
+ 4  Deep tannin — a pressed dark-chestnut cake/brick of refined tannin, richer.
+ 5  Curing oil — a shallow open dish of glistening amber leather oil.
+ 6  Rich curing oil — a stoppered glass vial of deep golden oil with a bright sheen.
+ 7  Cobbler's wax — a dull rounded lump/ball of matte brown shoemaker's wax.
+ 8  Hardened cobbler's wax — a polished dark waxy block, sharper edges, glossy.
+ 9  Rawhide lace — a neat coil of pale cream rawhide lacing/thong.
+10  Tough rawhide lace — a thicker, darker, oiled coiled leather lace.
+11  Beast gut — a looped translucent pale cord of dried gut string.
+12  Braided gut — a tightly braided amber gut cord, thicker and stronger.
+13  Raw lanolin — a waxy yellow-white glob of raw wool grease.
+14  Pure lanolin — a smooth creamy pale-gold refined lanolin cake.
+
+### HUMANOID family — worked steel greys + brass (cells 15-24)
+15  Tempering grit — a small pile of dark gritty tempering sand.
+16  Hardening grit — a denser mound of blue-black grit with a faint metallic sparkle.
+17  Clockwork cog — a single small brass gear / cog wheel.
+18  Master cog — an intricate polished steel-and-brass gear, finer teeth, jewel pivot.
+19  Drawplate die — a small flat steel wire-drawing plate pierced with graduated holes.
+20  Hardened die — a thick blued tempered-steel drawplate, heavier.
+21  Iron hoopstock — a curved iron barrel-hoop band / strip.
+22  Riveted hoopstock — a sturdier studded/riveted iron hoop band.
+23  Joiner's glue — a small clay pot of amber hide glue with a brush.
+24  Master joiner's glue — a sealed refined glue pot, thicker translucent amber.
+
+### MAGICAL family — violet / magenta arcane glow (cells 25-34)
+25  Arcane dust — a pinch/small pile of glittering violet arcane powder, faint sparkle.
+26  Arcane powder — a heaped glowing magenta powder, brighter, floating motes.
+27  Glazing ash — a small mound of pale grey ceramic glaze ash.
+28  Prismatic ash — iridescent rainbow-sheened sparkling ash.
+29  Mana salt — small blue crystalline salt grains with a faint inner glow.
+30  Pure mana salt — larger clear cyan glowing salt crystals.
+31  Saponite crystal — a rough chunk of soapy grey-green mineral crystal.
+32  Pure saponite — a translucent polished pale-green faceted crystal.
+33  Assay flux — a small heap of dull grey powdered flux.
+34  True flux — a glassy fused flux nugget, faintly glowing amber-white.
+
+### UNDEAD family — bone white / ash grey / sickly green (cells 35-42)
+35  Grave dust — a pinch of ashen grey grave dust.
+36  Grave-ash — darker charcoal ash flecked with faint green motes.
+37  Wraith ink — an open inkpot of glossy black ink with a ghostly rising wisp.
+38  Phantom ink — an inkpot of luminous spectral blue-green ink, glowing.
+39  Corpse wax — a sickly pale-yellow waxy lump (grave wax).
+40  Barrow wax — a darker grey-green waxy block with a dull sheen.
+41  Pallid pulp — a wet clump of pale grey paper pulp.
+42  Bone pulp — a compressed off-white bone-fibre pulp sheet/patty.
+
+### ELEMENTAL family — molten orange / white-hot / cyan (cells 43-48)
+43  Elemental mote — a small floating glowing orange ember orb / spark.
+44  Elemental core — a bright radiant molten core sphere, halo of light.
+45  Forge ember — a glowing orange smelting ember chunk.
+46  Blaze core — an intense white-hot blazing core with small flame licks.
+47  Ember heart — a smouldering charcoal lump with an inner orange glow.
+48  Inferno heart — a fiercely red-hot ember heart with flame licks.
+
+### AQUATIC family — teal / pearlescent / sea-grey (cells 49-54)
+49  Deep pearl — a lustrous grey-blue pearl with soft highlights.
+50  Black pearl — an iridescent dark pearl with an oily rainbow sheen.
+51  Kraken resin — a sticky blob of dark teal sea-resin, glossy.
+52  Leviathan resin — a larger glossy deep-blue resin lump, translucent.
+53  Sea lye — a small pile of grey-white sea-salt lye crystals.
+54  Deep-sea lye — denser blue-grey caustic lye crystals.
+
+### GOLEM family — carved stone grey with rune glow (cells 55-58)
+55  Golem core — a carved cubic stone core with a single glowing engraved rune.
+56  Titan core — a larger obsidian core with bright glowing energy veins.
+57  Binding grit — a heap of grey binding-mortar grit.
+58  Adamant grit — glinting dark hard-mineral grit, sharper.
+
+### DRAGON family — iridescent scale reds/greens, dark pitch (cells 59-62)
+59  Dragon scale — a single overlapping green-and-red dragon scale, glossy.
+60  Wyrm heartscale — a large heart-shaped iridescent ruby scale, inner glow.
+61  Dragon pitch — a glossy black tar/pitch glob with a faint red glow.
+62  Wyrm pitch — a thicker molten dark pitch flecked with embers.
+
+### CELESTIAL family — radiant gold / white starlight (cells 63-68)
+63  Seraph feather — a glowing white-and-gold feather, soft radiance.
+64  Astral shard — a radiant faceted starlight crystal shard, blue-white.
+65  Halo lace — a delicate luminous golden lace ribbon.
+66  Seraphic lace — finer radiant white-gold lace trailing light motes.
+67  Astral thread — a spool/strand of shimmering silver-blue thread.
+68  Empyrean thread — a glowing gold-white thread with tiny star sparkles.
+
+### (cells 69-72: EMPTY — solid black)
+================================================================================

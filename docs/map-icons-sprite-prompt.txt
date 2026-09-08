@@ -1,0 +1,104 @@
+MAP ICON SPRITESHEET — image generation prompt
+=================================================
+Purpose: replacement art for the Isle of Emberfall world-map marker icons
+(currently hand-drawn Canvas2D vector glyphs, rendered at 18x18px on the map
+and 10x10px on the minimap). One combined spritesheet, extracted by fixed
+grid position afterward — do not rely on labels for identification.
+
+-------------------------------------------------------------------------
+PROMPT (send as one single image-generation request)
+-------------------------------------------------------------------------
+
+Create ONE flat 2D game-icon spritesheet: a precise 6-column by 5-row grid
+of 30 equal square cells, generous even padding between cells so nothing
+touches or overlaps its neighbors. Every cell has the exact same flat,
+solid, uniform magenta background color (#FF00FF) with zero gradient,
+texture, or shadow in the background — this magenta is a chroma-key color
+to be removed later, so it must not appear anywhere in the icon artwork
+itself. Do not draw grid lines, cell borders, labels, numbers, or captions
+anywhere in the image.
+
+Art style for every icon: simple, bold, flat-shaded fantasy RPG minimap/
+world-map marker icon, similar to OSRS-style map icons — chunky readable
+silhouette, thick clean black outline (this outline is important, keep it
+consistent on every icon), 3-6 flat solid colors per icon (no gradients,
+no soft shading, no photorealism), designed to stay legible when scaled
+down to 18x18 pixels. Every icon should be centered in its cell and sized
+consistently relative to the others (similar visual weight/scale, none
+tiny and none overflowing).
+
+Fill the 30 cells, reading left-to-right then top-to-bottom, with exactly
+these icons in exactly this order:
+
+Row 1: (1) a gold dollar-sign coin/bank icon, (2) a purple drawstring
+merchant pouch with a yellow band, (3) a grey blacksmith's anvil, (4) a
+grey stone furnace with an orange flame glowing in its mouth, (5) a small
+blue fish with a black eye, (6) a pickaxe swinging with a grey arc motion
+trail.
+
+Row 2: (7) a tree with a brown trunk and a round green leafy canopy, (8)
+a gold four-pointed sparkle/star with a white center dot (altar/shrine
+icon), (9) a cyan four-pointed sparkle/star (quest marker, same shape as
+the altar star but colored cyan-blue instead of gold), (10) a tan windmill
+tower with a black-and-cream X-shaped sail blade, (11) a blue water
+droplet/teardrop with a small white highlight, (12) a wooden carpenter's
+workbench with a grey vice clamp on top.
+
+Row 3: (13) a brown wooden weaver's loom frame with cream vertical threads
+and a red horizontal weave line, (14) a garden flower with a green stem
+and five pink petals around a yellow center, (15) a light-blue alchemist's
+flask/beaker shape with green bubbling liquid inside, (16) a brown wooden
+tanning rack with a tan animal hide stretched on it, (17) a dark cauldron
+pot with green bubbling potion on top and a horizontal rim bar, (18) a
+butcher's wooden bench with a red cut of meat and a grey cleaver above it.
+
+Row 4: (19) a grey cooking range/stove with a black pot opening and an
+orange-and-yellow flame inside, (20) a crossed black-and-silver sword with
+a gold hilt, (21) a wooden bow strung vertically with a silver arrow
+nocked and pointing right, (22) a brown wand with a purple four-pointed
+sparkle/star at its tip, (23) a faceted red gem/diamond shape with white
+highlight facet lines, (24) a green leaf-shaped herbalist pouch/sachet
+with a visible leaf vein pattern.
+
+Row 5: (25) a blue folded tunic/shirt clothing icon with short sleeves,
+(26) a red round loaf of bread with a small green sprig on top, (27) a
+small orange campfire with red-orange flames over crossed brown logs, (28)
+a fruit tree with a brown trunk, a round green canopy, and several small
+red apple-like fruit dots scattered across the canopy (distinct from icon
+#7's plain, fruitless tree), (29) a wooden drying/smoking rack with two
+brown strips of cured meat or fish hanging from a crossbar and a couple of
+small pale grey smoke wisps rising above them, (30) leave completely empty
+(nothing but the plain magenta background).
+
+-------------------------------------------------------------------------
+Notes for whoever runs this (not part of the prompt itself)
+-------------------------------------------------------------------------
+- Icons #1-26 are 1:1 replacements for the 26 hand-drawn Canvas2D icons
+  that exist today (bank, store, anvil, furnace, fish, mine, tree, altar,
+  quest, windmill, water, workbench, loom, garden, alchemy, tanning,
+  cauldron, butcher, range, swordshop, bowshop, magicshop, gemshop,
+  herbshop, clothesshop, foodshop) — including 8 (swordshop through
+  foodshop) that no current code path actually displays; kept per request
+  in case named shops get wired up later.
+- Icon #27 (campfire) fills a real gap: wildIcon() can already emit a
+  "camp" marker type with no matching art, so it's silently invisible on
+  the map today.
+- Icon #28 (fruit tree) fills a real gap: "orchard" is a genuine POI type
+  (grassland biomes, gets a real generated name like "X Orchard") but has
+  no entry in the POI-type -> icon lookup table, so it renders with no
+  icon today.
+- Icon #29 (drying rack) fills a real gap: "seasoning_yard" is a real
+  crafting station used by actual recipes and spawns in cities, but has
+  no entry in the station -> icon lookup table, so it renders with no
+  icon today.
+- Cell 30 is spare/blank on purpose (30 = 6x5 grid, 29 icons used).
+- Extraction will use the same border-flood-fill alpha technique used for
+  prior reference sheets in this project (crop non-magenta content per
+  cell, flood-fill the magenta background to transparent) — magenta was
+  picked because it doesn't occur naturally in any of the 29 icon
+  descriptions above.
+- Once the generated sheet comes back, the plan is to: extract all 29
+  icons by grid position, replace the current Canvas2D-vector iconImgs
+  system with real sprite-atlas lookups, and fix the two lookup-table
+  gaps (STATION_ICON.seasoning_yard, and IT.orchard in
+  iconsNearForMap()) so those two icons actually start appearing.

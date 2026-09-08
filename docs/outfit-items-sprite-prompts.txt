@@ -1,0 +1,293 @@
+ISLE OF EMBERFALL — OUTFIT-ITEM ICON SPRITESHEET PROMPTS
+=========================================================
+Six spritesheet prompts covering every item catalogued in
+player-character-outfit-items.txt (~124 items). Each sheet has a fixed grid;
+cells fill LEFT-TO-RIGHT, TOP-TO-BOTTOM in the numbered order given. Any
+trailing cells past the last item are left empty/transparent.
+
+Feed each prompt to the image generator on its own. The SHARED STYLE BLOCK
+below applies to ALL six sheets — prepend it (or keep it identical) each time so
+the six sheets stay visually consistent and can be sliced on one grid.
+
+
+=============================================================================
+SHARED STYLE BLOCK  (use verbatim at the top of every sheet prompt)
+=============================================================================
+A single spritesheet of detailed 16-bit-style pixel-art GAME INVENTORY ICONS
+on a fully transparent background (alpha, no backdrop, no scenery). Uniform
+grid of equal square cells; one item centered in each cell at a consistent
+scale with generous padding, none touching cell edges or each other. Clean
+readable silhouettes, a soft consistent top-left light source, subtle shading
+and a faint rim light, a rich saturated high-fantasy palette. Each garment is
+shown AS IF WORN ON AN INVISIBLE MANNEQUIN (hollow inside, no body, no head, no
+skin, no face) at a slight 3/4 front angle so its cut is legible; armour,
+footwear, accessories, jewellery and held equipment are shown as isolated
+objects at the same 3/4 angle. Absolutely NO text, letters, numbers, labels,
+borders, grid lines, drop-shadows on the background, or watermarks. Crisp
+pixel edges, no photographic blur, no anti-aliased halo.
+
+
+=============================================================================
+SHEET 1 — HEADWEAR & FACE   (grid: 6 columns × 4 rows, 21 items)
+=============================================================================
+[SHARED STYLE BLOCK], then 21 headwear items, one per cell, in this order:
+
+ 1. A soft blue-grey robe hood, generously cut and worn up, its opening edged
+    with teal, flowing into a small draped shoulder mantle behind; matte woven
+    cloth.
+ 2. A rounded steel warrior's helm with a fixed nose-guard and a pair of
+    stylised feathered/winged plates flaring up and back from each temple; bare
+    polished unpainted metal.
+ 3. A soft brown conical steppe cap, close-fitting, its lower brim turned back
+    and trimmed with a band of fur; leather crown, no rigid frame.
+ 4. A tall feathered war-bonnet/headdress: a band of spotted pelt across the
+    brow crowned with a fan of long feathers sweeping back.
+ 5. Round twin-lens brass goggles with riveted leather sidebands and a leather
+    head-strap; tinted lenses, scuffed frame.
+ 6. A long strip of indigo-and-earth-toned cloth wound several times into a
+    desert head-wrap, one end left to drape; loose breathable weave.
+ 7. An earth-toned cloth turban wound high in stacked visible layers, a short
+    tail tucked at the side.
+ 8. A circlet woven from living purple heather sprigs and stems, ornate and
+    slightly untidy, a few blooms trailing loose.
+ 9. A narrow woven Andean-coloured headband tied flat, knot at the back, short
+    ends.
+10. A broad soft floppy wide-brimmed hat in mottled earth tones, the wide brim
+    drooping all round over a low rounded crown.
+11. A lacquered iron samurai kabuto of laced horizontal plates with a flared
+    neck-guard and a pair of swept gilt horns rising from the brow-plate; dark
+    lacquer.
+12. A grey wolf-pelt cowl: the wolf's head and upper pelt worn as a hood, skull
+    and jaws framing the opening, the hide falling as a mantle behind.
+13. A thin ring of golden holy light (a halo) hovering level, luminous and
+    weightless, no physical band.
+14. A tall tapering brown pointed wizard's hat with a slightly drooping tip and
+    a soft wide brim; matte felt, unadorned.
+15. A small brown cylindrical top hat with a flat crown and narrow curled brim,
+    a pair of goggles resting on the band.
+16. A hard segmented grey-teal metal face-visor worn under a low feathered crest
+    fixed across the brow.
+17. A blue three-cornered tricorne, its broad brim pinned up on three sides into
+    sharp points around a low crown.
+18. A wide shallow conical straw hat (nón lá style) with a chin-cord, the brim
+    sweeping down to a broad circle.
+19. A soft blue flat-topped beret slouched to one side with a single upright
+    plume at the band.
+20. A striped blue-and-gold pharaonic nemes head-cloth gathered at the brow and
+    falling in two lappets to the shoulders; stiff pleated linen.
+21. A rounded close-fitting cap sealed with a heavy weathered-brass rim around
+    the face opening (an early diving-helm form).
+
+
+=============================================================================
+SHEET 2 — UPPER-BODY GARMENTS   (grid: 6 columns × 3 rows, 17 items)
+=============================================================================
+[SHARED STYLE BLOCK], then 17 upper-body garments on an invisible mannequin:
+
+ 1. A close-cut dark long-sleeved under-tunic, plain matte cloth, worn belted.
+ 2. A simple loose off-white homespun shirt with gathered sleeves, well-worn.
+ 3. A long near-black high-collared sorcerer's coat past the knee, stiff raised
+    collar, single gold throat-clasp, fitted belted waist.
+ 4. A brown sleeveless leather jerkin laced up the front, square shoulders,
+    open arms; supple worn hide.
+ 5. A heavy full-length brown leather smith's apron with a bib and waist tie,
+    scorched and stained.
+ 6. A brown sleeveless leather vest, close-fitting, open-armed, plain.
+ 7. A dark form-fitting full-body armour bodysuit of matte flexible material,
+    smooth and seamless (worn on invisible mannequin, including limbs).
+ 8. A mustard-gold sleeveless jacket worn open, hip-length, simple edging.
+ 9. A fitted sleeveless waistcoat buttoned up the front, scholarly cut.
+10. A brown leather long coat to the calf with a turned collar and open front,
+    loose-skirted duster in worn hide.
+11. A grey pinstripe suit jacket over a white shirt and dark-red tie; sharp
+    tailored lines.
+12. A fitted blue-and-cream doublet with slashed contrasting panels and fine
+    seam trim; close-bodied courtly cut.
+13. A long green military greatcoat, redcoat cut, double rows of buttons up the
+    front, structured shoulders, turned cuffs.
+14. A single strip of undyed linen wound and knotted across the chest as a plain
+    band-top.
+15. A blue quilted padded gambeson with vertical stitched channels, closed with
+    a gold-buckled belt; thick protective cloth.
+16. A soft green hooded pullover hoodie with a front pocket and drawstring hood;
+    casual knit.
+17. A brown leather corset-vest laced tight up the front, boned panels, buckled
+    straps; steampunk styling.
+
+
+=============================================================================
+SHEET 3 — ROBES, DRESSES, CULTURAL WEAR & CLOAKS   (grid: 5 columns × 4 rows, 19 items)
+=============================================================================
+[SHARED STYLE BLOCK], then 12 robes/dresses then 7 cloaks/shoulder-wear on an
+invisible mannequin, in this order:
+
+ 1. Layered sage-and-cream mage robes: a long pale grey-green full-sleeved
+    under-robe to the ankles, a cloth sash at the waist, a lighter shawl draped
+    over both shoulders.
+ 2. A soft earth-brown buckskin dress with cut fringe along the sleeve-ends and
+    hem and small beadwork accents.
+ 3. White priestly vestments: a gold-edged white gown layered with blue
+    over-skirts and a teal shoulder mantle, gold chest clasps.
+ 4. A floor-length white gown with fine gold edging at collar, cuffs and hem;
+    smooth flowing fabric.
+ 5. A green sleeveless tabard hanging front and back from the shoulders, open at
+    the sides.
+ 6. An ornate multi-layered court kimono (jūnihitoe) in red, white and patterned
+    silks, stacked overlapping collars, long trailing skirts.
+ 7. A green hanbok: a short high-waisted tie-front bodice-jacket over a full
+    gathered skirt; soft flowing panels.
+ 8. Flowing Tang-style hanfu robes in teal and purple with a wrapped
+    cross-collar and very long trailing sleeves; light layered silk.
+ 9. A rectangular Andean poncho-mantle woven in warm red, orange and earth-brown
+    geometric bands, a head-slit, over a tunic.
+10. A flowing full-length green-and-gold West-African boubou, wide-sleeved and
+    draped, with rich woven trim at neck and hems.
+11. A draped, pleated sari-style cloth wrap in flowing fabric.
+12. A blue cross-front steppe deel-robe closing to one side, wrapped and held
+    with a green sash and belt; long-skirted riding cut.
+13. A weathered grey full-length travelling cloak with a heavy layered
+    mantle/collar bunched at the shoulders, throat clasp; coarse worn wool.
+14. A teal shoulder mantle draped over the upper back, pinned at the chest with
+    gold clasps; smooth flowing cloth.
+15. A short black shoulder-cape lined and accented in red, throat clasp, falling
+    to the mid-back.
+16. A thick natural spotted-pelt fur mantle and collar draped across the
+    shoulders, open at the front.
+17. A Māori korowai — a woven flax cloak densely covered in dark feathers across
+    its surface, draped from the shoulders.
+18. A woven-flax kākahu of pale natural fibre, the muka strands hanging in a
+    textured surface, draped over the shoulders.
+19. A light narrow shawl/stole folded once over both shoulders, hanging in two
+    ends down the front; fine soft cloth.
+
+
+=============================================================================
+SHEET 4 — ARMOUR PIECES   (grid: 5 columns × 3 rows, 15 items)
+=============================================================================
+[SHARED STYLE BLOCK], then 15 armour pieces as isolated objects (worn pieces on
+an invisible mannequin where it clarifies fit), in this order:
+
+ 1. A near-black full plate cuirass with angular aggressively spiked pauldrons;
+    dark matte overlapping plates.
+ 2. A single rounded polished-steel shoulder pauldron, articulated at the edge,
+    with its strap.
+ 3. A heavy ornate golden-brown breastplate moulded to a broad chest, embossed
+    detailing, armoured kilt-straps hanging below.
+ 4. A pair of plain brown leather forearm bracers laced along the inner arm.
+ 5. A hip-length hauberk of steel scales over riveted mail, over a padded tunic;
+    layered flexible metal.
+ 6. A brown lamellar coat of small rectangular plates laced in rows over quilted
+    backing, trimmed with fur and leather, bound with a sash.
+ 7. A set of polished-steel thigh-plate tassets of overlapping lames hung from a
+    waist-belt.
+ 8. Ornate red-brown layered leather armour with a soft fur collar, buckled
+    straps and belt pouches; tooled overlapping panels.
+ 9. A pair of segmented dark grey-green plate gauntlets, articulated over the
+    back of the hand and fingers.
+10. A pair of gold plate greaves wrapping the lower leg; gilded metal.
+11. A single polished-steel vambrace enclosing one forearm wrist-to-elbow.
+12. Green-and-brown scaled plate armour textured like overlapping scales, with
+    layered tassets, shoulder guards and vambraces.
+13. A section of steel-and-gold horse barding — segmented flank and chest plates
+    with a blue-trimmed edge.
+14. Brown-and-gold armour built onto a domed turtle-shell, reinforced with
+    leather straps across the plates.
+15. A dark grey-green segmented chest plate of overlapping lames.
+
+
+=============================================================================
+SHEET 5 — LOWER BODY, FOOTWEAR, BELTS & CONTAINERS   (grid: 5 columns × 4 rows, 20 items)
+=============================================================================
+[SHARED STYLE BLOCK], then 7 lower-body + 4 footwear + 9 belts/straps/containers:
+
+ 1. Plain high-waisted undyed-linen briefs paired with a wrapped chest band; no
+    trim (base underlayer).
+ 2. Plain straight-legged mid-toned cloth trousers, hard-wearing.
+ 3. Loose full robe over-skirts to the ankles, layered and gathered at the waist
+    by a sash; soft draping cloth.
+ 4. A short brown leather loin-kilt of hanging panels slung from a wide belt.
+ 5. Soft earth-brown buckskin leggings with cut fringe down the outer seam and
+    small beadwork accents.
+ 6. Dark-green tactical cargo trousers with bellowed thigh pockets, straight
+    leg; sturdy cut.
+ 7. A short blue-and-gold pleated kilt (shendyt) with a stiff hanging triangular
+    front tab; crisp knife-pleats.
+ 8. Soft low supple leather boots with flexible soles, snug to the calf.
+ 9. Sturdy plain leather mid-calf boots, thick-soled.
+10. Simple flat open sandals with a few plain foot-straps.
+11. Plain closed dark leather shoes, low, rounded toe.
+12. A broad thick leather hip-belt with a simple buckle.
+13. A brown leather chest harness of buckled straps crossing the chest and
+    shoulders.
+14. A soft wide cloth sash wound and knotted at the waist, ends hanging.
+15. A row of small leather belt pouches and tool straps with riveted flaps on a
+    waist-strap.
+16. A leather waist-belt closed with a large ornate gold buckle.
+17. A domed turtle-shell fitted with shoulder-straps as a backpack; natural
+    ridged carapace.
+18. A brown leather baldric strap worn diagonally shoulder-to-hip, with a
+    waist-belt.
+19. A cylindrical arrow quiver on a shoulder-strap, fletchings showing at the
+    top.
+20. A length of red cloth worn as a combined half-cape and waist-sash, knotted
+    at the hip with a hanging tail.
+
+
+=============================================================================
+SHEET 6 — JEWELLERY, TRIM & HELD EQUIPMENT   (grid: 6 columns × 4 rows, 22 items)
+=============================================================================
+[SHARED STYLE BLOCK], then 9 jewellery/trim accents then 13 held items, as
+isolated objects, in this order:
+
+ 1. A swatch of light earth-toned tunic cloth with rows of small brown-and-
+    russet feathers worked in as decorative trim.
+ 2. Layered gold necklaces and neck ornaments — polished links and small
+    pendants (shown as a neckpiece).
+ 3. A length of white gown-hem showing a fine gold border stitched along collar,
+    cuffs and hem; thin bright piping.
+ 4. A carved greenstone (pounamu) hei-tiki/drop pendant on a cord; smooth
+    polished jade-green stone.
+ 5. A band of cream fur trim (thick soft pile) as would edge a coat's cuffs and
+    collar.
+ 6. A set of ornate gold garment clasps — hooked fittings for fastening a mantle.
+ 7. A wide flat usekh collar of concentric gold beaded rows spread in a broad
+    disc.
+ 8. A woven geometric tāniko border strip in dark contrasting colours with a
+    fringed edge.
+ 9. A round glowing cyan armour chest-core emitting soft light, set in a ring
+    mount.
+10. A tall slender staff topped with a glowing blue orb in a clawed setting;
+    pale shaft.
+11. A straight single-handed steel sword with a simple crossguard and
+    leather-wound grip.
+12. A round wooden shield with plank facing, a central domed iron boss and a
+    bound rim.
+13. A recurved composite steppe bow, short and deeply curved at the limbs,
+    strung.
+14. A long plain-hafted spear with a simple leaf-shaped head; wooden shaft.
+15. A matched pair of short curved daggers with hooked blades and wrapped grips.
+16. A large blue spherical astrolabe-orb ringed with graduated bands and set
+    with a small gem.
+17. A single-edged curved katana with a long two-hand grip and a small round
+    tsuba guard.
+18. A slender short plain tapering wand/rod.
+19. A round-backed lute with a fretted neck, angled pegbox and a carved
+    soundhole rosette.
+20. A small one-handed flanged mace (or compact axe) head on a short haft.
+21. A three-pronged trident with barbed tines on a long shaft; coral-and-teal
+    accents.
+22. A slender thrusting rapier with a swept basket-guard hilt and a long thin
+    blade.
+
+
+=============================================================================
+NOTES
+=============================================================================
+- Total: 21 + 17 + 19 + 15 + 20 + 22 = 114 icon cells (some catalogue items
+  such as the halo and glowing chest-core are effects rather than cloth, but are
+  included so every entry has an icon).
+- Keep the grid, cell size, padding, view angle and light direction IDENTICAL
+  across all six sheets so they can be sliced with one set of coordinates and
+  read as one icon family.
+- If the generator struggles with "invisible mannequin", the fallback phrasing
+  is "garment laid flat, front view, as a clothing inventory icon".

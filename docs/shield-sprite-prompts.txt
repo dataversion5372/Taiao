@@ -1,0 +1,105 @@
+ISLE OF EMBERFALL — SHIELD ICON PROMPTS
+=======================================
+AUDIT: the tiered gear system (geartiers.js) forges eight armour pieces for
+each of the 16 ARMOUR METALS — helm, boots, chestplate, legs, chainbody,
+pauldrons, plate arms, gauntlets — but NO shield. The only shields in the
+game are three one-offs (wooden_shield, iron_shield, mithril_shield). These
+sheets add a real per-metal shield line: one sheet per shield KIND, 16 cells
+(one metal each, in ARMOUR METALS roster order), same as every other armour
+sheet. Integration follows the "gi" pattern (tools/build_item_icons.py ->
+item-icons-data.js): slice each sheet into 64px cells left-to-right / top-to-
+bottom, pack, and repoint each shield family's per-metal ITEMS[id].icon. In
+the game each sheet becomes an equip:"shield" ARMOR_KIND in geartiers.js
+(ids like kiteshield_<shortBar>, block scaling with tier), forged at the anvil.
+
+==============================================================================
+GLOBAL STYLE (paste above every sheet prompt)
+==============================================================================
+Art style: 16-bit / 'HD-2D' pixel-art inventory icons in the look of the
+roguelike NES RPGs and classic RuneScape item sprites. One shield per cell,
+centred and filling most of the cell, drawn FRONT-ON (face toward the viewer,
+maybe a hair of 3/4 so the boss/curve reads), with a bold readable silhouette,
+a thin dark outline, a limited flat palette with a little dithered shading,
+and a soft light from the upper-left giving the metal a domed sheen. Riveted
+rims, a raised central boss and faint hammer-planished texture where the kind
+calls for it; leave the heraldic field blank (no painted crests or emblems
+beyond the shape's own studwork/banding). Fully TRANSPARENT background (alpha),
+no drop shadows, no text, numbers, labels, borders or frames. Output: one PNG
+per sheet, a uniform grid of 64x64 px cells (drawn at 64x64, downscaled to
+32x32 in game), one icon per cell, even margins, no gridlines drawn.
+
+Within a sheet the SHIELD SHAPE stays IDENTICAL between cells — only the METAL
+changes, and each metal must be tellable at a glance by colour and finish.
+
+==============================================================================
+ARMOUR METALS ROSTER (16 cells per sheet, ALWAYS this order, tier 1 -> 16)
+==============================================================================
+  1 Bronze (warm reddish-brown) · 2 Zinc (cool blue-white) · 3 Lead (dull
+  dark blue-grey) · 4 Nickel (pale greenish-silver) · 5 Titanium (grey with
+  a faint teal sheen) · 6 Mithril (pale glowing blue) · 7 Orichalcum (rose-
+  gold) · 8 Starmetal (deep navy flecked with silver stars) · 9 Frostiron
+  (icy pale blue-white rime) · 10 Duskmetal (twilight violet-grey) ·
+  11 Dawnmetal (warm gold-pink) · 12 Chronite (brassy, clockwork-gold) ·
+  13 Voidforged steel (purple-black with a dark sheen) · 14 Twilight alloy
+  (dusky violet-grey, faint glow) · 15 Nickel silver (bright white-silver) ·
+  16 Cupronickel (warm pale gold-silver)
+
+==============================================================================
+SHEETS — one per shield kind, ARMOUR METALS roster, Grid: 4 cols x 4 rows (16)
+==============================================================================
+MAJOR / MARTIAL SHIELDS
+  SHEET Heater shields   — the classic knight's shield ("square" shield):
+     flat straight top edge, straight sides tapering to a rounded point at the
+     bottom, a subtle raised vertical spine down the centre, riveted rim.
+
+  SHEET Kite shields     — tall Norman kite/almond shield: broad rounded top
+     narrowing to a long point at the bottom (teardrop), a central vertical
+     ridge, riveted edging, a small round rivet-boss near the top.
+
+  SHEET Round shields    — Viking-style circular shield: radial plank/plate
+     banding, a domed central iron boss, a studded reinforced rim.
+
+  SHEET Bucklers         — small circular fist-shield: dominated by a strong
+     domed central boss, a narrow reinforced rim, gripped from behind (no
+     straps shown); reads noticeably smaller/lighter than the round shield.
+
+  SHEET Tower shields    — tall rectangular shield: full-height rounded-corner
+     rectangle with a gentle vertical convex curve, two or three horizontal
+     reinforcing bands and corner rivets; heavy and imposing.
+
+CULTURAL SHIELDS
+  SHEET Aspis (hoplon)   — large deep-dished ancient-Greek round shield: a
+     broad flat offset rim ring around a domed bowl, a single small central
+     boss, clean classical lines.
+
+  SHEET Scutum (Roman)   — large convex rectangular legionary shield: curved
+     to wrap the body, a horizontal spindle-shaped central iron boss (umbo),
+     vertical reinforcing spine top-to-bottom, rounded top and bottom edges.
+
+  SHEET Targe (Scottish) — round highland shield: concentric rings of tooled
+     brass studwork and rosettes radiating from a small central domed boss
+     (with an optional short central spike), a studded rim.
+
+  SHEET Chimalli (Aztec) — round Mesoamerican war shield: concentric radial
+     colour bands and a stepped-fret (greca) motif around a central boss, a
+     suggested fringe of feathers along the lower rim; the METAL is the plated
+     face and boss, the banding reads as inlay.
+
+  SHEET Dhal (Indian)    — small convex round shield: four evenly-spaced domed
+     bosses set in a square around the centre, a decorated raised rim, a
+     shallow overall dome.
+
+  SHEET Pavise           — tall crossbowman's standing shield: a full-height
+     rounded-rectangle with a pronounced vertical central gutter/ridge running
+     its whole length (a shallow "roof" fold), flat riveted face, broad and
+     flat-bottomed so it could stand on the ground.
+
+INTEGRATION (after each PNG is generated)
+  - Add each sheet to tools/build_item_icons.py in the shields group, keeping
+    the 16-cell ARMOUR METALS order; it packs 64px cells into item-icons.
+  - In geartiers.js, add one equip:"shield" entry per kind to ARMOR_KINDS
+    (e.g. ["kiteshield","Kite shield", share, barQty, "i_shield", greater,
+    ["shield"]]); the loop auto-forges <kind>_<metal> for all 16 metals with
+    block scaling by tier. Repoint each to its sheet cell; retire the two
+    stray one-offs (iron_shield/mithril_shield) or fold them into the round/
+    heater lines.
