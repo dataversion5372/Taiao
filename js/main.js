@@ -1,6 +1,41 @@
 // ===== Isle of Emberfall — bootstrap =====
 "use strict";
 
+// Renderer startup failed — the one non-recoverable boot error. Under file://
+// this is EXPECTED since the sprite sheets moved to external files
+// (assets/sheets/*.webp): every file:// document is its own opaque origin, so
+// the sheets taint the atlas canvas and WebGL refuses the textures. Explain
+// the fix on screen instead of dying to a blank page, and offer a raw
+// localStorage save download so the character can follow to localhost.
+function bootFailed() {
+  const isFile = location.protocol === "file:";
+  const d = document.createElement("div");
+  d.style.cssText = "position:fixed;inset:0;z-index:99999;background:#14161f;color:#e8eaf2;" +
+    "font:15px/1.5 OpenDyslexic,Verdana,sans-serif;padding:12vh 18vw;overflow:auto";
+  d.innerHTML = isFile
+    ? "<h2>Emberfall can't run from file:// any more</h2>" +
+      "<p>The sprite sheets now live in separate <code>assets/sheets/*.webp</code> files, and " +
+      "browsers refuse to feed file:// images to WebGL (the world can't get its textures).</p>" +
+      "<p><b>To play:</b> double-click <code>Start Emberfall.command</code> in the game folder — " +
+      "it starts a tiny local server and opens the game at <code>http://localhost:8899</code>.</p>" +
+      "<p>localhost counts as a different browser identity, so your character won't be there on " +
+      "first launch. Click the button below to back up this page's save, then use " +
+      "<b>Import</b> in the localhost game and pick that file.</p>" +
+      "<button id='bf-save' style='font:inherit;padding:8px 16px;cursor:pointer'>Download save backup</button>"
+    : "<h2>Emberfall couldn't start its renderer</h2>" +
+      "<p>WebGL initialisation failed — check the browser console for details.</p>";
+  document.body.appendChild(d);
+  const btn = document.getElementById("bf-save");
+  if (btn) btn.onclick = () => {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) { alert("No save found in this browser."); return; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
+    a.download = "emberfall-save-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+}
+
 // Callers (8):
 //  main.js:27,49 main/assets.js:36 render3d.js:323,325,642 storage.js:8,152
 async function init() {
@@ -81,7 +116,9 @@ async function init() {
     REN = LC3D;
     log("retired prototype engine online: 3D models, voxels and pathfinding active.", "gold");
   } else {
-    if (!R3D.init()) throw new Error("3D renderer unavailable.");
+    let r3dOk = false;
+    try { r3dOk = R3D.init(); } catch (e) { console.error("R3D init:", e); }
+    if (!r3dOk) return bootFailed();
     REN = R3D;
   }
   gameReady = true;
