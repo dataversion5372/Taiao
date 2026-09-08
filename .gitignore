@@ -14,15 +14,13 @@ __pycache__/
 /assets/venv_app/
 /assets/sprite_review_tool/
 
-# ── Heavy binary SOURCE assets (dev-only sprite pipeline inputs) ────
-# The game ships only external sheets under assets/sheets/ + assets/sfx/.
-# Everything else in assets/ is offline build-pipeline source material.
+# ── Assets: the game ships ONLY sheets/ + sfx/ (+ provenance licenses). ──
+# All dev-only sprite-pipeline source has been moved to ../RPG-archive/assets/.
+# This ignore keeps any stray regenerated source out of the tracked tree.
 /assets/*
 !/assets/sfx/
 !/assets/sheets/
-!/assets/objects.json
-!/assets/mobs.png
-!/assets/mobs_directional.png
+!/assets/LICENSE-*.txt
 
 # Large offline source sprite libraries (dev-only, not fetched at runtime)
 /tilesheets/
