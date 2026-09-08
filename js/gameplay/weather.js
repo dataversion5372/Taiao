@@ -45,17 +45,21 @@ function wxFbm(x, y, s, oct) {
 const WX_EPOCH = 1767225600000;               // 2026-01-01 UTC
 const WX_SEED = (typeof WORLD_SEED !== "undefined" ? WORLD_SEED : 1337) + 77;
 const WX_WIND = 0.4;                          // prevailing westerly, tiles per second
-// a ~700-tile system at 0.4 t/s takes ~29 real minutes (≈ 11 game hours) to
-// cross a spot — a front passage plays as "a stormy afternoon"
-const WX_FREQ_A = 1 / 700, WX_FREQ_B = 1 / 280;
-// measured std of the two-layer sum is ~0.10 (fbm sums crowd the middle), so
-// amplify to spread the anomaly over a usable −1..1 range
-const WX_AMP = 4.2;
+// Earth-proportional synoptics: pole-to-pole is 15000 tiles (daynight.js), and
+// real extratropical lows span ~7-15% of that, so the primary layer runs at
+// ~1400 tiles; the 280-tile layer stays as texture but at low weight so it
+// no longer spawns its own mesoscale "lows". A ~1400-tile system at 0.4 t/s
+// takes ~58 real minutes (≈ 22 game hours) to cross a spot — a front passage
+// plays as "a stormy day", like the real thing.
+const WX_FREQ_A = 1 / 1400, WX_FREQ_B = 1 / 280;
+// measured std of the two-layer sum is ~0.11 (fbm sums crowd the middle), so
+// amplify to spread the anomaly over a usable −1..1 range (±2.4σ hits clamp)
+const WX_AMP = 3.7;
 function wxAnomaly(x, y, tMs) {
   const t = (tMs - WX_EPOCH) / 1000;
   const a = wxFbm((x - t * WX_WIND) * WX_FREQ_A, y * WX_FREQ_A, WX_SEED, 3);
   const b = wxFbm((x - t * WX_WIND * 0.55 + 4000) * WX_FREQ_B, (y + t * WX_WIND * 0.18) * WX_FREQ_B, WX_SEED + 555, 2);
-  const raw = (a - 0.5) * 0.62 + (b - 0.5) * 0.38;
+  const raw = (a - 0.5) * 0.75 + (b - 0.5) * 0.25;
   return Math.max(-1, Math.min(1, raw * WX_AMP));
 }
 
@@ -75,7 +79,7 @@ function weatherCore(x, y, tMs, hum, temp, altFrac, night) {
 // map's overlay samples the anomaly on a grid and finite-differences it there,
 // so it shares this exact math instead of re-sampling 5× per cell.
 function wxDerive(anom, grad, hum, temp, altFrac, night) {
-  const front = Math.max(0, Math.min(1, (grad - 0.0045) / 0.0025));   // ~p80..p98 of the gradient distribution
+  const front = Math.max(0, Math.min(1, (grad - 0.0025) / 0.00145));  // ~p80..p98 of the gradient distribution
   // storminess: how deep into the low we are
   const storm = Math.max(0, Math.min(1, (0.12 - anom) / 1.05));
   // moisture: humidity is the fuel; mountains wring extra rain from passing air
@@ -112,7 +116,7 @@ function weatherLabel(w) {
 // tightly packed the isobars are, so it's strongest on the flanks of a deep
 // low and near fronts. Returned in tiles/second ({x east, y south}).
 const WX_WIND_BG = 0.7;      // background westerly component (outruns the 0.4 t/s system drift — real winds move faster than the systems they belong to)
-const WX_WIND_K = 420;       // rotational gain: p92 gradients → ~2.4 t/s gusts
+const WX_WIND_K = 760;       // rotational gain: p92 gradients → ~2.4 t/s gusts
 function windAt(x, y, tMs) {
   tMs = tMs != null ? tMs : (typeof now !== "undefined" ? now : Date.now());
   const A = 28;

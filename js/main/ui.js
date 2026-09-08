@@ -807,7 +807,7 @@ function bankNetName(net) {
   for (let i = 0; i < net.length; i++) h = (h * 131 + net.charCodeAt(i)) >>> 0;
   const A = ["Gull", "Drift", "Mist", "Storm", "Pearl", "Kelp", "Wreck", "Tide", "Fog", "Salt", "Reef", "Gale"];
   const B = ["rock", "haven", "watch", "hold", "moor", "strand", "cove", "reach", "point", "rest", "shoal", "sound"];
-  return "Vault of " + A[h % A.length] + B[(h >> 4) % B.length];
+  return "Vault of " + A[h % A.length] + B[(h >>> 4) % B.length];
 }
 // ---- bank accounts ---------------------------------------------------------
 // A network with a main branch only serves ACCOUNT HOLDERS: its chests stay
@@ -836,8 +836,8 @@ function bankPerksFor(net) {
     return { coins: 250 + (h % 5) * 50, gifts };
   }
   const gifts = [];
-  const n = 2 + (h >> 3) % 2;
-  for (let i = 0; i < n; i++) gifts.push(pool[((h >> 5) + i * 2) % pool.length]);
+  const n = 2 + (h >>> 3) % 2;
+  for (let i = 0; i < n; i++) gifts.push(pool[((h >>> 5) + i * 2) % pool.length]);
   return { coins: 400 + (h % 7) * 100, gifts };
 }
 // top the guaranteed kit back up; true if anything was restocked

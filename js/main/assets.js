@@ -27,24 +27,52 @@ const SHEET_OPTIONAL = new Set(["a"]);     // atlas taint-probe sheet; render3d 
 // Callers (12):
 //  main/assets.js:29,67,76 render3d.js:26,47,56,59,69,72,98 world/map.js:146,443
 const IMGS = {};
+// The core terrain/character/object atlases needed for the very first frame.
+// Boot BLOCKS on these; every other sheet (inventory/UI icon atlases pushed
+// into SHEET_KEYS by the js/sprites/*-data.js files) streams in AFTER boot so
+// first paint isn't gated on ~49MB of icon art. Safe because sheets are now
+// external URLs (async) and both in-world draws (render3d drawSprTo) and UI
+// icons (icon(), below) guard against a not-yet-loaded sheet and self-heal.
 // Callers (1):
-//  main.js:49
+//  main/assets.js:loadAssets
+const CORE_SHEET_KEYS = new Set(SHEET_KEYS.slice());
+
+// Load one sheet into IMGS. IMGS[k] is set immediately (before decode) — every
+// consumer checks img.complete/naturalWidth first, so an in-flight image never
+// draws garbage. `done` fires on load OR error (a single bad sheet must not
+// wedge boot).
+function _loadSheet(k, done) {
+  const im = new Image();
+  im.onload = () => { if (done) done(); };
+  im.onerror = () => {
+    if (!SHEET_OPTIONAL.has(k)) console.error("Failed to load sprite sheet: " + k + " (" + ASSET_DATA[k] + ")");
+    if (done) done();
+  };
+  im.src = ASSET_DATA[k];
+  IMGS[k] = im;
+}
+
+// Callers (1):
+//  main.js:119
 function loadAssets(cb) {
-  const missing = SHEET_KEYS.filter(k => !SHEET_OPTIONAL.has(k) && (typeof ASSET_DATA === "undefined" || !ASSET_DATA[k]));
-  if (missing.length) throw new Error("Missing embedded sprite sheet(s): " + missing.join(", "));
-  const present = SHEET_KEYS.filter(k => typeof ASSET_DATA !== "undefined" && ASSET_DATA[k]);
-  let left = present.length;
-  if (left === 0) { cb(); return; }
-  for (const k of present) {
-    const im = new Image();
-    im.onload = () => { if (--left === 0) cb(); };
-    im.onerror = () => {
-      if (SHEET_OPTIONAL.has(k)) { if (--left === 0) cb(); return; }
-      throw new Error("Failed to load embedded sprite sheet: " + k);
-    };
-    im.src = ASSET_DATA[k];
-    IMGS[k] = im;
-  }
+  const has = k => typeof ASSET_DATA !== "undefined" && !!ASSET_DATA[k];
+  const missing = SHEET_KEYS.filter(k => CORE_SHEET_KEYS.has(k) && !SHEET_OPTIONAL.has(k) && !has(k));
+  if (missing.length) throw new Error("Missing core sprite sheet(s): " + missing.join(", "));
+  const core = SHEET_KEYS.filter(k => CORE_SHEET_KEYS.has(k) && has(k));
+  const deferred = SHEET_KEYS.filter(k => !CORE_SHEET_KEYS.has(k) && has(k));
+  let left = core.length;
+  const boot = () => {
+    if (--left > 0) return;
+    cb();   // first frame can render — core atlases are in
+    // Stream the icon atlases in the background; as each arrives, drop the icon
+    // cache so any placeholder icons rebuild with the real art on the next paint.
+    for (const k of deferred) _loadSheet(k, () => {
+      for (const key in ICONS) delete ICONS[key];
+      if (typeof uiDirty !== "undefined") uiDirty = true;
+    });
+  };
+  if (left === 0) { boot(); return; }   // (boot() calls cb once, then streams)
+  for (const k of core) _loadSheet(k, boot);
 }
 
 // ---------- canvas ----------
@@ -77,11 +105,20 @@ const ICONS = {};
 function icon(key) {
   if (ICONS[key]) return ICONS[key];
   const def = SPR[key];
+  const [sheet, c, r, extra] = def;
+  // Deferred (non-core) sheets stream in after boot — if this icon's sheet
+  // isn't decoded yet, return an UN-cached blank so it rebuilds with real art
+  // once the sheet arrives (loadAssets clears ICONS + sets uiDirty on load).
+  const sheetImg = IMGS[sheet];
+  if (!sheetImg || !sheetImg.complete || sheetImg.naturalWidth === 0) {
+    const blank = document.createElement("canvas");
+    blank.width = 32; blank.height = 32;
+    return blank;
+  }
   const cv = document.createElement("canvas");
   cv.width = 32; cv.height = 32;
   const c2 = cv.getContext("2d");
   c2.imageSmoothingEnabled = false;
-  const [sheet, c, r, extra] = def;
   const st = SHEET_TILE[sheet] || 16;
   const sx = extra && extra.sx != null ? extra.sx : c * (SHEET_NOPAD.has(sheet) ? st : st + 1);
   const sy = extra && extra.sy != null ? extra.sy : r * (SHEET_NOPAD.has(sheet) ? st : st + 1);

@@ -1357,7 +1357,7 @@ function wmDraw() {
       const g28 = Math.hypot(
         wxAnomaly(wxp + 28, wyp, tNow) - wxAnomaly(wxp - 28, wyp, tNow),
         wxAnomaly(wxp, wyp + 28, tNow) - wxAnomaly(wxp, wyp - 28, tNow)) / 56;
-      if (g28 < 0.0045) return;
+      if (g28 < 0.0025) return;   // wxDerive's front-gate p80 — keep in sync
       const v = windAt(wxp, wyp, tNow);
       const sp = Math.hypot(v.x, v.y) || 1;
       const ux = v.x / sp, uy = v.y / sp;

@@ -379,5 +379,15 @@
 			<script src="js/gameplay/armour-overlay.js"></script>
 			<script src="js/gameplay/dream.js"></script>
 			<script src="js/main.js"></script>
+			<!-- Service worker: cache-first for externalized sheets/audio/fonts so
+			     the game loads once then runs instantly & offline. No-op on file://
+			     (SW requires http/https) — the game still works, just uncached. -->
+			<script>
+			  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+			    window.addEventListener("load", () => {
+			      navigator.serviceWorker.register("sw.js").catch(e => console.warn("SW register failed:", e));
+			    });
+			  }
+			</script>
 	</body>
 </html>
