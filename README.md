@@ -120,7 +120,8 @@ Thieving (the market stall, or the goblins' supply crate — getting caught hurt
 
 ## The world
 
-The terrain engine is a faithful port of the **Endless Scape world map** (Map.html):
+The terrain engine is a faithful port of the **Endless Scape world map** (the
+original `Map.html` prototype, now kept in `../RPG-archive/`):
 domain-warped coastlines with archipelago islands, rivers that bridge where roads
 cross them, and the full **37-biome** classifier — Plains, Forest, Swamp, Desert,
 Mountains, Snowy Peaks, Frozen Wastes, Farmland, Badlands, Jungle, Meadow, Savanna,
