@@ -11,8 +11,16 @@ __pycache__/
 # ── Moved to ../RPG-archive (parked / dev-only, never shipped) ──────
 /backup/
 /tools/npc_brain/
+/tools/npc_training/
 /assets/venv_app/
 /assets/sprite_review_tool/
+/item_pick.json
+
+# ── Dropped LC3D voxel subsystem (archived; not in the shipped bundle) ──
+/js/legacy3d.js
+/js/lc-bestiary.js
+/js/sprites/lc-cache-data.js
+/libs/legacy-engine.js
 
 # ── Assets: the game ships ONLY sheets/ + sfx/ (+ provenance licenses). ──
 # All dev-only sprite-pipeline source has been moved to ../RPG-archive/assets/.

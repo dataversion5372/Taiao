@@ -1,6 +1,4 @@
 libs/three.min.js
-libs/legacy-engine.js
-js/sprites/lc-cache-data.js
 js/sprites/assets-data.js
 js/sprites/nature-sheet.js
 js/sprites/characters-data.js
@@ -56,10 +54,8 @@ js/world/chunks.js
 js/world/map.js
 js/world.js
 js/render3d.js
-js/lc-bestiary.js
 js/sprites/paperdoll-manifest.js
 js/paperdoll.js
-js/legacy3d.js
 js/main/assets.js
 js/main/state.js
 js/gameplay/stink.js

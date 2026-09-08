@@ -1,8 +1,9 @@
 // Bundle + minify the Emberfall code layer.
 //
-// The game is ~160 classic <script> tags sharing one global scope, ordered in
-// index.html. We concatenate them IN THAT ORDER (preserving the shared global
-// scope they rely on) and minify. The disabled LC3D voxel subsystem is dropped.
+// The game is ~160 classic <script> tags sharing one global scope, listed in
+// tools/bundle.list in load order. We concatenate them IN THAT ORDER
+// (preserving the shared global scope they rely on) and minify. The disabled
+// LC3D voxel subsystem was removed from the tree (../RPG-archive/) and the list.
 //
 //   node tools/build.mjs
 //
@@ -18,18 +19,11 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const srcs = readFileSync(path.join(ROOT, "tools/bundle.list"), "utf8")
   .split("\n").map(s => s.trim()).filter(s => s && !s.startsWith("#"));
 
-// Vendored libs stay as separate tags (three.min.js is already minified).
+// Vendored libs stay as separate <script> tags (three.min.js is already
+// minified and loads before the bundle in index.html).
 const VENDOR = new Set(["libs/three.min.js"]);
-// Disabled subsystem — dropped from the shipped bundle entirely.
-const DROP = new Set([
-  "libs/legacy-engine.js",
-  "js/legacy3d.js",
-  "js/lc-bestiary.js",
-  "js/sprites/lc-cache-data.js",
-]);
 
-const bundleFiles = srcs.filter(s => !VENDOR.has(s) && !DROP.has(s));
-const dropped = srcs.filter(s => DROP.has(s));
+const bundleFiles = srcs.filter(s => !VENDOR.has(s));
 
 let combined = "";
 let rawBytes = 0;
@@ -60,6 +54,6 @@ const out = result.outputFiles[0].text;
 writeFileSync(path.join(ROOT, "dist", "bundle.js"), out);
 
 const K = n => (n / 1024).toFixed(0) + "K";
-console.log(`\nBundled ${bundleFiles.length} files (dropped ${dropped.length}: ${dropped.join(", ")})`);
+console.log(`\nBundled ${bundleFiles.length} files from tools/bundle.list`);
 console.log(`Raw code:   ${K(rawBytes)}`);
 console.log(`Minified:   ${K(Buffer.byteLength(out))}  ->  dist/bundle.js`);
