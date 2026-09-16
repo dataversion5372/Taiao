@@ -7,7 +7,7 @@ bucket is dropped. Rewrites bank.jsonl and the assets/npc_dialogue artifacts
 in place (originals backed up as *.pre-dedup). At 100k+ lines this is what
 keeps the bank from being 5,000 restatements of the same greeting.
 
-Run with ~/pyenv/bin/python.
+Run with a Python that has sentence-transformers installed (see README.md).
 """
 import argparse, collections, json, pathlib, shutil
 import numpy as np

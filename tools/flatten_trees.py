@@ -7,7 +7,7 @@ kenney-shape source when available (idempotent), writes into objects_source.
 Run: python3 tools/flatten_trees.py  then rebuild the object sheet."""
 import json, os, shutil, hashlib
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KS="~/Downloads/kenney-shape/images/trees"
+KS=os.environ.get("KENNEY_TREES", "kenney-shape/images/trees")  # local source images (not in repo)
 OS=os.path.join(ROOT,"assets","objects_source")
 DIRS=["south","south-east","east","north-east","north","north-west","west","south-west"]
 FORCE_SOUTH={"tree_silverleaf","tree_dreamwood"}

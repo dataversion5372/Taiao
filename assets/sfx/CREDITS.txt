@@ -1,4 +1,4 @@
-Emberfall sound effects — sources & licenses
+Taiao sound effects — sources & licenses
 =============================================
 All sounds are CC0 1.0 (public domain) — no attribution required, but credited
 here anyway with thanks. Files were renamed to semantic names; originals below.
@@ -8,7 +8,9 @@ Kenney.nl (https://kenney.nl, CC0):
                           cloth (forage/pickup), beltHandle/metalClick (equip),
                           doorOpen/doorClose, creak (gate), metalLatch (latch),
                           bookFlip (book)
-  Impact Sounds pack    — footstep_grass/concrete/snow/carpet/wood (steps),
+  Impact Sounds pack    — footstep_grass/concrete/snow/carpet/wood
+                          (-> step_grass / step_stone / step_snow / step_sand /
+                          step_wood),
                           impactPunch (hit/hurt), impactSoft (kill/arrowhit),
                           impactGeneric (arrowmiss), impactMining (mine),
                           impactWood (chop), impactPlank (climb),

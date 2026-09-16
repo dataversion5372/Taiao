@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parent.parent          # ~/RPG
+ROOT = Path(__file__).resolve().parent.parent          # repo root
 ASSETS = ROOT / "assets"
 SRC = ASSETS / "families_source"
 NAMES = json.loads((ASSETS / "names.json").read_text())

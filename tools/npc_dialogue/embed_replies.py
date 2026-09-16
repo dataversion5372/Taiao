@@ -5,7 +5,7 @@ against each line's prompting context; stage 2 re-ranks by whether the reply
 itself shares topic with what the player said — this is what stops a direct
 question drawing a personality-chatter line that ignores it.
 
-Run with ~/pyenv/bin/python after build/embed/dedup.
+Run with a sentence-transformers Python after build/embed/dedup (see README.md).
 Emits assets/npc_dialogue/bank.remb.bin (int8) + bank.rscale.bin (f32).
 """
 import json, time, pathlib, re

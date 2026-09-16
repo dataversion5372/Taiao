@@ -11,7 +11,7 @@ Firefox (no Chrome on this machine) with puppeteer-core over WebDriver BiDi.
 ## Launch
 
 ```bash
-python3 -m http.server 8901 -d ~/RPG &   # serve (file:// taints WebGL textures)
+python3 -m http.server 8901 -d "$(git rev-parse --show-toplevel)" &   # serve the repo (file:// taints WebGL textures)
 # puppeteer-core lives in $CLAUDE_JOB_DIR/tmp or any scratch dir: npm i puppeteer-core
 ```
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Embed bank.jsonl prompting-contexts with the vendored MiniLM ONNX model.
 
-Run with the pyenv venv python (~/pyenv/bin/python).
+Run with a Python that has sentence-transformers installed (see README.md).
 
 Emits into assets/npc_dialogue/:
   bank.emb.bin    int8 embeddings, n x 384 row-major (per-row max-abs quantized)

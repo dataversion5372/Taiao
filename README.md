@@ -1,165 +1,139 @@
 # Taiao
 
+*Taiao (Māori): the natural world — the living world.*
+
 An offline, single-player RPG in the spirit of old-school tile-based browser MMOs
-(RPG MO / early RuneScape), rendered in **3D** (HD-2D style: a WebGL world with a tilted
-chase camera, depth fog, and billboarded pixel-art sprites — think Octopath Traveler).
-Runs entirely in your browser — no server, no internet, saves locally.
+(RPG MO / early RuneScape), rendered HD-2D style: a WebGL world with a tilted
+chase camera, depth fog, and billboarded pixel-art sprites, drawn by the game's
+own three.js renderer (`js/render3d.js`). It runs entirely in your browser —
+no server, no accounts, no telemetry, saves locally.
 
-The world is **infinite**: terrain streams in chunk by chunk as you
-explore, in any direction, forever. The town anchors the origin; the further out you
-roam, the more dangerous the wildlife (and the richer the mines, camps, dragon lairs,
-runestone circles and wilderness outposts you'll stumble on). Regional colour-graded
-biomes — meadows, savanna, pine and leafy forest, badlands, lakes — blend into each
-other. The Reset button (in the ? tab) offers three flavours: **reset exploration**
-(clear discovered map and return to Newhaven), **reset character** (fresh levels,
-inventory and bank), or both.
-
-## The retired prototype engine (new renderer)
-
-The game now renders through the **retired prototype** software 3D engine (the legacy-2004
-client, TypeScript port, including its custom voxel-world mode): terrain becomes
-a heightmapped voxel scene with cliff skirts, trees/rocks/stations/walls are
-real retired prototype locs with their models and animations, the player is a composed
-3D body-kit model with walk/run/turn animations, and monsters, villagers and
-fishing spots render as retired prototype NPC models. Movement uses the retired prototype
-collision map + client BFS pathfinder, and wandering retired prototype NPCs (Hans, the
-guards, a wizard, citizens…) roam Newhaven with dialogue ported from the
-original legacy scripts. If the engine fails to load, the game falls back to the
-original three.js billboard renderer (`js/render3d.js`).
-
-The terrain wears **Taiao's own painted tiles**: every ground key
-(all 37 biomes' art, roads, floors, farm soil, water) is converted into an
-engine texture at runtime and drawn on the voxel cube tops, with **darkened
-variants on the cliff faces**. The camera is fully **360° rotatable** (hold
-←/→), **tilts up/down** (↑/↓) and **zooms with trackpad scroll** — WASD stays
-camera-relative at any angle.
-
-The bestiary is (temporarily) the **retired prototype bestiary**: ~85 monsters from
-the legacy-2004 roster — rats to king dragons — each with its real model and
-animations, an IoE-scale combat level, theme-appropriate drops from IoE's item
-pool (beasts leave butcherable carcasses), and hand-assigned spawn biomes
-across all 37 regions. Cities, villages and points of interest are **populated
-with retired prototype NPCs**: guards, bankers, shopkeepers, priests, cooks and
-citizens in towns; dwarves at mine camps, druids at stone circles, foresters
-at lumber camps, fishermen at ponds, bartenders at inns, wizards in their
-towers — all wandering, talkable, with dialogue ported from the original
-legacy scripts (see `js/lc-bestiary.js` and the population tables in
-`js/legacy3d.js`).
-
-The camera zooms from close-up out to a full overview (trackpad scroll) where
-the character is a dot and the whole 104-tile scene stays drawn (the engine's
-draw window and model far-clip widen with zoom *and* with a lowered camera).
-Terrain is hilly — up to 18 voxel tiers derived from the world altitude
-field — and the camera can drop to a near-ground RS angle (↑ raises, ↓
-lowers), clamping itself above intervening terrain. The view is never black:
-a sky-gradient backdrop sits behind everything, every tile (including the
-scene rim) is dressed the moment a region builds (shared textured-box models
-make dressing near-free), and the engine's close-camera visibility matrix is
-widened/bypassed so hills and distant rows can't be falsely culled into
-black strips. Zoomed out, tile textures swap to box-filtered variants and
-the upscale turns bilinear, so distant terrain reads calm instead of
-shimmering. Cliff step-walls block walking and pathing consistently. Scene
-rebuilds while travelling are pre-collected incrementally and finished in
-one short frame. The world map keeps its rendered chunk images in IndexedDB
-and pre-renders newly explored chunks in idle time, so it opens instantly
-with everything you've explored.
-
-Pieces:
-
-- `libs/legacy-engine.js` — the engine bundle (Draw3D, Model, World/World3D,
-  VoxelWorld, CollisionMap, config decoders, entities). Rebuild from a retired prototype
-  checkout with `npx webpack --config webpack.lcengine.config.js` in
-  `Client2-main` (entry `src/js/lcengine.ts`), then copy
-  `dist-lcengine/legacy-engine.js` here.
-- `js/sprites/lc-cache-data.js` — base64 cache archives (config, models,
-  textures, bz2.wasm) + name→id tables. Regenerate with
-  `node tools/build-lc-cache.js "/path/to/retired prototype"`.
-- `js/legacy3d.js` — the bridge: maps Taiao chunks/biomes to floor types and
-  heights, decor/nodes to locs, monsters to NPC types; drives animation ticks,
-  the camera, picking, pathfinding, and the overlay HUD.
+The world is **endless**: terrain streams in chunk by chunk in every direction,
+forever, across 15,000²-tile named worlds with their own registry of towns,
+roads, banks, portals and points of interest — and it is **alive**. Weather
+fronts drift across it with real isobars and wind; the sun's shadows and colour
+follow your latitude and the season, all the way to a midnight sun at the
+poles; native birds sing, fly, and perch; rivers flood after long rain; snow
+settles on roofs and melts again. Everyone plays the same world (seed 1337) —
+a place you find is a place a friend can visit.
 
 ## Play
 
-Open `index.html` in any modern browser (double-click it), or serve the folder:
-
 ```
-python3 -m http.server 8000    # then visit http://localhost:8000
+git clone https://github.com/dataversion5372/Taiao.git
+cd Taiao
+python3 tools/serve.py        # http://localhost:8899  (any static server works)
 ```
 
-## Controls
+On a Mac you can just double-click **`Start Taiao.command`**. A local server is
+required because browsers refuse WebGL textures from `file://` pages. Needs a
+WebGL-capable browser; hardware acceleration on.
 
-| Input | Action |
+New characters wake on **Tūhura Isle**, a hand-built tutorial island of fifteen
+keepers — and leave it by a crossing you'll want to see for yourself.
+
+## The world, by the numbers
+
+| | |
 |---|---|
-| Left-click | Walk / gather / attack / talk / steal / harvest |
-| Right-click | Context menu (attack, examine, walk here…) |
-| WASD | Walk (relative to the current camera angle) |
-| ← → | Rotate camera view (45° steps around the player) |
-| ↑ ↓ or mouse wheel | Zoom camera |
-| M | World map (scroll = zoom, drag = pan, hover = info) |
-| C | Character selector (pick which character you play as) |
-| Click food or potion in inventory | Eat / drink |
-| Click gear in inventory | Equip (weapon, shield, armour, amulet) |
-| Click logs in inventory | Light a fire (Firemaking) |
-| Shift / Alt + click in shop or bank | Trade 5 / all |
+| Trainable skills | **61** |
+| Items | **2,942** |
+| Recipes | **2,482** across 45 crafts |
+| Creatures | **423**, including 33 bosses |
+| Biomes | **37** |
+| Crops · resource node types | **160 · 143** |
+| Tiers of fish / trees / ores / herbs / runes / textiles… | **32 each**, one unlock per level |
 
-## The 28 skills
+## The living-world systems
 
-**Combat** — Accuracy, Strength, Defence (train by taking hits), Archery (bow + arrows),
-Magic (runes), Health. Switch styles with the Melee / Archery / Magic buttons.
+- **Weather** — deterministic drifting fronts, geostrophic wind, orographic
+  rain; a live barometer in the HUD and a full synoptic chart (isobars, fronts,
+  wind barbs) on the world map.
+- **Sun & seasons** — latitude-true solar geometry: shadow direction and length,
+  golden-hour colour temperature, polar midnight sun; timezones (256 tiles/hour)
+  with a continuous day/night terminator.
+- **Birds of Aotearoa** — tūī, kākā, kea, ruru, pīwakawaka and dozens more fly,
+  perch and sing (real field recordings, spatially mixed into a dawn chorus);
+  extinct birds — huia, moa, pouākai — sing through their closest living
+  relatives. Only an arrow can reach a bird on the wing.
+- **Split selves** — press **X** to divide into up to five bodies, each with its
+  own pack and gear, queueing real work in parallel. One soul, many hands.
+- **Spoken magic** — spells are sentences of runes; type them, or hold **V**
+  and say them aloud.
+- **NPCs that answer** — villagers reply by in-browser semantic retrieval over
+  tens of thousands of written lines (an optional local layer; see below), each
+  with a stable personality, quirk, and life of their own — beds, doors,
+  ladders, schedules.
+- **A working economy** — production quality from inputs, skill, mastery, tool
+  and station; goods that carry their maker's name; road-web bank networks;
+  town delivery contracts; passive workshop jobs.
+- **A world with consequences** — crops, kilns and livestock run on the real
+  clock; heavy industry makes you *stink* until shopkeepers bar the door and
+  you scrub with the right soap; locks, keys and night-time shop hours.
+- **Boats** — from coracles ("a woven bowl that floats — mostly") to
+  men-o'-war with real multi-tile hulls, rowing, river drift, and sea-bridge
+  causeways to duck under.
+- **Player Pulse** — press **I**: the game quietly journals what you seem to
+  love and avoid, on your device only.
 
-**Gathering** — Mining (copper/iron/gold/rune essence), Fishing, Woodcutting (+pines),
-Foraging (berry bushes, herb patches), Farming (plant seeds in town plots, harvest later).
+## What's in this repo — and what isn't
 
-**Artisan** — Smelting & Jewelry (furnace), Smithing (anvil), Cooking (fires),
-Firemaking, Carpentry, Fletching & Crafting (workbench), Textiles (loom), Tanning (rack),
-Butchering (animal carcasses), Milling (millstone), Herblore (cauldron — potions with
-buffs!), Alchemy (transmute items to coins), Runecrafting (altar).
+Everything needed to play is tracked: code, sprite atlases, sound effects,
+fonts. Three **optional local layers** are *not* distributed here and the game
+runs without them (quiet skies, canned villager lines):
 
-**Adventure** — Agility (stepping stones over the lake, rock scrambles to gated gold),
-Thieving (the market stall, or the goblins' supply crate — getting caught hurts).
+- **Bird recordings** — fetched from [xeno-canto](https://xeno-canto.org) with
+  `tools/fetch_birdsong.py`, which also writes a per-clip credits file. The
+  recordings are **CC BY-NC-SA** (non-commercial) and so are kept out of this
+  repository's CC BY-SA asset grant.
+- **Ambience beds** (rain/wind/ocean) — fully original synthesized noise;
+  regenerate with `tools/make_ambience.py` (needs ffmpeg).
+- **NPC dialogue bank + embedding model** — build pipeline in
+  `tools/npc_dialogue/` (see its README for provenance and licensing notes).
 
-## The world
+## Building & hacking
 
-The terrain engine is a faithful port of the **Endless Scape world map** (the
-original `Map.html` prototype, now kept in `../RPG-archive/`):
-domain-warped coastlines with archipelago islands, rivers that bridge where roads
-cross them, and the full **37-biome** classifier — Plains, Forest, Swamp, Desert,
-Mountains, Snowy Peaks, Frozen Wastes, Farmland, Badlands, Jungle, Meadow, Savanna,
-Rockyland, Labyrinth (walk the hedge mazes!), Volcano, Wilderness, Taiga, Oasis,
-Coral Reef, Ruins, Salt Flats, Wetlands, Canyon, Steppe, Red Desert, Giant Mushroom
-Forest, Bone Fields, Dream Forest, Ashen Forest, Heather Moor, Glacier, Bamboo
-Grove, Blossom Grove and Crystal Fields. **Every biome has its own bestiary** —
-yetis and ice elementals on the glaciers, minotaurs in the labyrinths, funguys under
-the giant mushrooms, liches in the bone fields, krakens in the deep.
+The code layer is plain classic scripts, concatenated in the order listed in
+`tools/bundle.list` and minified with esbuild:
 
-You spawn in **Newhaven**, the walled city at the origin, with every crafting
-station, a bank, Sten's store, and farm plots. Beyond it, settlements follow the
-civilization field (rare walled cities, common villages, long wild stretches),
-named points of interest dot the land — inns, graveyards, mills, mine camps, stone
-circles, ponds with stepping stones — and wilderness resource clusters and monster
-camps fill the spaces between. Monsters only auto-attack if their level is more
-than twice your combat level, so the frontier moves with you.
+```
+npm install          # esbuild only
+node tools/build.mjs # -> dist/bundle.js  (rerun after any js/ edit)
+```
 
-## Content
+`DEV_MODE` (`js/main/assets.js`) is a compile-time switch for the development
+tools (max skills, cheats panel, separate dev save). A headless-testing recipe
+lives in `.claude/skills/verify/`.
 
-- A **334-creature bestiary** built from the Tiny Creatures sheet — zombies to
-  gelatinous cubes, kobolds to krakens, chickens to Godlings — plus tinted
-  Giant/Dire/Elder/Ancient elite variants of each, with stats, drops, and
-  butcherable carcasses scaled to level.
-- **32 tiers each** of fish, trees/logs, ores, metal bars, crops (food & fibers),
-  herbs, runes (each powering its own spell), textiles, forageables, hides &
-  leathers, and arrows — all with distinct colour-graded icons, level requirements
-  from 1 to 93, and matching recipes at the right stations. Resource tiers rise
-  with distance from town.
+## Contributing
+
+Issues and pull requests are welcome. The in-game **object workshop**
+(right-click → "Edit …") lets anyone re-sprite objects and vote on their
+behaviour locally; a curator-moderated path for folding community art and
+ideas into the shipped game is the next thing on the roadmap. If you build
+something — art, code, worlds, maps of far places — it can carry your name
+in-game, the same way a crafted barrel carries its cooper's.
 
 ## Credits
 
-- Painted biome terrain, item, log/ingot/bush and fish tilesheets: custom-generated for this game
-- Art: [Kenney.nl](https://kenney.nl) — "Roguelike/RPG pack" & "Roguelike Characters" (CC0)
-- Creatures: "Tiny Creatures" by Clint Bellanger — clintbellanger.net (CC0)
-- A few custom item sprites drawn for this game (CC0)
-- 3D engine: [three.js](https://threejs.org) r147 (MIT), vendored in `libs/` for offline play
-- License texts in `assets/`. Code written by Claude.
+- **Art**: [Kenney.nl](https://kenney.nl) "Roguelike/RPG pack" & "Roguelike
+  Characters" (CC0); "Tiny Creatures" by Clint Bellanger —
+  [clintbellanger.net](https://clintbellanger.net) (CC0); painted biome
+  terrain, item, and creature tilesheets custom-generated for this game with
+  [PixelLab](https://www.pixellab.ai), plus hand-drawn sprites (all released
+  under this repo's CC BY-SA grant). License texts in `assets/`.
+- **Sound effects**: CC0, from Kenney.nl audio packs and OpenGameArt
+  (rubberduck; Iwan Gabovitch) — every file credited in
+  `assets/sfx/CREDITS.txt`.
+- **Bird recordings** (optional layer): xeno-canto recordists, CC BY-NC-SA,
+  individually credited in the file the fetch script writes alongside them.
+- **Font**: [OpenDyslexic](https://opendyslexic.org) (SIL OFL 1.1 —
+  `fonts/OFL.txt`), the default UI face.
+- **Vendored libraries**: [three.js](https://threejs.org) r147 (MIT);
+  [XaoS.js](https://github.com/xaos-project/XaoSjs) fractal zoomer (GPL —
+  Jan Hubicka, Thomas Marsh, Andrea Medeghini, John B. Langston III) — it
+  powers the graduation crossing.
+- Code written by Claude.
 
 ## Licensing
 
@@ -176,7 +150,7 @@ If its stewardship ever went wrong, anyone could fork it and carry on.
   share and adapt with credit, under the same terms.
 - **Third-party assets** keep their own licenses: Kenney.nl and Tiny
   Creatures art are CC0 (license texts in `assets/`), three.js is MIT,
-  sound effects are CC0 (credited in `assets/sfx/CREDITS.txt`), and the
-  bird recordings are xeno-canto CC BY-NC-SA, individually credited in
-  `assets/birdsong/CREDITS.txt` — the NC term means that layer may never
-  be sold by anyone.
+  XaoS.js is GPL, OpenDyslexic is SIL OFL 1.1, sound effects are CC0
+  (credited in `assets/sfx/CREDITS.txt`), and the optional bird-recording
+  layer is xeno-canto CC BY-NC-SA, individually credited alongside the
+  clips — the NC term means that layer may never be sold by anyone.

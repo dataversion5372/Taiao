@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Eval the retrieval bank: held-out quality + confidence-gate calibration.
 
-Run with ~/pyenv/bin/python after embed_bank.py.
+Run with a sentence-transformers Python after embed_bank.py (see README.md).
 
 1. Sample held-out bank lines; embed their prompting-context q; retrieve
    top-k (self excluded, same scoring as the browser: int8 dot * scale +

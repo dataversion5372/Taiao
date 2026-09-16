@@ -4,14 +4,14 @@ NPCs answer players by **semantic retrieval over pre-written lines** (no LLM at
 play time beyond a 23MB embedding model in the browser). Runtime:
 `js/gameplay/npc-retrieval.js` (flag `NPC_RETRIEVAL_ENABLED` in npc-chat.js).
 
-## Pipeline (local, uses ~/pyenv/bin/python)
+## Pipeline (local; needs a Python with sentence-transformers installed)
 
 ```
 python3 build_bank.py                      # generated/*.jsonl -> bank.jsonl
-~/pyenv/bin/python embed_bank.py      # -> assets/npc_dialogue/{emb,scale,meta}
-~/pyenv/bin/python dedup_bank.py      # drop near-dups (>0.95 cosine per role+intent)
-~/pyenv/bin/python embed_replies.py   # -> {remb,rscale} (AFTER dedup — rows must align)
-~/pyenv/bin/python eval_retrieval.py  # held-out sanity + IN/OOD threshold table
+python3 embed_bank.py          # -> assets/npc_dialogue/{emb,scale,meta}
+python3 dedup_bank.py          # drop near-dups (>0.95 cosine per role+intent)
+python3 embed_replies.py    # -> {remb,rscale} (AFTER dedup — rows must align)
+python3 eval_retrieval.py  # held-out sanity + IN/OOD threshold table
 node ../build.mjs                                    # only if js changed
 ```
 
@@ -57,3 +57,18 @@ memory note for the long version):
 
 At 100k+ lines consider sharding bank.emb.bin by role if the single-blob scan
 (one 384-dot per line per query) gets slow — ~40ms at 31k today, linear growth.
+
+## Provenance & licensing
+
+The dialogue corpora and the built banks are **not distributed** in this
+repository (see .gitignore) — only these pipeline scripts are.
+
+- The seed lines in `generated/*.jsonl` are produced by `distill_bank.py`
+  self-play against a **Llama-3.1-8B-Instruct** teacher. If you build and
+  redistribute a bank made with that pipeline, comply with the Llama 3.1
+  Community License (including its "Built with Llama" attribution notice).
+- Embeddings (build-time and in-browser) use **all-MiniLM-L6-v2**
+  (sentence-transformers, Apache-2.0). The model files are not vendored
+  here; the runtime fetches them from a local `libs/npcml/` you provide.
+- Lines you write yourself and fold in fall under the repo's CC BY-SA
+  asset grant like any other authored game text.
