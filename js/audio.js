@@ -28,7 +28,8 @@ const SFX = (() => {
   };
   // Two master sliders (help panel): GAME sounds (every SFX here) and NATURE
   // sounds (birdsong.js + ambience.js read natureVol). Stored 0..1; migrates
-  // the old 4-step "emberfallSfxVol" the first time (its index mapped to the
+  // the old 4-step "emberfallSfxVol" the first time (that key isn't renamed —
+  // it's already a spent, read-only legacy fallback); its index mapped to the
   // old step volumes below).
   const LEGACY_STEPS = [1, 0.55, 0.28, 0];
   function loadVol(key) {
@@ -39,8 +40,8 @@ const SFX = (() => {
     try { old = parseInt(localStorage.getItem("emberfallSfxVol") || "1", 10); } catch (e) {}
     return LEGACY_STEPS[(old >= 0 && old < 4) ? old : 1];
   }
-  let gameVol = loadVol("emberfallGameVol");
-  let natureVol = loadVol("emberfallNatureVol");
+  let gameVol = loadVol("taiaoGameVol");
+  let natureVol = loadVol("taiaoNatureVol");
 
   const pools = {};   // file -> [HTMLAudioElement] (reused when not playing)
   const lastAt = {};  // name -> last play time (throttle rapid repeats)
@@ -184,8 +185,8 @@ const SFX = (() => {
       if (btn.id === "questbtn" || btn.id === "bestiarybtn") play("book", 0.6);
       else play("click", 0.35);
     });
-    bindVol("gamevol", "emberfallGameVol", () => gameVol, v => { gameVol = v; });
-    bindVol("naturevol", "emberfallNatureVol", () => natureVol, v => { natureVol = v; });
+    bindVol("gamevol", "taiaoGameVol", () => gameVol, v => { gameVol = v; });
+    bindVol("naturevol", "taiaoNatureVol", () => natureVol, v => { natureVol = v; });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initUi);
   else initUi();

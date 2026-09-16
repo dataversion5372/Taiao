@@ -1,6 +1,6 @@
 MAP ICON SPRITESHEET — image generation prompt
 =================================================
-Purpose: replacement art for the Isle of Emberfall world-map marker icons
+Purpose: replacement art for the Taiao world-map marker icons
 (currently hand-drawn Canvas2D vector glyphs, rendered at 18x18px on the map
 and 10x10px on the minimap). One combined spritesheet, extracted by fixed
 grid position afterward — do not rely on labels for identification.

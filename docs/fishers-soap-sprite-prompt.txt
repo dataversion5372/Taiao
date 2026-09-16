@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — FISHER'S SOAP ICON PROMPT
+TAIAO — FISHER'S SOAP ICON PROMPT
 =============================================
 CONTEXT: Fisher's soap (gameplay/stink.js, item id "fishers_soap") is a cheap
 basic soap bar sold by the fishmonger — the fisherfolk's bar for scrubbing the

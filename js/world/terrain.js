@@ -130,17 +130,42 @@ var TUT_ISLE = (() => {
     }
     gates.push({ x: g.mx, y: g.my, i });
   }
-  // KENJI'S SHORTCUT (user req 2026-09-16, the split-selves lesson): a
-  // SECOND arch carrying gate index 6 — it unbars together with the crown's
-  // south gate the moment the Farm stage completes — set in the 45° chamber
-  // wall between the Bank and Woodcrafting chambers. The self that left the
-  // farm early waits here and lanes straight across to Torra's camp, while
-  // the farming self exits through the crown: two roads, one reunion.
-  // (Appended AFTER the 14 journey gates so the path loop's gates[i]
-  // indexing is untouched; classify/tutGateArchAt scan the whole array.)
+  // BACKTRACK SHORTCUTS (user req 2026-09-16): extra arches SHARING a
+  // journey gate's index, so each unbars the moment that stage completes —
+  // opening loops back through earlier pods. All appended AFTER the 14
+  // journey gates so the path loop's gates[i] indexing is untouched;
+  // classify/tutGateArchAt/barred()/the map overlay scan the whole array.
+  // Entries are [gateIndex, fence angle°, radius] seat() placements on real
+  // fence lines (1-based pod names in the comments match the user's table):
+  const SHORTCUTS = [
+    [6,  45,   (RC + RM) / 2], // Kenji's shortcut: Bank ↔ Wood chambers (45° wall) — the split-selves reunion lane
+    [1,  -54,  (RM + RO) / 2], // gate 2 also opens: Landing(1) ↔ Cove(3), the -54° spoke
+    [4,  0,    RM],            // gate 5 also opens: Forge(4) ↔ Bank chamber(6), the RM ring at 0°
+    [5,  -90,  RC],            // gate 6 also opens: Bush chamber(2) ↔ Farm crown(7), the centre wall at -90°
+    [7,  54,   (RM + RO) / 2], // gate 8 also opens: Lagoon(5) ↔ Cooking(9), the 54° spoke
+    [10, 225,  (RC + RM) / 2], // gate 11 also opens: Bush(2) ↔ Sky Knoll(12) chambers, the 225° wall
+    [10, 135,  (RC + RM) / 2], // gate 11 also opens: Wood(8) ↔ Sky Knoll(12) chambers, the 135° wall
+    [10, 180,  RC],            // gate 11 also opens: Farm crown(7) ↔ Sky Knoll(12), the centre wall at 180°
+    [12, -130.5, RM],          // gate 13 also opens: Bush chamber(2) ↔ Portal Crown sector(14), the RM band they share (-135..-126°)
+    // (the user's Warden(10) ↔ Sky Knoll(12) pair has NO shared border —
+    // the Wood chamber and Springs sector lie between them — so it has no
+    // arch; by gate 11 the war→soap→sky gates 9+10 already chain the route)
+  ];
+  for (const [i, ang, rad] of SHORTCUTS) {
+    const sc = seat(ang, rad);
+    gates.push({ x: sc.mx, y: sc.my, i, shortcut: true });
+  }
+  // the Bush(2) ↔ Bank chamber(6) shortcut (with gate 5) is special: the
+  // -45° chamber wall runs BESIDE the fenced river corridor, so the lane
+  // needs THREE arches in a row — through the wall, through the west bank
+  // fence, a wade across the channel, and through the east bank fence.
   {
-    const sc = seat(45, (RC + RM) / 2);
-    gates.push({ x: sc.mx, y: sc.my, i: 6, shortcut: true });
+    const t = 28, side = river.waterR + 1.2;   // aligned at radial t≈28
+    const wall = seat(-45, 28.5);
+    gates.push({ x: wall.mx, y: wall.my, i: 4, shortcut: true });
+    for (const s of [-side, side])
+      gates.push({ x: CX + river.ux * t - river.uy * s,
+                   y: CY + river.uy * t + river.ux * s, i: 4, shortcut: true });
   }
   const path = [];                        // [{x, y, s}]
   for (let i = 0; i < 15; i++) {

@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — ILLUSTRATED INDEX OF OUTFIT ITEMS
+TAIAO — ILLUSTRATED INDEX OF OUTFIT ITEMS
 ======================================================
 An index of every distinct item of clothing, armour, and accessory that appears
 across the player-character outfits (see player-character-outfits.txt). Each

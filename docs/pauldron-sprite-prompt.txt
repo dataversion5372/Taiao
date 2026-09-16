@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — PAULDRON ICON PROMPT
+TAIAO — PAULDRON ICON PROMPT
 ========================================
 AUDIT: Smithing's tiered armour (geartiers.js ARMOR_KINDS) forges a "Pauldrons"
 piece for each of the 16 ARMOUR METALS (ids pauldrons_<metal>, offhand shoulder

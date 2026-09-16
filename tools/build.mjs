@@ -1,4 +1,4 @@
-// Bundle + minify the Emberfall code layer.
+// Bundle + minify the Taiao code layer.
 //
 // The game is ~160 classic <script> tags sharing one global scope, listed in
 // tools/bundle.list in load order. We concatenate them IN THAT ORDER

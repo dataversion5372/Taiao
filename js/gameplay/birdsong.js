@@ -184,7 +184,7 @@ function birdsongTick() { BIRDSONG.tick(); }
 // to excise the flagged moments from the loops (or retire recordings that
 // are beyond saving — their XC ids land in assets/birdsong/SKIP.txt so a
 // refetch never picks them again).
-const SOUNDFLAGS_KEY = "emberfallSoundFlags";
+const SOUNDFLAGS_KEY = "taiaoSoundFlags"; // migrated from emberfallSoundFlags, see js/lskeys-migrate.js
 function soundFlags() {
   try { return JSON.parse(localStorage.getItem(SOUNDFLAGS_KEY) || "[]"); } catch (e) { return []; }
 }

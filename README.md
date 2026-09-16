@@ -79,17 +79,22 @@ keepers — and leave it by a crossing you'll want to see for yourself.
 ## What's in this repo — and what isn't
 
 Everything needed to play is tracked: code, sprite atlases, sound effects,
-fonts. Three **optional local layers** are *not* distributed here and the game
-runs without them (quiet skies, canned villager lines):
+fonts. Three **optional local layers** are *not* distributed here, and the
+game runs fine without them — quiet skies, and villagers who speak from a
+small built-in starter pool instead of the full semantic dialogue bank:
 
 - **Bird recordings** — fetched from [xeno-canto](https://xeno-canto.org) with
-  `tools/fetch_birdsong.py`, which also writes a per-clip credits file. The
-  recordings are **CC BY-NC-SA** (non-commercial) and so are kept out of this
-  repository's CC BY-SA asset grant.
+  `tools/fetch_birdsong.py`. The recordings are **CC BY-NC-SA**
+  (non-commercial) and so are kept out of this repository's CC BY-SA asset
+  grant; the per-clip attribution text the script writes alongside them
+  *does* ship (`assets/birdsong/CREDITS.txt`) even without the audio.
 - **Ambience beds** (rain/wind/ocean) — fully original synthesized noise;
   regenerate with `tools/make_ambience.py` (needs ffmpeg).
 - **NPC dialogue bank + embedding model** — build pipeline in
   `tools/npc_dialogue/` (see its README for provenance and licensing notes).
+  Without it, NPCs (including the Sky Knoll's Skywatcher) fall back to a
+  small hand-written starter line pool baked into `js/gameplay/npc-chat.js`
+  — no download, no ML runtime required.
 
 ## Building & hacking
 
@@ -107,12 +112,20 @@ lives in `.claude/skills/verify/`.
 
 ## Contributing
 
-Issues and pull requests are welcome. The in-game **object workshop**
-(right-click → "Edit …") lets anyone re-sprite objects and vote on their
-behaviour locally; a curator-moderated path for folding community art and
-ideas into the shipped game is the next thing on the roadmap. If you build
-something — art, code, worlds, maps of far places — it can carry your name
-in-game, the same way a crafted barrel carries its cooper's.
+Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+The in-game **object workshop** (right-click → "Edit …") lets anyone
+re-sprite objects and vote on their behaviour locally, then bundle a
+proposal with **"Export my proposal"** and submit it as an issue for a
+maintainer to fold in by hand; the [artist walkthrough](docs/artist-guide.md)
+covers the whole loop, and [GOVERNANCE.md](GOVERNANCE.md) covers how that
+review works and how curators get involved. If you build something — art,
+code, worlds, maps of far places — it can carry your name in-game, the same
+way a crafted barrel carries its cooper's.
+
+Questions or ideas that don't fit an issue yet belong in
+[GitHub Discussions](https://github.com/dataversion5372/Taiao/discussions) —
+the project's one community channel, also linked from the in-game **?**
+panel. This project follows [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Credits
 
@@ -125,8 +138,11 @@ in-game, the same way a crafted barrel carries its cooper's.
 - **Sound effects**: CC0, from Kenney.nl audio packs and OpenGameArt
   (rubberduck; Iwan Gabovitch) — every file credited in
   `assets/sfx/CREDITS.txt`.
-- **Bird recordings** (optional layer): xeno-canto recordists, CC BY-NC-SA,
-  individually credited in the file the fetch script writes alongside them.
+- **Bird recordings** (optional layer, not distributed with this repo — see
+  "What's in this repo" above): xeno-canto recordists, CC BY-NC-SA,
+  individually credited in `assets/birdsong/CREDITS.txt`, which ships even
+  though the clips it describes don't; `tools/fetch_birdsong.py` regenerates
+  it alongside the audio if you fetch your own copy.
 - **Font**: [OpenDyslexic](https://opendyslexic.org) (SIL OFL 1.1 —
   `fonts/OFL.txt`), the default UI face.
 - **Vendored libraries**: [three.js](https://threejs.org) r147 (MIT);

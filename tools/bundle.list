@@ -1,4 +1,5 @@
 libs/three.min.js
+js/lskeys-migrate.js
 js/sprites/assets-data.js
 js/sprites/nature-sheet.js
 js/sprites/characters-data.js
@@ -175,4 +176,5 @@ js/gameplay/dream.js
 js/gameplay/split.js
 js/gameplay/bifrost.js
 js/gameplay/pulse.js
+js/gameplay/postcard.js
 js/main.js

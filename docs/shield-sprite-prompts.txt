@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — SHIELD ICON PROMPTS
+TAIAO — SHIELD ICON PROMPTS
 =======================================
 AUDIT: the tiered gear system (geartiers.js) forges eight armour pieces for
 each of the 16 ARMOUR METALS — helm, boots, chestplate, legs, chainbody,

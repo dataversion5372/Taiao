@@ -1995,8 +1995,15 @@ function createWorldChunks(ctx) {
             clearSpot(vp.mx * 2 + s2.dx, vp.my * 2 + s2.dy);
           }
           for (const L of TUT_VILLAGE.lamps) {
+            if (L.inside) continue;   // indoor glows live on house floors — leave them be
             const vp = TUT_ISLE.pods[L.pod];
-            clearSpot(vp.mx * 2 + L.dx, vp.my * 2 + L.dy);
+            const lx = vp.mx * 2 + L.dx, ly = vp.my * 2 + L.dy;
+            // never terraform the surf for a lamp candidate — villageLamps
+            // skips watery spots at emit time instead
+            if (!inCh(lx, ly) || isWaterKey(ground[li(lx, ly)])) continue;
+            dropNodes(lx, ly);
+            if (decor[li(lx, ly)] !== "stone_bridge") decor[li(lx, ly)] = null;
+            blocked[li(lx, ly)] = 0;
           }
         }
       }

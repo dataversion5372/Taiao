@@ -68,9 +68,12 @@
 		  // a save in storage means the NEXT boot is warm-shaped — the same test
 		  // that decides which shape the boot will actually take. Either mode's
 		  // save file counts (storage.js: dev builds keep a save of their own).
+		  // checks both names: this runs before dist/bundle.js (and its
+		  // emberfall_* -> taiao_* migration, js/lskeys-migrate.js) has loaded
 		  let hasSave = false;
 		  try {
-		    hasSave = !!(localStorage.getItem("emberfall_save_v2") || localStorage.getItem("emberfall_save_cheat_v1"));
+		    hasSave = !!(localStorage.getItem("taiao_save_v2") || localStorage.getItem("taiao_save_cheat_v1") ||
+		      localStorage.getItem("emberfall_save_v2") || localStorage.getItem("emberfall_save_cheat_v1"));
 		  } catch (e) {}
 		  let prof = null;
 		  try { prof = JSON.parse(localStorage.getItem(hasSave ? "ef_boot_profile_w" : "ef_boot_profile_c") || "null"); } catch (e) {}
@@ -222,6 +225,7 @@
 						<button id="bestiarybtn" title="Bestiary (B)">Bestiary (B)</button>
 						<button id="soapbtn" title="Soaps (P)">Soap (P)</button>
 						<button id="pulsebtn" title="Play Pulse — what the game thinks you enjoy (I)">Pulse (I)</button>
+						<button id="postcardbtn" title="Save a postcard of this spot">Postcard</button>
 				</div>
 				<button id="interactmodebtn" title="Toggle the default action on animals: Combat (Attack first) or Husbandry (Tend/Feed first). Also the left-click default.">Mode: 🌾 Husbandry</button>
 			</div>
@@ -336,6 +340,8 @@
 				  <p class="hint">3D needs WebGL: hard-refresh (Cmd+Shift+R), enable hardware acceleration in your browser's performance settings, and allow this page in any canvas/fingerprint-blocking extension.</p>
 			  <h4 style="margin:10px 0 4px">Credits &amp; licences</h4>
 			  <p class="credits">Art: Kenney.nl roguelike packs (CC0) · "Tiny Creatures" by Clint Bellanger (CC0) · custom sprites made for Taiao (PixelLab + hand-drawn, CC BY-SA). Sounds: CC0 from Kenney.nl &amp; OpenGameArt — every file credited in <code>assets/sfx/CREDITS.txt</code>. Birdsong: real xeno-canto recordings (CC BY-NC-SA), each recordist credited in <code>assets/birdsong/CREDITS.txt</code>. Font: OpenDyslexic (SIL OFL). Engines: three.js (MIT) · XaoS.js fractal zoomer (GPL). Code: GPL-3.0-or-later — Taiao is free and licensed to stay that way, forever.</p>
+				  <h4 style="margin:10px 0 4px">Community &amp; contributing</h4>
+				  <p class="credits">Source, issues and the object workshop's submission path: <a href="https://github.com/dataversion5372/Taiao" target="_blank" rel="noopener">github.com/dataversion5372/Taiao</a>. Questions, ideas, or just want to talk about the world — <a href="https://github.com/dataversion5372/Taiao/discussions" target="_blank" rel="noopener">GitHub Discussions</a> is the one community channel.</p>
 			</div>
 				</div>
 				<div id="sidebar-spacer"></div>

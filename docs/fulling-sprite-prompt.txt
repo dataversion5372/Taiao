@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — FULLING ICON PROMPT
+TAIAO — FULLING ICON PROMPT
 =======================================
 AUDIT: the Fulling skill (js/skills/textiles.js) has one "Full <cloth>" recipe
 for every one of the 32 woven cloths (content.js TEXTILE_NAMES) — so its

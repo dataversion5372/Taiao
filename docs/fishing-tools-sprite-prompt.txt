@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — FISHING TOOLS ICON PROMPT
+TAIAO — FISHING TOOLS ICON PROMPT
 =============================================
 AUDIT: the five Fishing-skill tools (fishing_rod, small_net, big_net,
 harpoon, lobster_cage — data.js) all currently share ONE placeholder icon

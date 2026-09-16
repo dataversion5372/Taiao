@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — SHIELD MATRIX PROMPTS (two sheets)
+TAIAO — SHIELD MATRIX PROMPTS (two sheets)
 ======================================================
 Two spritesheets, each a MATRIX: one ROW per shield kind, 16 COLUMNS = the 16
 ARMOUR METALS in roster order (tier 1 -> 16, left to right). Within a row the

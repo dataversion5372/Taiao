@@ -23,7 +23,7 @@
 "use strict";
 
 (function () {
-  const LS_KEY = "emberfall_objedit_v1";
+  const LS_KEY = "taiao_objedit_v1"; // migrated from emberfall_objedit_v1, see js/lskeys-migrate.js
   const PX = 72;                       // on-screen sprite cell size
   const D8 = ["south", "south-east", "east", "north-east", "north", "north-west", "west", "south-west"];
   const DSHORT = { south: "S", "south-east": "SE", east: "E", "north-east": "NE", north: "N", "north-west": "NW", west: "W", "south-west": "SW" };
@@ -37,6 +37,33 @@
   function recFor(desc) {
     const k = desc.type + ":" + desc.key;
     return store[k] || (store[k] = { votes: {}, props: {}, sprites: [] });
+  }
+
+  // ---- curator pipeline: "Export my proposal" bundles this object's votes,
+  // suggested properties and any uploaded art into one file a player can
+  // attach to a submission (see CONTRIBUTING.md — the workshop's exit path).
+  // Nothing here reaches a server; it's a local download, same as a save file.
+  function exportProposal() {
+    if (!cur) return;
+    const rec = recFor(cur);
+    const n = Object.keys(rec.votes).length + Object.keys(rec.props).length + rec.sprites.length;
+    if (!n) { if (typeof log === "function") log("Nothing to export yet — vote, suggest, or upload something first.", "warn"); return; }
+    const bundle = {
+      schema: "taiao-workshop-proposal/1",
+      object: { type: cur.type, key: cur.key, name: cur.name },
+      votes: rec.votes,
+      props: rec.props,
+      sprites: rec.sprites,
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `taiao-proposal-${cur.type}-${cur.key}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    if (typeof log === "function")
+      log("Proposal saved — see CONTRIBUTING.md for how to submit it.", "gold");
   }
 
   // ---- sprite drawing (same sheet math as icon() in main/assets.js, at panel size) ----
@@ -776,6 +803,8 @@
 #objedit-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: #ffe97a; font-size: 16px; font-weight: bold; border-bottom: 1px solid #3a3050; letter-spacing: 1px; }
 #objedit-head .oe-type { font-size: 11px; font-weight: normal; letter-spacing: 0; color: #a99ec9; border: 1px solid #3a3050; border-radius: 9px; padding: 1px 8px; text-transform: capitalize; }
 #objedit-head button { margin-left: auto; background: none; border: 1px solid #3a3050; color: #d8d2e8; border-radius: 4px; cursor: pointer; font-size: 14px; padding: 2px 8px; }
+#objedit-export { font-size: 11px !important; color: #a99cc4 !important; white-space: nowrap; }
+#objedit-export:hover { background: #453a58 !important; color: #fff !important; }
 #objedit-body { overflow-y: auto; padding: 12px 16px 24px; flex: 1; }
 #objedit-body h3 { color: #ffe97a; font-size: 13px; letter-spacing: 1px; margin: 18px 0 8px; text-transform: uppercase; }
 #objedit-body .oe-intro { color: #a99ec9; font-size: 12px; margin: 2px 0 6px; }
@@ -834,9 +863,10 @@
     document.head.appendChild(st);
     panel = document.createElement("div");
     panel.id = "objedit";
-    panel.innerHTML = `<div id="objedit-head"><span id="objedit-title"></span><span class="oe-type" id="objedit-type"></span><button id="objedit-close" title="Close (Esc)">✕</button></div><div id="objedit-body"></div>`;
+    panel.innerHTML = `<div id="objedit-head"><span id="objedit-title"></span><span class="oe-type" id="objedit-type"></span><button id="objedit-export" title="Bundle your votes and proposals for this object into a file you can submit">Export my proposal</button><button id="objedit-close" title="Close (Esc)">✕</button></div><div id="objedit-body"></div>`;
     (document.getElementById("gamecol") || document.body).appendChild(panel);
     panel.querySelector("#objedit-close").onclick = close;
+    panel.querySelector("#objedit-export").onclick = exportProposal;
     document.addEventListener("keydown", e => {
       if (e.key === "Escape" && isOpen()) {
         // Escape while typing in one of the panel's fields cancels that edit —

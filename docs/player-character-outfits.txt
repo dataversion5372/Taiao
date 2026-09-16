@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — PLAYER CHARACTER OUTFITS
+TAIAO — PLAYER CHARACTER OUTFITS
 ============================================
 Every selectable outfit for each of the 223 player characters (character-select
 roster, js/sprites/characters-data.js CHAR_LIST, in order). Each outfit STATE a

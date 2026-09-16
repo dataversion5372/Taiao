@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — CONSUMABLE / MATERIAL ICON PROMPTS
+TAIAO — CONSUMABLE / MATERIAL ICON PROMPTS
 =======================================================
 AUDIT: the 32-tier core ladders below still use hue-rotated clones of one
 base sprite each (content.js defineIcon) — a potion ladder that is the

@@ -10,7 +10,7 @@
 // DEV_MODE is on — the normal-mode save never sees them.
 "use strict";
 
-const CHEATS_LS_KEY = "emberfall_cheat_overrides";
+const CHEATS_LS_KEY = "taiao_cheat_overrides"; // migrated from emberfall_cheat_overrides, see js/lskeys-migrate.js
 
 // preset weather objects: every field weatherCore/wxDerive emits, plus wind
 // (weatherAt normally attaches wind after the core; the override is returned

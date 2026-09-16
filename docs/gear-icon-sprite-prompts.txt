@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — TIERED GEAR ICON PROMPTS
+TAIAO — TIERED GEAR ICON PROMPTS
 =============================================
 AUDIT: every tiered weapon, tool, armour piece, jewel, bar and arrow icon
 is currently a hue-rotated clone of ONE base sprite (geartiers.js /

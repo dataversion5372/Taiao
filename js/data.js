@@ -569,7 +569,10 @@ const RECIPES = {
     // xp 20 → 35 (2026-09-16, user req): 300 shafts (20 cuts) must land
     // Fletching 2 (650 xp) — the level iron arrows require — 20×35 = 700 ✓
     { out: "arrow_shafts", qty: 15, name: "Cut arrow shafts", skill: "Fletching", req: scaleLevel(1),  xp: 35,  in: { logs: 1 }, tick: 1300 },
-    { out: "shortbow", name: "Carve shortbow",                skill: "Fletching", req: 3,              xp: 65,  in: { logs: 2 },      tick: 1900 },
+    // req 3 → 2 (2026-09-16): the tutorial's arrow tonnage dropped to 30, so
+    // arrow xp no longer carries Fletching to 3 — the starter bow now sits at
+    // the same level the 300-shaft ladder lands (2), keeping the isle solvable
+    { out: "shortbow", name: "Carve shortbow",                skill: "Fletching", req: 2,              xp: 65,  in: { logs: 2 },      tick: 1900 },
     { out: "longbow",  name: "Carve longbow",                 skill: "Fletching", req: scaleLevel(20), xp: 110, in: { logs: 3 },      tick: 2100 },
     { out: "pine_bow", name: "Carve pine bow",                skill: "Fletching", req: scaleLevel(26), xp: 160, in: { pine_logs: 2 }, tick: 2200 },
     { out: "wand",       name: "Carve wand",       skill: "Fletching", req: scaleLevel(6),  xp: 50,  in: { logs: 1, state_rune: 1 },      tick: 1800 },

@@ -258,7 +258,7 @@ function walkTo(x, y) {
 // first on animals, "combat" lists Attack first. targetsAt() reads it to order
 // the livestock/monster targets (menu top + left-click default). Persisted as a
 // client preference in localStorage; default husbandry (the old behaviour). ----
-window.interactMode = (() => { try { return localStorage.getItem("emberfall_interactmode") === "combat" ? "combat" : "husbandry"; } catch (e) { return "husbandry"; } })();
+window.interactMode = (() => { try { return localStorage.getItem("taiao_interactmode") === "combat" ? "combat" : "husbandry"; } catch (e) { return "husbandry"; } })();
 const interactModeBtn = document.getElementById("interactmodebtn");
 function syncInteractModeBtn() {
   if (!interactModeBtn) return;
@@ -270,7 +270,7 @@ function syncInteractModeBtn() {
 if (interactModeBtn) {
   interactModeBtn.addEventListener("click", () => {
     window.interactMode = window.interactMode === "combat" ? "husbandry" : "combat";
-    try { localStorage.setItem("emberfall_interactmode", window.interactMode); } catch (e) {}
+    try { localStorage.setItem("taiao_interactmode", window.interactMode); } catch (e) {}
     syncInteractModeBtn();
     if (typeof log === "function") log(window.interactMode === "combat"
       ? "Interaction mode: Combat — Attack is now the default action on animals."

@@ -1824,7 +1824,7 @@ for (const [id, at] of [["wm-newhaven", () => [0, 0]], ["wm-player", () => [play
 // checkboxes every open: browsers restore checkbox state across a reload
 // WITHOUT firing change, so the box could look ticked while the overlay
 // flag was still false and nothing drew.
-const WM_OVERLAY_LS = "emberfall_wm_overlays";
+const WM_OVERLAY_LS = "taiao_wm_overlays"; // migrated from emberfall_wm_overlays, see js/lskeys-migrate.js
 const wmOverlayCbs = [];   // [checkbox element, wm key] pairs
 function wmSyncOverlayToggles() { for (const [cb, key] of wmOverlayCbs) wm[key] = cb.checked; }
 {

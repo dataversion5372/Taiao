@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — OUTFIT-ITEM ICON SPRITESHEET PROMPTS
+TAIAO — OUTFIT-ITEM ICON SPRITESHEET PROMPTS
 =========================================================
 Six spritesheet prompts covering every item catalogued in
 player-character-outfit-items.txt (~124 items). Each sheet has a fixed grid;

@@ -42,6 +42,37 @@ start_server() {
   return 1
 }
 
+# ---- rebuild the bundle when any source file is newer than it ----
+# index.html loads dist/bundle.js, NOT the js/ sources: an edited source
+# (say, flipping STAGE_SKIP or DEV_MODE) does NOTHING until the bundle is
+# rebuilt. Detect staleness and rebuild automatically; if node is missing,
+# say so loudly instead of silently serving yesterday's game.
+NODE_BIN="$(command -v node 2>/dev/null || true)"
+if [ -z "$NODE_BIN" ]; then
+  for n in /usr/local/bin/node /opt/homebrew/bin/node; do
+    [ -x "$n" ] && { NODE_BIN="$n"; break; }
+  done
+fi
+STALE=""
+if [ ! -f dist/bundle.js ]; then
+  STALE=yes
+elif [ -n "$(find js tools/bundle.list tools/build.mjs -newer dist/bundle.js -print -quit 2>/dev/null)" ]; then
+  STALE=yes
+fi
+if [ -n "$STALE" ]; then
+  if [ -n "$NODE_BIN" ]; then
+    echo "Taiao: source files changed -- rebuilding dist/bundle.js..."
+    if ! "$NODE_BIN" tools/build.mjs; then
+      echo "Taiao: THE BUILD FAILED -- the game will run the PREVIOUS bundle."
+      echo "Fix the error above and double-click again."
+    fi
+  else
+    echo "Taiao: WARNING -- source files are newer than dist/bundle.js, but node"
+    echo "wasn't found, so your edits are NOT in the game. Install Node.js or run:"
+    echo "    node tools/build.mjs"
+  fi
+fi
+
 if responds; then
   echo "Taiao: a server is already running on port $PORT."
 else

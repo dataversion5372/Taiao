@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — MALTING ICON PROMPT
+TAIAO — MALTING ICON PROMPT
 =======================================
 AUDIT: the Malting skill (js/skills/fillout.js) has 32 recipes — one per grain,
 "Malt <grain>" — but they all funnel into just ~6 shared malt items (malt,

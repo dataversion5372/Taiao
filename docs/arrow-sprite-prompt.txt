@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — "ARROWS & ARROWHEADS" REFERENCE SHEET PROMPT
+TAIAO — "ARROWS & ARROWHEADS" REFERENCE SHEET PROMPT
 Covers the 16 metals used by the Weapons/Toolmaking roster (geartiers.js),
 in level order (Iron = lowest tier, Stormsteel = highest). Matches the exact
 visual convention of Tools.png / weapons.png / armour.png / ingots.png

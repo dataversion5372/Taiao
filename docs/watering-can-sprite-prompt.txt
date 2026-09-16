@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — WATERING CAN ICON PROMPT
+TAIAO — WATERING CAN ICON PROMPT
 ============================================
 CONTEXT: The Watering can (js/skills/farming.js, item id "watering_can") is a
 Pomiculture tool — tend a picked-bare fruit tree with it to regrow the fruit.

@@ -24,6 +24,15 @@
 // persists player.tutorial.
 "use strict";
 
+// ---------- dev: walk the isle without doing the work ----------
+// COMPILE-TIME flag (edit + rebuild, like DEV_MODE): with STAGE_SKIP true,
+// every journey gate stands open — stepping through one AUTO-COMPLETES all
+// stages up to it: keepers marked met (the staged sky rolls), every goal
+// and flag credited, keeper gifts granted, and a catch-up bundle of the
+// items those stages would have put in your pack (logs, whitebait, forged
+// kit, pails, flour, arrows…) appears in your inventory. Ship FALSE.
+const STAGE_SKIP = true;
+
 // ---------- data consumed by world/chunks.js ----------
 // Ambient monster kinds allowed to keep their spawns on the isle — everything
 // else the biome rolls is stripped (the isle must be safe for a level-1 hand).
@@ -56,7 +65,10 @@ const TUT_TUTORS = [
   { id: "sky",    name: "Ravenna",   role: "Skywatcher",  pod: 11, dx: 0,  dy: -2, look: 1, mix: 312 },
   { id: "candle", name: "Miles",     role: "Candlemaker", pod: 12, dx: 3,  dy: -3, look: 4, mix: 277 },
   { id: "lore",   name: "Runa",      role: "Loremaster",  pod: 13, dx: 3,  dy: -3, look: 4, mix: 284 },
-  { id: "ferry",  name: "Sigrid",    role: "Navigator",   pod: 14, dx: 0,  dy: 26, look: 5, mix: 291 },
+  // Sigrid stands at the PIER'S BASE (the deck runs seaward along pod 14's
+  // -108° radial from k=12) — her old (0,+26) seat was a stale serpentine-
+  // era offset that landed her INSIDE the middle ring, behind the fence
+  { id: "ferry",  name: "Sigrid",    role: "Navigator",   pod: 14, dx: -3, dy: -10, look: 5, mix: 291 },
 ];
 
 // The ROSTER CHARACTER behind tutor i — shared by chunks.js (NPC derivation)
@@ -93,15 +105,22 @@ var TUT_VILLAGE = (() => {
     const a = (ring / n) * Math.PI * 2 - Math.PI / 2;
     seats[tu.id] = { pod, dx: Math.round(Math.cos(a) * 5.5), dy: Math.round(Math.sin(a) * 5.5) };
   });
+  // LAMP COVERAGE LIKE A REAL SETTLEMENT (user req 2026-09-16: the village
+  // must read WELL LIT at night, not a few lonely stands): mirroring
+  // daynight.js villageCandleSpots — a stand by every house door, an indoor
+  // glow per house, a lit ring around each green, and a jittered coverage
+  // grid every 8 tiles across both pods so the pools overlap street-wide.
+  // (~55 spots across the two pods — city-grade density. Water/decor tiles
+  // are skipped at emit time in villageLamps, and `inside` spots are left
+  // alone by the chunks.js tile-clearing pass so house floors stay intact.)
   const lamps = [];
-  for (let k = 0; k < 4; k++) {
-    const a = (k / 4) * Math.PI * 2 + Math.PI / 8;
-    lamps.push({ pod: 0, dx: Math.round(Math.cos(a) * 7.5), dy: Math.round(Math.sin(a) * 7.5) });
-  }
-  for (let k = 0; k < 6; k++) {
-    const a = (k / 6) * Math.PI * 2 + Math.PI / 6;
-    lamps.push({ pod: 14, dx: Math.round(Math.cos(a) * 7.5), dy: Math.round(Math.sin(a) * 7.5) });
-  }
+  const lampSeen = new Set();
+  const lampAdd = (pod, dx, dy, inside) => {
+    const k = pod + ":" + dx + "," + dy;
+    if (lampSeen.has(k)) return;
+    lampSeen.add(k);
+    lamps.push({ pod, dx, dy, inside: !!inside });
+  };
   // PROPER HOUSES (user req 2026-09-16): real village buildings — chunks.js
   // stamps these through the same stampBuilding pipeline natural settlements
   // use (floors, walls, roof, a south door; job/kind null so no shopkeeper
@@ -116,6 +135,28 @@ var TUT_VILLAGE = (() => {
     { pod: 14, x0: -14, y0: -3,  w: 5, h: 5 },
     { pod: 14, x0: 9,   y0: 3,   w: 5, h: 5 },
   ];
+  // build the lamp field (needs `houses` above): door stands + indoor glows…
+  for (const hb of houses) {
+    lampAdd(hb.pod, hb.x0 + (hb.w >> 1) + 1, hb.y0 + hb.h, false);       // beside the door, not in it
+    lampAdd(hb.pod, hb.x0 + (hb.w >> 1), hb.y0 + (hb.h >> 1), true);     // through-roof window glow
+  }
+  // …a lit ring around each green…
+  for (const [pod, n] of [[0, 6], [14, 8]])
+    for (let k = 0; k < n; k++) {
+      const a = (k / n) * Math.PI * 2 + Math.PI / n;
+      lampAdd(pod, Math.round(Math.cos(a) * 7.5), Math.round(Math.sin(a) * 7.5), false);
+    }
+  // …and a jittered coverage grid so no street corner stays dark
+  for (const pod of [0, 14])
+    for (let gx = -16; gx <= 16; gx += 8)
+      for (let gy = -16; gy <= 16; gy += 8) {
+        if (Math.hypot(gx, gy) < 6) continue;                            // the ring owns the green
+        const jx = gx + (((gx * 7 + gy * 13 + pod) % 3 + 3) % 3) - 1;
+        const jy = gy + (((gx * 5 + gy * 11 + pod) % 3 + 3) % 3) - 1;
+        if (houses.some(hb => hb.pod === pod && jx >= hb.x0 - 1 && jx < hb.x0 + hb.w + 1 &&
+                              jy >= hb.y0 - 1 && jy < hb.y0 + hb.h + 1)) continue;
+        lampAdd(pod, jx, jy, false);
+      }
   return { seats, lamps, houses };
 })();
 
@@ -214,7 +255,8 @@ const TUT_CONTENT = (() => {
     //  · copper ore = 48 + 8 = 56 → EIGHT rocks × 7 ore
     //  · tin = 4 → TWO rocks × 2
     //  · iron = 30 (FIVE firings → 30 bars) → FIVE rocks × 6
-    //    (the forge spends ~22 bars: 20 arrowhead batches + a 2-bar sword)
+    //    (the forge now spends only ~4 bars: 2 arrowhead batches + a
+    //     2-bar sword — the five firings stand as the user specified them)
     //  · mining xp (30/ore): Ore-mining 2 at ore #22, 3 (the iron rock's
     //    req) at #39 — copper + tin alone are 60 ores, so the ladder
     //    unlocks itself before the first iron swing
@@ -428,14 +470,14 @@ const Tutorial = (() => {
     // the NEXT keeper's seen flag; credits never lower an existing count.
     {
       const MIG = [
-        ["fish",  { queuedTrees: 10, trees: 10 }],                 // bush: queue+fell grew to 10
-        ["smith", { braced: 1, whitebait: 10 }],                   // fish: brace goal + 10 whitebait
-        ["swim",  { furnaceLit: 1 }],                              // smith: light-the-furnace goal
+        ["fish",  { queuedTrees: 5, trees: 5 }],                   // bush: queue+fell
+        ["smith", { braced: 1, whitebait: 5 }],                    // fish: brace goal + whitebait
+        ["swim",  { furnaceLit: 1, arrowheads: 30 }],              // smith: furnace + head counters
         ["bank",  { isletPearl: 1, isletReturn: 1 }],              // swim: the motu errand
-        ["farm",  { deposits: 1, pails: 15 }],                     // bank: the pails goal
-        ["wood",  { cropWheat: 50, cropPotato: 50, cropApple: 50, cropSage: 50, cropFlax: 50,
-                    flour: 50, eggs: 10, feathers: 100, twinned: 1 }], // farm: 50s + feathers + the split lesson
-        ["cook",  { shafts: 300, arrow_iron: 300, merged: 1 }],    // wood: the 300-ladder + the reunion
+        ["farm",  { deposits: 1, pails: 9 }],                      // bank: the pails goal
+        ["wood",  { cropWheat: 20, cropPotato: 20, cropApple: 20, cropSage: 20, cropFlax: 20,
+                    flour: 10, eggs: 10, feathers: 10, twinned: 1 }],  // farm goals + the split lesson
+        ["cook",  { shafts: 300, arrow_iron: 30, merged: 1 }],     // wood: the shaft ladder + the reunion
         ["candle", { chatted: 1 }],                                // sky: Ravenna's chat
         ["ferry", { airRunes: 50 }],                               // lore: altar runecrafting
       ];
@@ -480,7 +522,7 @@ const Tutorial = (() => {
   // req 1; the real ladder is Ore-mining/Smelting 1→3 (copper swings and
   // copper/bronze bars) to reach the iron rock and bar.
   const SMITH_ITEMS = ["shortsword_iron", "chainbody_bronze", "targe_bronze"];
-  const SMITH_HEADS = 300; // iron arrowheads to smith (20 anvil batches of 15)
+  const SMITH_HEADS = 30; // iron arrowheads to smith (2 anvil batches of 15 — user cut 300 → 30)
   const SMITH_RECIPES = new Set(["smith_shortsword_iron", "smith_arrowhead_iron", "smith_chainbody_bronze", "smith_targe_bronze"]);
   const smithForged = () => { const t = state(); const m = (t && t.smithMade) || {}; return SMITH_ITEMS.every(id => m[id]); };
   // a tutor's stage counts as cleared only when its dialogue is seen AND its
@@ -512,22 +554,23 @@ const Tutorial = (() => {
   // bar's itemised requirement rows (goalItems), so the two can't drift.
   // the Bushman also TEACHES the Option+click queue: queue ten felling jobs,
   // then let the hands work the list (split.js capture → onQueue below)
-  const BUSH_GOALS = [["queuedTrees", 10, "queue up 10 trees for felling (Option+click)"], ["trees", 10, "fell 10 trees"]];
+  const BUSH_GOALS = [["queuedTrees", 5, "queue up 5 trees for felling (Option+click)"], ["trees", 5, "fell 5 trees"]];
   // the Fisher's first lesson is the BRACE (hold Shift in a current) — the
   // net is useless until your feet are dug in (movement.js → onBrace)
-  const FISH_GOALS = [["braced", 1, "brace yourself in the water (hold Shift)"], ["whitebait", 10, "catch 10 whitebait"]];
-  const BANK_GOALS = [["deposits", 1, "deposit an item"], ["pails", 15, "make 15 empty pails"]];
+  const FISH_GOALS = [["braced", 1, "brace yourself in the water (hold Shift)"], ["whitebait", 5, "catch 5 whitebait"]];
+  const BANK_GOALS = [["deposits", 1, "deposit an item"], ["pails", 9, "make 9 empty pails"]];
   // 50 of EACH crop (user req 2026-09-16) off the fenced 5×5: a first full
   // harvest averages ~37 per crop, so replanting-and-regrowing is required.
-  // The 100 feathers are Torra's exact arrow budget (20 batches × 5).
+  // The 10 feathers are Torra's exact arrow budget (2 batches × 5).
   // …and the SPLIT-SELVES lesson lives here (user req 2026-09-16): the regrow
   // waits make the farm the natural place to learn X — one self reaps and
   // replants while the other works elsewhere (tick() detects both busy at
   // once). The reunion is Torra's goal, via Kenji's shortcut gate.
-  const FARM_GOALS = [["cropWheat", 50, "harvest 50 wheat"], ["cropPotato", 50, "harvest 50 potatoes"], ["cropApple", 50, "harvest 50 apples"], ["cropSage", 50, "harvest 50 sageleaves"], ["cropFlax", 50, "harvest 50 flax"], ["flour", 50, "mill 50 flour"], ["eggs", 10, "collect 10 eggs"], ["feathers", 100, "collect 100 feathers"], ["twinned", 1, "split in two (press X) & keep both selves working"]];
+  const FARM_GOALS = [["cropWheat", 20, "harvest 20 wheat"], ["cropPotato", 20, "harvest 20 potatoes"], ["cropApple", 20, "harvest 20 apples"], ["cropSage", 20, "harvest 20 sageleaves"], ["cropFlax", 20, "harvest 20 flax"], ["flour", 10, "mill 10 flour"], ["eggs", 10, "collect 10 eggs"], ["feathers", 10, "collect 10 feathers"], ["twinned", 1, "split in two (press X) & keep both selves working"]];
   // 300 shafts (20 cuts × 35 xp = 700) land Fletching 2 — exactly the level
-  // iron arrows demand; the wand is GONE (no magic on the isle, user req)
-  const WOOD_GOALS = [["merged", 1, "merge your selves back into one (X, side by side)"], ["shafts", 300, "cut 300 arrow shafts"], ["arrow_iron", 300, "fletch 300 iron arrows"], ["shortbow", 1, "carve a shortbow"]];
+  // iron arrows demand (the shortbow is req 2 as well — data.js); the wand
+  // is GONE (no magic on the isle, user req)
+  const WOOD_GOALS = [["merged", 1, "merge your selves back into one (X, side by side)"], ["shafts", 300, "cut 300 arrow shafts"], ["arrow_iron", 30, "fletch 30 iron arrows"], ["shortbow", 1, "carve a shortbow"]];
   const COOK_GOALS = [["fritters", 5, "cook 5 whitebait fritters"], ["cheese", 1, "make cottage cheese"], ["flatbread", 5, "bake 5 flatbread"]];
   const WAR_GOALS  = [["slimes", 3, "slay 3 slimes"], ["tallow", 3, "gather 3 tallow"], ["actionRune", 3, "gather 3 action runes"], ["stateRune", 3, "gather 3 state runes"], ["hide", 3, "gather 3 hide"], ["koreke", 5, "slay 5 koreke"]];
   // the Swim-Master's islet errand (user req 2026-09-16): snorkel out past
@@ -547,8 +590,8 @@ const Tutorial = (() => {
     ({ on: cnt(t, c) >= n, num: Math.min(n, cnt(t, c)), need: n, label }));
   const REQS = {
     guide: { task: "take a form",              done: () => hasBody() },
-    bush:  { task: "queue 10 trees & fell 10 trees", need: BUSH_GOALS.length, done: t => allGoals(t, BUSH_GOALS), num: t => numGoals(t, BUSH_GOALS), items: goalItems(BUSH_GOALS) },
-    fish:  { task: "brace in the current & catch 10 whitebait", need: FISH_GOALS.length, done: t => allGoals(t, FISH_GOALS), num: t => numGoals(t, FISH_GOALS), items: goalItems(FISH_GOALS) },
+    bush:  { task: "queue 5 trees & fell 5 trees", need: BUSH_GOALS.length, done: t => allGoals(t, BUSH_GOALS), num: t => numGoals(t, BUSH_GOALS), items: goalItems(BUSH_GOALS) },
+    fish:  { task: "brace in the current & catch 5 whitebait", need: FISH_GOALS.length, done: t => allGoals(t, FISH_GOALS), num: t => numGoals(t, FISH_GOALS), items: goalItems(FISH_GOALS) },
     // forge the four pieces + LIGHT THE FURNACE — equipping is advice now,
     // not a gate (user req 2026-09-16)
     smith: { task: "light the furnace & forge your kit", need: SMITH_ITEMS.length + 2,
@@ -564,9 +607,9 @@ const Tutorial = (() => {
              } },
     soap:  { task: "wash off all your stink",  done: t => !!t.washedClean },
     swim:  { task: "fetch the islet's pearl & swim it home", need: SWIM_GOALS.length, done: t => allGoals(t, SWIM_GOALS), num: t => numGoals(t, SWIM_GOALS), items: goalItems(SWIM_GOALS) },
-    bank:  { task: "deposit an item & make 15 pails", need: BANK_GOALS.length, done: t => allGoals(t, BANK_GOALS), num: t => numGoals(t, BANK_GOALS), items: goalItems(BANK_GOALS) },
-    farm:  { task: "harvest 50 of each crop (replant!), mill flour, gather eggs & feathers", need: FARM_GOALS.length, done: t => allGoals(t, FARM_GOALS), num: t => numGoals(t, FARM_GOALS), items: goalItems(FARM_GOALS) },
-    wood:  { task: "cut 300 shafts, fletch 300 arrows, carve a bow", need: WOOD_GOALS.length, done: t => allGoals(t, WOOD_GOALS), num: t => numGoals(t, WOOD_GOALS), items: goalItems(WOOD_GOALS) },
+    bank:  { task: "deposit an item & make 9 pails", need: BANK_GOALS.length, done: t => allGoals(t, BANK_GOALS), num: t => numGoals(t, BANK_GOALS), items: goalItems(BANK_GOALS) },
+    farm:  { task: "harvest 20 of each crop, mill flour, gather eggs & feathers", need: FARM_GOALS.length, done: t => allGoals(t, FARM_GOALS), num: t => numGoals(t, FARM_GOALS), items: goalItems(FARM_GOALS) },
+    wood:  { task: "cut 300 shafts, fletch 30 arrows, carve a bow", need: WOOD_GOALS.length, done: t => allGoals(t, WOOD_GOALS), num: t => numGoals(t, WOOD_GOALS), items: goalItems(WOOD_GOALS) },
     cook:  { task: "cook fritters, cheese & flatbread", need: COOK_GOALS.length, done: t => allGoals(t, COOK_GOALS), num: t => numGoals(t, COOK_GOALS), items: goalItems(COOK_GOALS) },
     war:   { task: "clear the pit & slay 5 koreke", need: WAR_GOALS.length, done: t => allGoals(t, WAR_GOALS), num: t => numGoals(t, WAR_GOALS), items: goalItems(WAR_GOALS) },
     // the Skywatcher's stage also SHOWCASES the semantic chat (user req):
@@ -974,14 +1017,86 @@ const Tutorial = (() => {
   // as the staged dusk deepens (thr staggering, same as settlement stands)
   function villageLamps() {
     if (!villageAt() || typeof TUT_VILLAGE === "undefined") return [];
-    return TUT_VILLAGE.lamps.map((L, i) => {
+    const out = [];
+    TUT_VILLAGE.lamps.forEach((L, i) => {
       const [px, py] = podXY(L.pod);   // stands light both halves of the shore
-      return {
-        x: px + L.dx, y: py + L.dy, inside: false, tier: 15 + (i % 5),
+      const x = px + L.dx, y = py + L.dy;
+      // outdoor stands never sit in the surf or on top of a tent/well —
+      // grid candidates near the coast or a stamp are simply skipped
+      if (!L.inside && typeof world !== "undefined" && world &&
+          (world.isWater(x, y) || world.getDecor(x, y))) return;
+      out.push({
+        x, y, inside: !!L.inside, tier: 15 + (i % 5),
         thr: 0.08 + (i / TUT_VILLAGE.lamps.length) * 0.35,
-        stand: ["candlestand_wood", "candlestand_iron", "candlestand_brass"][i % 3],
-      };
+        stand: L.inside ? null : ["candlestand_wood", "candlestand_iron", "candlestand_brass"][i % 3],
+      });
     });
+    return out;
+  }
+
+  // ---------- STAGE_SKIP: auto-complete stages at the gate ----------
+  // With the compile-time STAGE_SKIP flag on (top of file), stepping through
+  // journey arch i completes every stage up to i: seen (the sky rolls),
+  // goals/flags credited, keeper gifts granted, and a CATCH-UP bundle of the
+  // items those stages would have banked in your pack. Idempotent per stage.
+  const SKIP_PROG = {   // per-stage goal counters/flags a completion sets
+    bush:  t => Object.assign(t.prog, { queuedTrees: 5, trees: 5 }),
+    fish:  t => Object.assign(t.prog, { braced: 1, whitebait: 5 }),
+    smith: t => { Object.assign(t.prog, { furnaceLit: 1, arrowheads: SMITH_HEADS });
+                  t.smithMade = { shortsword_iron: 1, chainbody_bronze: 1, targe_bronze: 1 }; },
+    swim:  t => Object.assign(t.prog, { isletPearl: 1, isletReturn: 1 }),
+    bank:  t => Object.assign(t.prog, { deposits: 1, pails: 9 }),
+    farm:  t => Object.assign(t.prog, { cropWheat: 20, cropPotato: 20, cropApple: 20,
+                  cropSage: 20, cropFlax: 20, flour: 10, eggs: 10, feathers: 10, twinned: 1 }),
+    wood:  t => Object.assign(t.prog, { merged: 1, shafts: 300, arrow_iron: 30, shortbow: 1 }),
+    cook:  t => Object.assign(t.prog, { fritters: 5, cheese: 1, flatbread: 5 }),
+    war:   t => Object.assign(t.prog, { slimes: 3, tallow: 3, actionRune: 3, stateRune: 3, hide: 3, koreke: 5 }),
+    soap:  t => { t.washedClean = 1; },
+    sky:   t => { t.reachedKnoll = 1; t.prog.chatted = 1; },
+    candle: t => { t.candleMade = 1; },
+    lore:  t => Object.assign(t.prog, { airRunes: 50 }),
+  };
+  const SKIP_ITEMS = {  // what the stage's WORK would have left in the pack
+    bush:  [["logs", 30]],
+    fish:  [["raw_fish", 5]],
+    smith: [["shortsword_iron", 1], ["chainbody_bronze", 1], ["targe_bronze", 1],
+            ["arrowhead_iron", 30], ["iron_bar", 6]],
+    swim:  [["pearl", 1]],
+    bank:  [["pail", 9]],
+    farm:  [["flour", 10], ["egg", 10], ["feathers", 10], ["wheat", 10]],
+    wood:  [["arrow_iron", 30], ["shortbow", 1]],
+    cook:  [["cooked_fish", 5], ["cottage_cheese", 1], ["flatbread", 5]],
+    war:   [["tallow", 3], ["hide", 3], ["action_rune", 3], ["state_rune", 3]],
+    candle: [["rushlight", 1]],
+    lore:  [["air_rune", 50]],
+  };
+  function skipStagesThrough(gi) {
+    const t = state(); if (!t) return;
+    t.prog = t.prog || {};
+    t.skipGiven = t.skipGiven || {};
+    // no body yet? STAGE_SKIP picks one at RANDOM (user req) so the guide
+    // stage can complete and the world renders a walker, not a spark
+    if (!hasBody() && typeof CHAR_LIST !== "undefined" && CHAR_LIST.length)
+      player.character = Math.floor(Math.random() * CHAR_LIST.length);
+    const prev = _seenCount;
+    for (let i = 0; i <= gi && i < TUT_TUTORS.length; i++) {
+      const id = TUT_TUTORS[i].id;
+      if (t.skipGiven[id]) continue;
+      t.skipGiven[id] = 1;
+      t.seen[id] = 1;
+      if (SKIP_PROG[id]) SKIP_PROG[id](t);
+      if (DLG[id] && DLG[id].reward) grant(id, DLG[id].reward);
+      for (const [iid, qty] of SKIP_ITEMS[id] || [])
+        if (typeof ITEMS !== "undefined" && ITEMS[iid] && typeof addItem === "function") addItem(iid, qty);
+    }
+    _seenCount = Object.keys(t.seen).length;
+    if (_seenCount !== prev) {
+      if (typeof log === "function")
+        log(`STAGE_SKIP: stages through ${tutorName(TUT_TUTORS[Math.min(gi, TUT_TUTORS.length - 1)])} auto-completed — gifts and goods added to your pack.`, "warn");
+      advanceStage(prev);
+      refreshBar();
+      if (typeof saveGame === "function") saveGame();
+    }
   }
 
   // ---------- the gates & the seal ----------
@@ -1020,6 +1135,7 @@ const Tutorial = (() => {
     if (gi >= 0) {
       const f = frontier();
       if (f >= gi + 1) return false;                         // keeper gi done — gate open
+      if (STAGE_SKIP) { skipStagesThrough(gi); return false; } // dev walk-through: auto-complete + catch-up items
       const keeper = TUT_TUTORS[Math.min(f, TUT_TUTORS.length - 1)];
       // the very first gate won't open until you've taken a form
       if (keeper.id === "guide" && !hasBody())
@@ -1129,11 +1245,11 @@ const Tutorial = (() => {
           t: ["Out in the wide world the forests fill with kauri, rimu, kahikatea, tōtara — real giants, some of the tallest and oldest trees anywhere. Higher-tier trees need a higher Woodcutting level and better axes, but their timber is worth it.",
               "Listen in the deep bush and you'll meet the birds too — tūī, kererū, kea, even kiwi scratching about at night."] },
         { h: "Work the queue",
-          t: ["Now the woodsman's real trick: PLANNING the day's felling. Hold OPTION and CLICK a tree and the job joins your QUEUE — a white ring marks every tree waiting its turn, and your hands move to the next the moment the last stump settles. QUEUE TEN FELLING JOBS, and FELL TEN TREES — that's my lesson, both halves.",
+          t: ["Now the woodsman's real trick: PLANNING the day's felling. Hold OPTION and CLICK a tree and the job joins your QUEUE — a white ring marks every tree waiting its turn, and your hands move to the next the moment the last stump settles. QUEUE FIVE FELLING JOBS, and FELL FIVE TREES — that's my lesson, both halves.",
               "It works for nearly everything: harvest rows, ore terraces, pickups. Queue the work, then let yourself get on with it."] },
         { h: "Tools matter",
           t: ["A better axe fells faster. That's true everywhere: good field tools speed your gathering, and fine workshop tools raise the quality of what you craft. Keep those LOGS — you'll saw, fletch and carpenter with them further up the path.",
-              "Ten trees down, then here's the fun of it: there's NO dry road to the cove. Follow my path to where the stream slips through the chamber wall, wade in, and let the current CARRY you — the RIVER GATE in the ring wall swings open the moment your tenth tree falls, and the water itself will set you on {fish}'s bank. (Hold SHIFT any time you'd rather stand than drift.)"] },
+              "Five trees down, then here's the fun of it: there's NO dry road to the cove. Follow my path to where the stream slips through the chamber wall, wade in, and let the current CARRY you — the RIVER GATE in the ring wall swings open the moment your fifth tree falls, and the water itself will set you on {fish}'s bank. (Hold SHIFT any time you'd rather stand than drift.)"] },
       ],
     },
     fish: {
@@ -1143,7 +1259,7 @@ const Tutorial = (() => {
           t: ["Kia ora — and what an entrance, riding the gate down like a whitebait yourself! See where my little stream meets the sea? That's a RIVERMOUTH — and every spring the whitebait (īnanga) run up it in silver clouds. Take my scoop-net and my old rod; the net's the tool for whitebait.",
               "First lesson before any net touches water: wade in and BRACE — hold SHIFT with your feet dug in against the current. Feel it stop pulling? THAT is the stance you fish from; let go and the river tears you off the spot. Brace once for me, then we net. Every fishing spot in the world holds ONE kind of fish — shallow shore, deep sea and freshwater each carry their own; rarer waters, rarer fish."] },
         { h: "Fish of Aotearoa",
-          t: ["These waters teem — hoki and snapper offshore, tuna (that's our eel!) and kōura in the fresh water, and whitebait right here at the mouth. Net TEN of them, braced the whole while; you'll want every one.",
+          t: ["These waters teem — hoki and snapper offshore, tuna (that's our eel!) and kōura in the fresh water, and whitebait right here at the mouth. Net FIVE of them, braced the whole while; you'll want every one — the fritters ahead ask for all five.",
               "Because raw kai does you no good. Cooked, it heals you — and the finest dishes grant buffs: faster gathering, harder hitting, tougher skin."] },
         { h: "Whitebait fritters",
           t: ["Here's a secret worth the whole isle: HOLD ONTO your raw whitebait. Up the path {farm} keeps the fowl for eggs, and {cook} will show you how to bind whitebait and egg into golden WHITEBAIT FRITTERS. Best kai on Tūhura.",
@@ -1161,7 +1277,7 @@ const Tutorial = (() => {
               "Plain logs burn hot enough to smelt copper and bronze — but IRON wants a fiercer fire. Fell a MĀNUKA when your Woodcutting reaches 3 and stoke with its rākau, and keep striking until your Firemaking can hold that heat. The flint never wears out; it lights every fire you'll ever lay."] },
         { h: "Forge your kit",
           t: ["No hand-outs from me: you'll earn your gear at the anvil. Forge all FOUR pieces:",
-              "• an IRON SHORTSWORD and IRON ARROWHEADS — three hundred heads, twenty anvil batches (Weaponsmithing) • a BRONZE CHAINBODY and a BRONZE TARGE (Armoursmithing).",
+              "• an IRON SHORTSWORD and IRON ARROWHEADS — thirty heads, two anvil batches (Weaponsmithing) • a BRONZE CHAINBODY and a BRONZE TARGE (Armoursmithing).",
               "The forge gate opens when the furnace has ROARED and all four are MADE. Wear them if you're wise — armour SHOWS on your body, tinted to its metal — but the making is the lesson. My anvil forges only those four; the rest of the world's arms wait beyond the isle."] },
         { h: "Everything connects",
           t: ["This is the whole economy in miniature: the miner feeds the smelter, the smelter the smith, the smith arms the fighter, whose drops feed thirty-five other trades. There are THIRTY-TWO tiers of metal out there, humble copper to Eternium, climbing the further you roam.",
@@ -1211,8 +1327,8 @@ const Tutorial = (() => {
           t: ["Big city networks want a signature at their main branch — a grand three-storey hall with a row of tellers. Village co-ops will sign you at the counter.",
               "Here — a hundred coins of seed money. Put something in the vault before you walk on, just to feel it."] },
         { h: "Pails before you go",
-          t: ["One more thing — see my CARPENTER'S BENCH? The camps ahead run on MILK, and milk needs pails. Fell a tree here, saw your logs into PLANKS at the bench, and MAKE FIFTEEN EMPTY PAILS.",
-              "Fifteen pails is a load, so here's the lesson, e hoa: stash the spares in the vault — it carries what your pack can't, and they'll be waiting at any bank you find. {farm}'s fields are through the gate."] },
+          t: ["One more thing — see my CARPENTER'S BENCH? The camps ahead run on MILK, and milk needs pails. Fell a tree here, saw your logs into PLANKS at the bench, and MAKE NINE EMPTY PAILS.",
+              "Nine pails is still an armful, so here's the lesson, e hoa: stash the spares in the vault — it carries what your pack can't, and they'll be waiting at any bank you find. {farm}'s fields are through the gate."] },
       ],
     },
     farm: {
@@ -1220,15 +1336,15 @@ const Tutorial = (() => {
       pages: [
         { h: "The land remembers",
           t: ["Welcome to the heart of the isle! See my little farm behind the fence — FIVE ROWS, five plots each, one row for every crop: wheat, potatoes, apples, sageleaves, flax. All ripe and waiting. Take this hoe and TEN SEEDS of each, and step in through the gate.",
-              "Your task is a real farmer's week: bring in FIFTY of each crop. One picking won't do it — a ripe plot gives five to ten — so here's the marvel: crops grow in REAL time. REPLANT each row as you clear it (sowing takes five seeds; most harvested crops drop one back), and while the rows regrow, mill, tend, wander. The world doesn't pause for anyone — it works alongside you."] },
+              "Your task: bring in TWENTY of each crop — a good picking of every row. And learn the marvel while you're at it: crops grow in REAL time. REPLANT a row after you clear it (sowing takes five seeds; most harvested crops drop one back) and it ripens again in minutes whether you watch or wander. The world doesn't pause for anyone — it works alongside you."] },
         { h: "Mill & tend",
-          t: ["Grain becomes food at the MILLSTONE: mill FIFTY wheat into flour (bran comes off with it) — your whole wheat harvest, ground fine; you'll bake with it up the path. Keep your flax too; it spins into linen for candle wicks later.",
-              "Livestock roam the pasture — TEND them for wool, milk, feathers and eggs. Tend my QUAIL and hens for TEN eggs (save some for the fritters!) and ONE HUNDRED FEATHERS — that's the exact fletching budget for {wood}'s three hundred arrows, so every feather counts. Watch for GIANT animals — one in six is born big and gives double."] },
+          t: ["Grain becomes food at the MILLSTONE: mill TEN wheat into flour (bran comes off with it) — you'll bake with it up the path. Keep your flax too; it spins into linen for candle wicks later.",
+              "Livestock roam the pasture — TEND them for wool, milk, feathers and eggs. Tend my QUAIL and hens for TEN eggs (save some for the fritters!) and TEN FEATHERS — that's the exact fletching budget for {wood}'s thirty arrows, so every feather counts. Watch for GIANT animals — one in six is born big and gives double."] },
         { h: "Be in two places at once",
           t: ["Now the vale's deepest secret, and my favourite: while the rows regrow, DON'T STAND WAITING. Press X and SPLIT — you will tear into TWO SELVES, each with hands, a pack, a will. Leave one here to reap, replant and mill (queue the rows with Option+click and it works the list alone!), and walk the other wherever it's needed. Tab hops between them; your strength divides while you're apart and flows back whole when you rejoin. Keep BOTH selves busy at once — that's my mark.",
               "And here is my gift for the road: see the little gate in the chamber wall to the NORTH-EAST, out through my east arch? MY SHORTCUT. It unbars the moment my stage is done — a straight lane from the bank chamber into {wood}'s camp. Send your free self round to wait there; when the last crop falls, both your roads open at once: one self through the crown's south gate, one through the shortcut — and you meet again at Torra's benches."] },
         { h: "Onward",
-          t: ["So: fifty of each crop — reap, replant, reap again — fifty flour milled, ten eggs and a hundred feathers gathered, and both your selves at work. Keep those pails handy — {cook} up the path keeps COWS, and once your Husbandry reaches THREE they'll fill every pail you carry. When the farm's given up its bounty, {wood} keeps the woodcrafting camp beyond the gates.",
+          t: ["So: twenty of each crop, ten flour milled, ten eggs and ten feathers gathered, and both your selves at work. Keep those pails handy — {cook} up the path keeps COWS, and once your Husbandry reaches THREE they'll fill every pail you carry. When the farm's given up its bounty, {wood} keeps the woodcrafting camp beyond the gates.",
               "And in a real settlement at dusk, watch the lamplighters set glowing candle-stands along the streets, gathered again by dawn. This world lives its own life."] },
       ],
     },
@@ -1238,7 +1354,7 @@ const Tutorial = (() => {
           t: ["Kia ora — both of you, if Kenji taught you right! First things first: stand your two selves SIDE BY SIDE and press X — MERGE back into one. Divided hands are grand for waiting on crops; fletching three hundred arrows wants your whole strength in one pair of arms.",
               "This is the woodcrafting camp. Everything here begins with LOGS — the ones you felled in the bush. At the sawmill you SAW logs into boards; at my bench you shape them further. Three skills live here: Sawing, Fletching and Carpentry. No gifts from me — you'll make your own kit from wood you cut."] },
         { h: "Fletch & carve",
-          t: ["The ladder goes like this. FIRST: cut THREE HUNDRED ARROW SHAFTS at my bench — twenty logs, fifteen shafts a cut. By the last bundle your Fletching will have reached LEVEL TWO, and level two is exactly what iron arrows demand. SECOND: bind them — fifteen shafts, five of the vale's feathers, fifteen of {smith}'s iron heads per batch — until THREE HUNDRED IRON ARROWS fill your quiver. Your hundred feathers and three hundred arrowheads are the exact budget: twenty batches, nothing wasted.",
+          t: ["The ladder goes like this. FIRST: cut THREE HUNDRED ARROW SHAFTS at my bench — twenty logs, fifteen shafts a cut. By the last bundle your Fletching will have reached LEVEL TWO, and level two is exactly what iron arrows demand. SECOND: bind THIRTY IRON ARROWS — two batches of fifteen shafts, five of the vale's feathers and fifteen of {smith}'s iron heads each. Your ten feathers and thirty arrowheads are the exact budget: two batches, nothing wasted (the spare shafts are stock for the road — every archer's pack wants them).",
               "THIRD: carve a SHORTBOW from a couple of logs. That bow and those arrows are how you'll bring down the warden's koreke later, so make them well."] },
         { h: "Onward",
           t: ["Those pails you sawed back at {bank}'s camp will earn their keep soon — {cook} at the next camp keeps cows too, and cows mean milk, and milk means cheese. Then on you go!"] },
@@ -1315,12 +1431,12 @@ const Tutorial = (() => {
     ferry: {
       pages: [
         { h: "Ready for the wide world?",
-          t: ["I'm {ferry}. I have sailed every sea you can dream of — and I'll tell you a navigator's secret: no hull sails OUT of Tūhura. For that there is my karakia. It calls down a pillar of light that will lift you over the roof of the sky and set you down in NEWHAVEN, the great city at the centre of everything.",
+          t: ["I'm {ferry}. I have sailed every sea you can dream of — and I'll tell you a navigator's secret: no hull sails OUT of Tūhura. For that there is my wayfinding song. It calls down a pillar of light that will lift you over the roof of the sky and set you down in NEWHAVEN, the great city at the centre of everything.",
               "But know this: Tūhura exists between the tides. The moment you rise, the mist takes it back — no chart, ship or portal will ever find it again. So take your time, and take every gift."] },
         { h: "The crossing",
           t: ["The way is long and strange. You will climb until the isle is a coin on the sea, fall between worlds the whole night through, and drop out of a MORNING sky over Newhaven — the grand bank, the markets, the quest-givers and the thousand roads all waking beneath you.",
               "Stand ready, and I will sing the light down."],
-          act: [["Sing the karakia — send me up!", "graduate"], ["I'll explore a little longer", "close"]] },
+          act: [["Sing the song — send me up!", "graduate"], ["I'll explore a little longer", "close"]] },
       ],
     },
   };
@@ -1637,7 +1753,7 @@ const Tutorial = (() => {
   }
   function graduate() {
     if (typeof log === "function")
-      log("Sigrid's karakia rises — and the sky answers with a pillar of light.", "gold");
+      log("Sigrid's wayfinding song rises — and the sky answers with a pillar of light.", "gold");
     if (typeof Bifrost !== "undefined" && Bifrost.start) {
       Bifrost.start({ onTeleport: graduateCore, onDone: graduateLogs });
     } else {

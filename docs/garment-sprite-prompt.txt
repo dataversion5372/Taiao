@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — CULTURAL GARMENT ICONS (one sheet, 48 icons)
+TAIAO — CULTURAL GARMENT ICONS (one sheet, 48 icons)
 ===============================================================
 Inventory icons for the 48 cultural garments of the Tailoring wardrobe
 (js/skills/garments.js) — the soft-cloth clothing worn across the 223-character

@@ -44,7 +44,7 @@ function npcCid(npc) {
 
 // ── STATE-conditioned persona (matches the fine-tune dataset schema) ──────────
 // tools/npc_training/emberfall_npc_dialogue_3000.jsonl trains the model on prompts
-// of the exact shape "You are X, an Taiao <role>. Voice=…; traits=…. … STATE:
+// of the exact shape "You are X, a Taiao <role>. Voice=…; traits=…. … STATE:
 // location=…; time=…; weather=…; mood=…; relationship=…; quest=…; player_skill=…;
 // shop_open=…; stock=…; known_fact=…." — so we build the same prompt from live game
 // state. (Bigger untrained models read it fine too.)
@@ -133,6 +133,70 @@ const NPC_HOOKS = ["You dream of one day seeing the far side of the isle.",
   "You once saw strange lights over the ridge and never forgot it.", "Your knees ache before every storm.",
   "You mean to enter the village fair this year.", "You owe the innkeeper a favour you'd rather forget.",
   "You believe your own cooking beats the tavern's."];
+
+// ── starter dialogue bank (tracked in git; zero ML/network dependencies) ──
+// The full semantic-retrieval bank (tools/npc_dialogue/) is ~70MB of
+// Llama-distilled lines, and its runtime (the MiniLM model + ONNX/wasm
+// engine under assets/models/ and libs/npcml/, ~83MB) is ALSO gitignored —
+// see .gitignore. A fresh `git clone` therefore boots with NPCR.state stuck
+// at "failed" forever. Before this bank existed, an NPC in that state only
+// ever repeated its single fixed npc.line, and Tutorial.onChatReply() only
+// fired from a genuine retrieval reply — so Ravenna's "say something & hear
+// her answer" goal could never complete and the Sky Knoll gate (pod 11)
+// softlocked every clone. These lines are original, hand-written (not
+// distilled from any teacher model — CC BY-SA like the rest of the repo's
+// authored text) and stand in whenever the big bank isn't ready; npcBroadcast
+// now counts ANY line actually said as "heard", so chat always progresses.
+const NPC_STARTER_BUCKETS = [
+  { re: /\b(who|what)('?s| is| are).{0,15}\byou\b|your name|about yourself/i, lines: [
+    "Kia ora — just a local, minding my own patch of this isle.",
+    "Ah, you want my life story? Not much to tell: work, weather, and a warm fire at night.",
+    "Me? Same as everyone here — getting by, one day at a time.",
+  ] },
+  { re: /\bweather|rain|storm|wind|cold|warm|sun(ny)?\b/i, lines: [
+    "Fine day for it, wouldn't you say — can't complain about the sky today.",
+    "There's weather coming, I can feel it in my knees before I see a cloud.",
+    "Some days the wind off the water cuts right through you. Not today, though.",
+  ] },
+  { re: /\bquest|help|lost|where|direction|advice|way to\b/i, lines: [
+    "Follow the path and keep your eyes open — most of this isle explains itself.",
+    "Can't say I know everything, but ask around and someone will point you right.",
+    "Best advice I can give: talk to folk, try things, and don't be afraid to get it wrong.",
+  ] },
+  { re: /\bthank/i, lines: [
+    "No trouble at all — glad to help where I can.",
+    "Ah, think nothing of it, e hoa.",
+  ] },
+  { re: /\bbye|farewell|see you|later|going now\b/i, lines: [
+    "Safe travels, then — mind the path.",
+    "Off you go — come by again sometime.",
+  ] },
+];
+const NPC_STARTER_GENERIC = [
+  "Kia ora! Good to see a friendly face about.",
+  "Busy day, busy day — but there's always time for a chat.",
+  "You look like you've been getting into all sorts out there.",
+  "This isle's full of little surprises, if you know where to look.",
+  "Not much news to share today — quiet's a fine thing, now and then.",
+  "Mind how you go — the world's bigger and stranger than it looks from here.",
+  "Every day's a little different out here, even when it looks the same.",
+  "Well now, what brings you round this way?",
+];
+// pick a line from the bucket matching `text` (falling back to the generic
+// pool), skipping ones this NPC has already said recently
+function npcStarterReply(npc, text) {
+  let pool = NPC_STARTER_GENERIC;
+  if (text) for (const b of NPC_STARTER_BUCKETS) if (b.re.test(text)) { pool = b.lines; break; }
+  const cid = npcCid(npc);
+  if (!NPC_CHAT.starterUsed) NPC_CHAT.starterUsed = new Map();
+  let seen = NPC_CHAT.starterUsed.get(cid);
+  if (!seen) NPC_CHAT.starterUsed.set(cid, seen = new Set());
+  let avail = pool.filter(l => !seen.has(l));
+  if (!avail.length) { seen.clear(); avail = pool; }
+  const line = avail[(Math.random() * avail.length) | 0];
+  seen.add(line);
+  return line;
+}
 
 function npcFlair(cid) {
   const h = _npcHash(cid);
@@ -412,15 +476,22 @@ async function npcAskStream(npc, path, payload) {
 function npcGreet(npc, cid) {
   if (!AI_NPC_ENABLED) {
     // retrieval mode: greet from the bank ("Kia ora." opener context)
-    if (NPCR.state !== "ready") { npcRetrievalWarm(); return; } // retry next tick
     const last0 = NPC_CHAT.greetedAt.get(cid) || 0;
     if (now - last0 < 90000) return;
     if (NPC_CHAT.pending.has(cid)) return;
+    if (NPCR.state !== "ready") {
+      // no working bank (fresh clone, offline, load failed, …) — still
+      // greet from the starter pool rather than staying silent forever
+      npcRetrievalWarm();
+      NPC_CHAT.greetedAt.set(cid, now);
+      npcrSayStreaming(npc, npcStarterReply(npc, null));
+      return;
+    }
     NPC_CHAT.greetedAt.set(cid, now);
     NPC_CHAT.pending.add(cid);
     npcRetrieveReply(npc, null)
-      .then(line => { if (line) npcrSayStreaming(npc, line); })
-      .catch(() => {})
+      .then(line => npcrSayStreaming(npc, line || npcStarterReply(npc, null)))
+      .catch(() => npcrSayStreaming(npc, npcStarterReply(npc, null)))
       .finally(() => NPC_CHAT.pending.delete(cid));
     return;
   }
@@ -453,16 +524,18 @@ function npcBroadcast(text) {
       if (NPC_CHAT.pending.has(cid)) continue;
       NPC_CHAT.pending.add(cid);
       const delay = 250 + Math.random() * 600;
+      // Ravenna's stage counts any real heard answer (gameplay/tutorial.js) —
+      // NOT just a successful retrieval hit, so a bank-less clone (or one
+      // where the bridge/model failed to load) can still clear the Sky Knoll
+      // gate via the tracked starter pool below instead of softlocking.
+      const say = line => {
+        npcrSayStreaming(npc, line);
+        if (typeof Tutorial !== "undefined" && Tutorial.onChatReply) Tutorial.onChatReply(npc, line);
+      };
       npcRetrieveReply(npc, text)
         .then(line => new Promise(res => setTimeout(() => res(line), delay)))
-        .then(line => {
-          if (line) {
-            npcrSayStreaming(npc, line);
-            // Ravenna's stage counts a real heard answer (gameplay/tutorial.js)
-            if (typeof Tutorial !== "undefined" && Tutorial.onChatReply) Tutorial.onChatReply(npc, line);
-          } else npcSay(npc, (npc.line || "...").replace(/^"|"$/g, ""));  // bank still loading
-        })
-        .catch(() => npcSay(npc, (npc.line || "...").replace(/^"|"$/g, "")))
+        .then(line => say(line || npcStarterReply(npc, text)))
+        .catch(() => say(npcStarterReply(npc, text)))
         .finally(() => NPC_CHAT.pending.delete(cid));
     }
     return;

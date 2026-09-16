@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — CRAFTING-STATION SPRITE PROMPTS (single-view objects)
+TAIAO — CRAFTING-STATION SPRITE PROMPTS (single-view objects)
 ==========================================================================
 AUDIT: 32 production stations currently share just 8 generic sprites — 13
 different stations all render as "workbench", 5 as "furnace", 4 as

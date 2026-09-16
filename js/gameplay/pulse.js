@@ -39,7 +39,7 @@
 (function () {
   const VER = 1;
   const LS_KEY = (typeof DEV_MODE !== "undefined" && DEV_MODE)
-    ? "emberfall_pulse_cheat_v1" : "emberfall_pulse_v1";
+    ? "taiao_pulse_cheat_v1" : "taiao_pulse_v1"; // migrated, see js/lskeys-migrate.js
 
   // resuming within this of the last persisted heartbeat = same session
   // (cheat-toggle and dev reloads must not inflate the session count)
@@ -521,7 +521,8 @@
     let html = `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;color:#ffe97a;font-size:16px;font-weight:bold;border-bottom:1px solid #3a3050;letter-spacing:1px;">
       <span>Play Pulse — what the game thinks you enjoy</span>
       <span style="font-size:11px;font-weight:normal;color:#a99cc4;letter-spacing:0;">${r.sessions} sessions · ${fmtDur(r.totalSec)} attentive · ${r.cellsSeen} regions roamed</span>
-      <button id="pulseclose" style="margin-left:auto;width:32px;height:32px;background:#453a58;color:#fff;border:1px solid #6b5c8a;cursor:pointer;font-size:15px;">✕</button>
+      <button id="pulseexport" style="margin-left:auto;background:#2a2335;color:#a99cc4;border:1px solid #4c4160;cursor:pointer;font-size:11px;padding:6px 10px;" title="Save a card of what you love and dislike, as an image">Export card</button>
+      <button id="pulseclose" style="width:32px;height:32px;background:#453a58;color:#fff;border:1px solid #6b5c8a;cursor:pointer;font-size:15px;">✕</button>
     </div><div style="flex:1;overflow:auto;padding:12px 16px;font-size:12px;color:#e8dcff;">`;
     if (!r.verdicts.length)
       html += `<div style="color:#a99cc4;padding:20px;">Not enough play observed yet — this fills in as you play.</div>`;
@@ -554,6 +555,9 @@
     html += `<div style="margin-top:14px;color:#5d5478;font-size:10px;">Observed passively from how you play. Stored only on this device — <code>Pulse.log()</code> in the console prints the raw numbers.</div></div>`;
     panelEl.innerHTML = html;
     panelEl.querySelector("#pulseclose").onclick = close;
+    panelEl.querySelector("#pulseexport").onclick = () => {
+      if (typeof Postcard !== "undefined" && Postcard.exportPulseCard) Postcard.exportPulseCard(r);
+    };
   }
 
   function open() {

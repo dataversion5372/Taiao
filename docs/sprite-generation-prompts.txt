@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — SPRITE-SHEET GENERATION PROMPTS
+TAIAO — SPRITE-SHEET GENERATION PROMPTS
 Placeholder item icons still to be drawn for the new production skills.
 Auto-generated from PLACEHOLDER_SPRITES (1082 items across 39 sheets).
 

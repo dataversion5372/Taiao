@@ -1,4 +1,4 @@
-ISLE OF EMBERFALL — LEATHER ARMOUR MATRIX PROMPTS (two sheets, 160 icons)
+TAIAO — LEATHER ARMOUR MATRIX PROMPTS (two sheets, 160 icons)
 =========================================================================
 The full tiered leather-armour set (js/skills/leathercraft.js, "TIERED LEATHER
 ARMOUR"): a 5-piece set for EACH of the 32 leather tiers = 160 inventory icons.

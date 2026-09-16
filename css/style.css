@@ -83,8 +83,8 @@ html, body { height: 100%; background: #1a1620; color: #ddd; font-family: "OpenD
 #minimapwrap #minimap-icons { pointer-events: none; }
 #compass { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; border-radius: 50%; background: rgba(20,16,28,0.7); border: 1px solid #584d6d; pointer-events: none; }
 #minimap-btnrow { display: flex; gap: 4px; width: 312px; }
-#mapbtn, #questbtn, #bestiarybtn, #charbtn, #soapbtn, #pulsebtn { flex: 1; min-width: 0; padding: 4px 2px; background: #2a2335; color: #a99cc4; border: 1px solid #4c4160; cursor: pointer; font-size: 10px; white-space: nowrap; }
-#mapbtn:hover, #questbtn:hover, #bestiarybtn:hover, #charbtn:hover, #soapbtn:hover, #pulsebtn:hover { background: #453a58; color: #fff; }
+#mapbtn, #questbtn, #bestiarybtn, #charbtn, #soapbtn, #pulsebtn, #postcardbtn { flex: 1; min-width: 0; padding: 4px 2px; background: #2a2335; color: #a99cc4; border: 1px solid #4c4160; cursor: pointer; font-size: 10px; white-space: nowrap; }
+#mapbtn:hover, #questbtn:hover, #bestiarybtn:hover, #charbtn:hover, #soapbtn:hover, #pulsebtn:hover, #postcardbtn:hover { background: #453a58; color: #fff; }
 #interactmodebtn { width: 312px; margin-top: 4px; padding: 4px; background: #2a2335; color: #a99cc4; border: 1px solid #4c4160; cursor: pointer; font-size: 11px; }
 #interactmodebtn:hover { filter: brightness(1.25); color: #fff; }
 #interactmodebtn.combat { background: #3a2020; color: #e6a3a3; border-color: #6e3a3a; }

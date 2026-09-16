@@ -6,14 +6,16 @@
 // (a compile-time constant, main/assets.js) at load, so every save/load
 // path here works against exactly one mode's file and a community
 // developer's dev character never mixes with their real one. (The key
-// names still say "cheat" — renaming stored keys would strand saves.)
+// names still say "cheat" — renaming stored keys would strand saves; the
+// taiao_* names below are safe only because js/lskeys-migrate.js copies
+// every emberfall_* key forward, non-destructively, before this file runs.)
 // Callers (5):
 //  storage.js:20,44,66,117,132
-const NORMAL_SAVE_KEY = "emberfall_save_v2";
-const SAVE_KEY = DEV_MODE ? "emberfall_save_cheat_v1" : NORMAL_SAVE_KEY;
+const NORMAL_SAVE_KEY = "taiao_save_v2";
+const SAVE_KEY = DEV_MODE ? "taiao_save_cheat_v1" : NORMAL_SAVE_KEY;
 // Callers (2):
 //  storage.js:80,100
-const OLD_KEY = "emberfall_save_v1";
+const OLD_KEY = "taiao_save_v1";
 let resetting = false; // doReset writes a modified save; don't clobber it on unload
 let gameReady = false;  // guards against beforeunload/autosave firing before init() has loaded/created a player
 // Slot names retired by the 30-slot anatomical equip redesign (2026-09) —
@@ -219,7 +221,7 @@ function exportSave() {
 function importSaveFromText(text) {
   let d;
   try { d = JSON.parse(text); } catch (e) { alert("That file isn't a valid save (bad JSON)."); return; }
-  if (!d || typeof d !== "object" || !d.skills || !d.inv) { alert("That file doesn't look like an Taiao save."); return; }
+  if (!d || typeof d !== "object" || !d.skills || !d.inv) { alert("That file doesn't look like a Taiao save."); return; }
   if (!confirm("Load this save? Your current in-browser character will be overwritten.")) return;
   resetting = true; // prevent beforeunload autosave from clobbering the imported data before reload
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { alert("Couldn't write the save to browser storage: " + e.message); resetting = false; return; }

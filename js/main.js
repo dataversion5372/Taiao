@@ -32,7 +32,7 @@ function bootFailed() {
     if (!raw) { alert("No save found in this browser."); return; }
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
-    a.download = "emberfall-save-" + new Date().toISOString().slice(0, 10) + ".json";
+    a.download = "taiao-save-" + new Date().toISOString().slice(0, 10) + ".json";
     document.body.appendChild(a); a.click(); a.remove();
   };
 }
