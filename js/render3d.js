@@ -1675,6 +1675,24 @@ const R3D = (() => {
   // they present the correct face as the view orbits.
   let objTex = null, objMat = null, objImg = null, objW = 0, objH = 0;
   const objGeomCache = {};
+  // rune altars get their own cloned material (never the shared objMat, or the
+  // tint would bleed onto every tree/rock/station) so it can shimmer — the
+  // stone altar otherwise reads as flat grey and gets lost among the other
+  // Runecrafting-area stonework (user req 2026-09-16)
+  let altarMat = null;
+  function ensureAltarMat() {
+    // clone() gives .color its own independent Color instance, but DROPS
+    // onBeforeCompile (snow accumulation + world-light uTint) — must re-patch
+    // the clone or the altar would render unlit/flat next to everything else
+    if (!altarMat && objMat) { altarMat = objMat.clone(); snowPatchTop(altarMat); }
+    return altarMat;
+  }
+  function tickAltarShimmer() {
+    if (!altarMat) return;
+    const hue = (now / 3400) % 1;
+    const light = 0.55 + Math.sin(now / 900) * 0.12; // a slow pulse on top of the hue cycle
+    altarMat.color.setHSL(hue, 0.65, light);
+  }
   function ensureObjTex() {
     if (objTex || typeof OBJ_SHEET === "undefined") return;
     objImg = new Image();
@@ -2049,8 +2067,10 @@ const R3D = (() => {
     // camera angle — decor uses it so props always show their south frame.
     const frame = forceFrame != null ? (forceFrame & 7) : (8 - camDir) & 7; // else worldDir 0 seen from the eased camera angle
     const gf = objIdx * 8 + frame;
+    const isAltar = typeof OBJ_MAP !== "undefined" && objIdx === OBJ_MAP.altar;
+    const mat = isAltar ? (ensureAltarMat() || objMat) : objMat;
     if (!m) {
-      m = new THREE.Mesh(objGeomFor(gf), objMat);
+      m = new THREE.Mesh(objGeomFor(gf), mat);
       m.rotation.order = "YXZ";
       m.userData.isObj = true;
       if (SHADOWS) {
@@ -5285,6 +5305,7 @@ const R3D = (() => {
     if (typeof ridingEnt === "function" && !player.sailing && ridingEnt()) playerLiftY += 0.4;
     syncChunks();
     syncNodes();
+    tickAltarShimmer();
     syncPlaced();
     syncDecor();
     syncStructures();
