@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - Milling grain-flour inventory-icon sheet (auto-generated) =====
+// ===== Taiao - Milling grain-flour inventory-icon sheet (auto-generated) =====
 // 32 milled grain flours, 8x4 grid of 64px cells, in LEVEL order (req 1..32:
 // wheat Flour -> Celestial quinoa flour). Repoint by the sorted Milling FLOUR
 // ladder (the 2 malt grists keep their own icons). Must load AFTER the recipe/
@@ -6,7 +6,7 @@
 "use strict";
 (function(){
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["ml"] = "assets/sheets/33c411904da5c8d5.webp";
+  ASSET_DATA["ml"] = "assets/sheet-src/ml-milling-icons.webp";
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("ml")) SHEET_KEYS.push("ml");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["ml"] = 64;
   if (typeof SPR !== "undefined") for (let k = 0; k < 32; k++) SPR["i_ml" + k] = ["ml", k % 8, Math.floor(k / 8)];

@@ -1,4 +1,4 @@
-# Isle of Emberfall
+# Taiao
 
 An offline, single-player RPG in the spirit of old-school tile-based browser MMOs
 (RPG MO / early RuneScape), rendered in **3D** (HD-2D style: a WebGL world with a tilted
@@ -27,7 +27,7 @@ guards, a wizard, citizens…) roam Newhaven with dialogue ported from the
 original legacy scripts. If the engine fails to load, the game falls back to the
 original three.js billboard renderer (`js/render3d.js`).
 
-The terrain wears **Isle of Emberfall's own painted tiles**: every ground key
+The terrain wears **Taiao's own painted tiles**: every ground key
 (all 37 biomes' art, roads, floors, farm soil, water) is converted into an
 engine texture at runtime and drawn on the voxel cube tops, with **darkened
 variants on the cliff faces**. The camera is fully **360° rotatable** (hold
@@ -74,7 +74,7 @@ Pieces:
 - `js/sprites/lc-cache-data.js` — base64 cache archives (config, models,
   textures, bz2.wasm) + name→id tables. Regenerate with
   `node tools/build-lc-cache.js "/path/to/retired prototype"`.
-- `js/legacy3d.js` — the bridge: maps Emberfall chunks/biomes to floor types and
+- `js/legacy3d.js` — the bridge: maps Taiao chunks/biomes to floor types and
   heights, decor/nodes to locs, monsters to NPC types; drives animation ticks,
   the camera, picking, pathfinding, and the overlay HUD.
 

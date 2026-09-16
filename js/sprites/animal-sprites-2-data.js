@@ -1,11 +1,11 @@
-// ===== Isle of Emberfall - husbandry animal 8-dir sprites (PixelLab) =====
+// ===== Taiao - husbandry animal 8-dir sprites (PixelLab) =====
 // quail/duck/goat/rabbit/pig/griffon: 8 directional frames + a hue-shifted
 // "spent" frame each, registered as mcd_<kind>_<dir> / <kind>_spent so the
 // monster renderer (dirSpr) and husbSpriteKey pick them up.
 "use strict";
 (function(){
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["ab"] = "assets/sheets/d969c521859f4ffc.webp";
+  ASSET_DATA["ab"] = "assets/sheets/ab-animal-sprites-2.d969c521.webp";
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("ab")) SHEET_KEYS.push("ab");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["ab"] = 64;
   if (typeof SPR !== "undefined") {

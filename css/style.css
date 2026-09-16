@@ -83,8 +83,8 @@ html, body { height: 100%; background: #1a1620; color: #ddd; font-family: "OpenD
 #minimapwrap #minimap-icons { pointer-events: none; }
 #compass { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; border-radius: 50%; background: rgba(20,16,28,0.7); border: 1px solid #584d6d; pointer-events: none; }
 #minimap-btnrow { display: flex; gap: 4px; width: 312px; }
-#mapbtn, #questbtn, #bestiarybtn, #charbtn, #soapbtn { flex: 1; min-width: 0; padding: 4px 2px; background: #2a2335; color: #a99cc4; border: 1px solid #4c4160; cursor: pointer; font-size: 10px; white-space: nowrap; }
-#mapbtn:hover, #questbtn:hover, #bestiarybtn:hover, #charbtn:hover, #soapbtn:hover { background: #453a58; color: #fff; }
+#mapbtn, #questbtn, #bestiarybtn, #charbtn, #soapbtn, #pulsebtn { flex: 1; min-width: 0; padding: 4px 2px; background: #2a2335; color: #a99cc4; border: 1px solid #4c4160; cursor: pointer; font-size: 10px; white-space: nowrap; }
+#mapbtn:hover, #questbtn:hover, #bestiarybtn:hover, #charbtn:hover, #soapbtn:hover, #pulsebtn:hover { background: #453a58; color: #fff; }
 #interactmodebtn { width: 312px; margin-top: 4px; padding: 4px; background: #2a2335; color: #a99cc4; border: 1px solid #4c4160; cursor: pointer; font-size: 11px; }
 #interactmodebtn:hover { filter: brightness(1.25); color: #fff; }
 #interactmodebtn.combat { background: #3a2020; color: #e6a3a3; border-color: #6e3a3a; }
@@ -235,7 +235,17 @@ html, body { height: 100%; background: #1a1620; color: #ddd; font-family: "OpenD
 .panel.active { display: block; }
 #panel-inv { display: block; }                  /* always in flow → sizes #panels */
 #panel-inv:not(.active) { visibility: hidden; }  /* hidden but still the sizer */
-#panel-equip, #panel-skills, #panel-help { position: absolute; inset: 0; }
+#panel-equip, #panel-skills, #panel-goals, #panel-help, #panel-cheats { position: absolute; inset: 0; }
+
+/* cheat-mode Cheats panel (js/gameplay/cheats.js) */
+.cheatgroup { margin: 12px 0; padding: 8px; background: #241d30; border: 1px solid #38304a; border-radius: 4px; }
+.cheatgroup .hint { margin: 6px 0 0; }
+.cheatlabel { font-size: 12px; font-weight: bold; color: #cdc2e2; margin-bottom: 6px; }
+.cheatlabel span { font-weight: normal; color: #8f82ab; }
+.cheatgroup input[type="range"] { width: 100%; }
+.cheatgroup select { width: 100%; background: #2a2335; color: #e8e0f5; border: 1px solid #38304a; padding: 4px; }
+.cheatbtns { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.cheatbtns button { flex: 1 1 auto; padding: 4px 6px; font-size: 11px; }
 #sidebar-spacer { flex: 1 1 auto; min-height: 0; }
 
 /* Plain labeled rows, not a body-shaped layout — one row per slot, label on
@@ -436,13 +446,16 @@ html, body { height: 100%; background: #1a1620; color: #ddd; font-family: "OpenD
   border: 1px solid #4c4160; border-radius: 3px; font: inherit; font-size: 12px;
 }
 #banksearch:focus { outline: none; border-color: #8f7bbf; }
-#bankcats { display: flex; gap: 4px; flex-wrap: wrap; }
-#bankcats button {
-  padding: 4px 10px; background: #2a2335; color: #a99cc4; border: 1px solid #4c4160;
-  border-radius: 3px; cursor: pointer; font-size: 11px;
+#bankcats { display: flex; gap: 4px; align-items: center; }
+#bankcatsel {
+  padding: 4px 8px; max-width: 230px; background: #2a2335; color: #cfc5e2;
+  border: 1px solid #4c4160; border-radius: 3px; cursor: pointer;
+  font: inherit; font-size: 12px;
 }
-#bankcats button:hover { background: #3a3147; color: #ddd; }
-#bankcats button.active { background: #7c5fd3; color: #fff; border-color: #7c5fd3; }
+#bankcatsel:hover { background: #3a3147; color: #ddd; }
+#bankcatsel:focus { outline: none; border-color: #8f7bbf; }
+#bankcatsel optgroup { background: #1d1729; color: #8f7bbf; font-style: normal; }
+#bankcatsel option { background: #2a2335; color: #cfc5e2; }
 #bankdepbtns { display: flex; gap: 4px; margin-left: auto; }
 #bankdepbtns button {
   padding: 4px 10px; background: #2f5a35; color: #cfe8d2; border: 1px solid #4d8a56;

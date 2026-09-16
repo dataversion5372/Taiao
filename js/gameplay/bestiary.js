@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — in-game bestiary =====
+// ===== Taiao — in-game bestiary =====
 // A browsable catalogue of every creature: sprite, level, spawn biomes and drop
 // table. Without cheat mode you only see creatures you've SLAIN (player.kills,
 // recorded in combat.js killMonster). With CHEAT_MODE on, every creature shows.

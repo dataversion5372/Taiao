@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — per-character physical build & aptitudes =====
+// ===== Taiao — per-character physical build & aptitudes =====
 // Every playable character (CHAR_LIST) and world NPC (MIX_NPCS) is a different
 // race/build, so each gets a UNIQUE stat block derived from its own art-prompt
 // description (the folder / title / key strings). We read the race, class/role

@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — active action scheduler =====
+// ===== Taiao — active action scheduler =====
 "use strict";
 
 // Callers (1):
@@ -18,12 +18,17 @@ function updateAction() {
   if (!act) return;
   if (player.stunUntil && now < player.stunUntil) return;
   if (act.kind === "combat") { tickCombat(act); return; }
+  // generic action-progress capture: whenever any act (re)schedules its next
+  // tick, remember the window — the overlay draws a loading bar from it for
+  // EVERY timed skill (gather, craft, tend, till, chop, alchemy…)
+  if (act._t1 !== act.nextAt) { act._t0 = now; act._t1 = act.nextAt; }
   if (now < act.nextAt) return;
   if (act.kind === "gather") tickGather(act);
   else if (act.kind === "craft") tickCraft(act);
   else if (act.kind === "harvest") tickHarvest(act);
   else if (act.kind === "till") tickTill(act);
   else if (act.kind === "chop") tickChop(act);
+  else if (act.kind === "husb") tickHusb(act);
   else if (act.kind === "alch") tickAlchemy(act);
   else player.act = null;
   uiDirty = true;

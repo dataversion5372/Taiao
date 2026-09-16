@@ -19,7 +19,7 @@ for folder in sorted(os.listdir(SRC)):
               if (fp/st).is_dir() and st not in EXCLUDE and complete(fp/st)]
     states = (["Idle"] if "Idle" in states else []) + sorted(s for s in states if s != "Idle")
     if states: manifest[folder] = states
-hdr = ('// ===== Isle of Emberfall — per-character OUTFIT states (auto-generated) =====\n'
+hdr = ('// ===== Taiao — per-character OUTFIT states (auto-generated) =====\n'
        '// Maps each character folder (CHAR_LIST[i].folder) to the outfit states it has\n'
        '// under assets/families_source/<folder>/<state>/rotations/{8 dirs}.png. Regenerate:\n'
        '// tools/build_outfit_manifest.py\n"use strict";\n')

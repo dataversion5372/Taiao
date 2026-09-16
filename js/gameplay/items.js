@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — ground items, consuming, and equipment =====
+// ===== Taiao — ground items, consuming, and equipment =====
 "use strict";
 
 // The equipment panel shows worn items in the order they were equipped
@@ -21,6 +21,7 @@ function equipOrderDrop(key) {
 function pickUp(item) {
   if (!groundItems.includes(item)) return;
   if (!addItem(item.id, item.qty)) { log("Your inventory is full.", "warn"); return; }
+  if (typeof Tutorial !== "undefined" && Tutorial.onPickup) Tutorial.onPickup(item.id, item.qty);
   groundItems.splice(groundItems.indexOf(item), 1);
   sfx(item.id === "coins" ? "coins" : "pickup", 0.6);
   log(`You pick up: ${ITEMS[item.id].name}${item.qty > 1 ? " x" + item.qty : ""}.`);
@@ -35,6 +36,7 @@ function pickUpAll(x, y) {
   for (const it of here) {
     if (!groundItems.includes(it)) continue;
     if (!addItem(it.id, it.qty)) { log("Your inventory is full.", "warn"); break; }
+    if (typeof Tutorial !== "undefined" && Tutorial.onPickup) Tutorial.onPickup(it.id, it.qty);
     groundItems.splice(groundItems.indexOf(it), 1);
     took++;
   }
@@ -199,6 +201,7 @@ function equipItem(i) {
   for (const oldId of oldIds) addItem(oldId, 1);
   sfx("equip", 0.6);
   log(`You equip the ${def.name.toLowerCase()}.`);
+  if (typeof Tutorial !== "undefined" && Tutorial.onEquip) Tutorial.onEquip(s.id, slots);
   uiDirty = true;
 }
 // Callers (2):

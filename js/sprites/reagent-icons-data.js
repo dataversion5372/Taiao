@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - monster-reagent inventory-icon sheet (auto-generated) =====
+// ===== Taiao - monster-reagent inventory-icon sheet (auto-generated) =====
 // 8x9 grid of 64px cells: bespoke art for the 66 (of 68) drop-exclusive skill
 // reagents created in js/skills/bestiary-drops.js. Two reagents (forge_ember,
 // leviathan_resin) were absent from the generated sheet and keep their hue-tinted
@@ -7,7 +7,7 @@
 "use strict";
 (function(){
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["rg"] = "assets/sheets/a3b21a7557eac87c.webp";
+  ASSET_DATA["rg"] = "assets/sheets/rg-reagent-icons.a3b21a75.webp";
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("rg")) SHEET_KEYS.push("rg");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["rg"] = 64;
   if (typeof SPR !== "undefined") {

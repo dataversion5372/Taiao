@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - Limeburning product icon sheet (32 items) =====
+// ===== Taiao - Limeburning product icon sheet (32 items) =====
 // 32 distinct limeburning products (stonework.js lp_<recipeId>, one per recipe, pooled
 // into 8 base commodities via ITEM_FAMILY). Slices a hand-made 8x4 sheet into the "lb"
 // sheet and repoints each item's icon (was the base commodity's ic_* placeholder).
@@ -8,7 +8,7 @@
   if (typeof ASSET_DATA === "undefined") { try { window.ASSET_DATA = {}; } catch (e) { return; } }
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("lb")) SHEET_KEYS.push("lb");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["lb"] = 64;
-  ASSET_DATA["lb"] = "assets/sheets/d02061364c6e9e52.webp";
+  ASSET_DATA["lb"] = "assets/sheet-src/lb-lb-icons.webp";
   if (typeof SPR === "undefined") return;
     SPR["i_lp_burn_quicklime"] = ["lb", 0, 0, { sx: 0, sy: 0, sw: 64, sh: 64 }];
     if (typeof ITEMS !== "undefined" && ITEMS["lp_burn_quicklime"]) ITEMS["lp_burn_quicklime"].icon = "i_lp_burn_quicklime";

@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — tiered tools, weapons, armour & jewelry (auto-generated) =====
+// ===== Taiao — tiered tools, weapons, armour & jewelry (auto-generated) =====
 // Specializes the 48 smeltable bars (32 METALS + 16 alloys — see content.js
 // and alloys.js) into three EXCLUSIVE 16-bar rosters by metallurgical
 // character: sharp/hard metals forge weapons & tools, tough/resilient metals
@@ -127,7 +127,12 @@
       // wieldReq: melee weapons need the Melee level of their tier.
       // Daggers are offhand-capable: with a bow in the main hand they equip
       // into the shield slot as the archer's sidearm (see equipItem/combat).
-      const props = { value: 30 + Math.round(tierVal(p) * 3.2), equip: "weapon", power, wieldReq: req };
+      // RS-style weapon speed: the kind's weight mult sets the swing tick
+      // (dagger ~980ms … warhammer ~1820ms — combat.js playerAttack reads
+      // it), so a kind trades hit weight against cadence at roughly equal
+      // DPS, with the light blade rolling accuracy more often.
+      const props = { value: 30 + Math.round(tierVal(p) * 3.2), equip: "weapon", power, wieldReq: req,
+        atkTick: Math.round(mult * 1400) };
       if (kind === "dagger" || kind === "tanto" || kind === "kris") props.offhand = true;
       const made = mkItem(id, name, iconKey, props);
       if (!made) continue;
@@ -303,11 +308,14 @@
       EXAMINE[arrId] = `${arrName}.`;
       RECIPES.fletching.push({
         id: `fletch_${arrId}`, out: arrId, qty: 15, name: `Fletch ${arrName.toLowerCase()}`,
-        skill: "Fletching", req: arrReq, xp: arrXp, in: { arrow_shafts: 15, [headId]: 15 },
+        skill: "Fletching", req: arrReq, xp: arrXp, in: { arrow_shafts: 15, feathers: 5, [headId]: 15 },
         tick: 1900 + arrReq * 20, family: "tiered_arrows", stations: ["workbench"],
       });
     }
   });
+  // the 16 arrow ids in tier order (iron … stormsteel) — bestiary-drops.js reads
+  // this so higher-level humanoids drop tier-appropriate arrows (single source).
+  if (typeof window !== "undefined") window.WEAPON_ARROW_IDS = wtSorted.map(bar => "arrow_" + shortBar(bar));
 
   for (const cat in RECIPES) RECIPES[cat].forEach((r, i) => {
     if (!r.id) r.id = cat + ":" + (r.out || i) + ":" + i;

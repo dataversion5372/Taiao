@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — per-DIRECTION spent frames for husbandry animals =====
+// ===== Taiao — per-DIRECTION spent frames for husbandry animals =====
 // A tended ("spent"/recovering) animal used to swap to its single fixed spent
 // pose while it kept wandering — so half the time it appeared to WALK
 // BACKWARDS. Each animal's sheet only bakes ONE spent frame, so here we derive

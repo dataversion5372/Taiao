@@ -39,3 +39,11 @@ __pycache__/
 
 # Secrets — never commit
 /api.txt
+
+# ── NPC dialogue pipeline: scripts are tracked, corpora/models are not ──
+# (bank + embeddings + in-browser ONNX runtime total ~400MB; clones fall
+# back to canned NPC lines. Ship via LFS or a release bundle if wanted.)
+/tools/npc_dialogue/bank.jsonl
+/tools/npc_dialogue/bank.jsonl.pre-dedup
+/tools/npc_dialogue/generated/
+/libs/npcml/

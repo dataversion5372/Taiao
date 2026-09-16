@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — gatherable natural decorations =====
+// ===== Taiao — gatherable natural decorations =====
 // Turns three families of scenery into gatherable resource nodes:
 //   • boulders      → mined (Ore-mining) for stone-type items
 //   • mossy boulders→ mined for stone-type items AND moss

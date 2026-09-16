@@ -177,7 +177,7 @@ sheet.save(os.path.join(ROOT, "assets", "gear-icons.png"))
 b64 = base64.b64encode(buf.getvalue()).decode()
 print(f"packed {total} icons -> {sheet.size}, {len(b64)//1024}KB base64")
 
-js = """// ===== Isle of Emberfall - generated gear/consumable icon sheet (auto-generated) =====
+js = """// ===== Taiao - generated gear/consumable icon sheet (auto-generated) =====
 // Built by tools/build_gear_icons.py from the 2026-09 AI art drop. Sheet key
 // "ga", 64px cells. Cell -> item mapping happens here at load, BY RANK
 // (wieldReq/wearReq/toolPower/value sort per kind), so metal rosters never

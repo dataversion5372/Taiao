@@ -74,7 +74,7 @@ sheet_path = os.path.join(ROOT, "assets", "rune-icons.png")
 out.save(sheet_path)  # reference copy for inspection
 b64 = base64.b64encode(png.getvalue()).decode()
 
-js = f"""// ===== Isle of Emberfall - generated rune-icon sheet (auto-generated) =====
+js = f"""// ===== Taiao - generated rune-icon sheet (auto-generated) =====
 // Built by tools/build_rune_icons.py from the AI-generated 8x4 rune sheet.
 // 32 cells in rune LADDER order (content.js RUNE_NAMES), 64px cells, sheet
 // key "ru". Loaded after data.js/content.js so these SPR entries override

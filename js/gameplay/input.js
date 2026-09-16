@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — mouse, keyboard, target picking, and context menus =====
+// ===== Taiao — mouse, keyboard, target picking, and context menus =====
 "use strict";
 
 // ---------- input ----------
@@ -43,7 +43,7 @@ function targetsAt(x, y) {
     }
   }
   // monsters live on the ground floor; an upstairs player can't target one below
-  const m = monsters.find(m => m.alive && (m.level | 0) === (player.level | 0) &&
+  const m = monsters.find(m => m.alive && !m.dormant && (m.level | 0) === (player.level | 0) &&
     ((m.moving && m.moving.tx === x && m.moving.ty === y) || (m.x === x && m.y === y)));
   if (m) {
     // domestic livestock offers BOTH Tend/Feed (Husbandry) and Attack (Combat).
@@ -118,6 +118,10 @@ function hoverLabel(tg) {
   }
   if (tg.kind === "node") {
     const nt = NODE_TYPES[tg.node.type];
+    // Without the tool the node's craft needs (axe/pickaxe/rod…) there's no
+    // gather action — hover just names the tree/rock, matching the right-click
+    // menu, which omits Chop/Mine too (buildTileMenu). Foraging needs no tool.
+    if (typeof hasTool === "function" && !hasTool(nt.tool)) return nt.name;
     const verbs = { Woodcutting: "Chop", Mining: "Mine", "Ore-mining": "Mine",
       "Gem-mining": "Mine", "Stone-mining": "Mine", Fishing: "Fish at", Foraging: "Forage" };
     return `${nt.gatherVerb || verbs[nt.skill] || "Gather"} ${nt.name}`;
@@ -143,6 +147,35 @@ function targetName(tg) {
   return "it";
 }
 
+// ---- "Edit <name>" context-menu entries (object workshop, gameplay/objedit.js) ----
+// A stable identity descriptor for the object under a menu target — what the
+// workshop panel keys its votes/proposals on — or null for targets with no
+// editable identity.
+function editDescFor(tg) {
+  if (tg.kind === "monster" || tg.kind === "livestock") return { type: "monster", key: tg.mon.kind, name: targetName(tg), x: tg.mon.x, y: tg.mon.y };
+  if (tg.kind === "npc") return { type: "npc", key: tg.npc.mix || "npc_" + (tg.npc.name || "villager").toLowerCase(), name: tg.npc.name, x: tg.npc.x, y: tg.npc.y };
+  // x/y: the clicked instance's tile — the workshop panel snapshots the live
+  // 3D geometry there for its billboard cells (objedit.js snapshotFor)
+  if (tg.kind === "door") return { type: "structure", key: tg.door.kind === "gate" ? "gate" : "door", name: targetName(tg), x: tg.door.x, y: tg.door.y };
+  if (tg.kind === "ladder") return { type: "structure", key: "ladder", name: "ladder", x: tg.m.ladder.x, y: tg.m.ladder.y };
+  if (tg.kind === "riding" || tg.kind === "placed") return { type: "item", key: tg.ent.id, name: ITEMS[tg.ent.id].name, x: tg.ent.x, y: tg.ent.y };
+  if (tg.kind === "obstacle") return { type: "obstacle", key: (tg.ob.name || "obstacle").toLowerCase().replace(/\s+/g, "_"), name: tg.ob.name, x: tg.ob.x, y: tg.ob.y };
+  if (tg.kind === "portal") return { type: "structure", key: "portal", name: "Ancient portal", x: tg.node.x, y: tg.node.y };
+  if (tg.kind === "station" || tg.kind === "dynstation") return { type: "station", key: tg.node.type, name: targetName(tg), x: tg.node.x, y: tg.node.y };
+  if (tg.kind === "unlitfire") return { type: "station", key: "campfire", name: "fire", x: tg.node.x, y: tg.node.y };
+  if (tg.kind === "farm") return tg.node.crop ? { type: "crop", key: tg.node.crop.kind, name: targetName(tg), x: tg.node.x, y: tg.node.y }
+    : { type: "structure", key: "farm_plot", name: "farm plot", x: tg.node.x, y: tg.node.y };
+  if (tg.kind === "node") return { type: "node", key: tg.node.type, name: targetName(tg), x: tg.node.x, y: tg.node.y };
+  if (tg.kind === "ground") return { type: "item", key: tg.item.id, name: ITEMS[tg.item.id].name };
+  return null;
+}
+function pushEdit(items, desc) {
+  if (!desc || typeof ObjEdit === "undefined") return;
+  const label = `Edit ${desc.name}`;
+  if (items.some(it => it.label === label)) return;
+  items.push({ label, fn: () => ObjEdit.open(desc) });
+}
+
 canvas.addEventListener("mousemove", e => {
   const t = canvasTile(e);
   if (!world || !world.inMap(t.x, t.y)) { hover = null; setHoverText(""); return; }
@@ -163,9 +196,16 @@ canvas.addEventListener("click", e => {
   // left-click runs the DEFAULT (first) action of the tile's action menu — the
   // same thing that sits at the top of the right-click menu (Attack / Talk /
   // Gather / Take / …). buildTileMenu always ends with "Walk here", so on empty
-  // ground items[0] is that fallback.
+  // ground items[0] is that fallback. OPTION/ALT+click QUEUES the action onto
+  // this body's task list instead (gameplay/split.js): while felling one tree,
+  // option-click the next few and they're chopped in turn the moment the hands
+  // go idle — same for harvest rows, rocks, pickups… Queued tiles show a white
+  // outline (render3d overlay) until the body gets to them. Option ONLY (user
+  // req): Shift is the river brace, never a queue key.
   const items = buildTileMenu(t);
-  if (items.length) items[0].fn();
+  if (!items.length) return;
+  if (e.altKey && typeof Split !== "undefined") { Split.tryQueueClick(items[0]); return; }
+  items[0].fn();
 });
 
 // Callers (2):
@@ -178,7 +218,11 @@ function doTarget(tg) {
   else if (tg.kind === "riding") { if (typeof disembark === "function") disembark(); }
   else if (tg.kind === "placed") {
     const t2 = ITEMS[tg.ent.id].ride ? "board" : "placedPickup";
-    setGoal({ type: t2, ent: tg.ent }, tg.ent.x, tg.ent.y, 1);
+    // a big hull's anchor sits far out on the water — path to the hull tile
+    // nearest the player instead (boarding then teleports aboard)
+    const [gx, gy] = ITEMS[tg.ent.id].ride && typeof nearestHullTile === "function"
+      ? nearestHullTile(tg.ent, player.x, player.y) : [tg.ent.x, tg.ent.y];
+    setGoal({ type: t2, ent: tg.ent }, gx, gy, 1);
   }
   else if (tg.kind === "npc") setGoal({ type: "npc", npc: tg.npc }, tg.npc.x, tg.npc.y, 1);
   else if (tg.kind === "unlitfire") setGoal({ type: "lightFire", node: tg.node }, tg.node.x, tg.node.y, 1);
@@ -197,6 +241,8 @@ function doTarget(tg) {
 // Callers (2):
 //  gameplay/input.js:83,130
 function walkTo(x, y) {
+  // Option/Alt+click queue capture (gameplay/split.js): a bare walk queues too
+  if (typeof Split !== "undefined" && Split.capture(null, x, y, passable(x, y) ? 0 : 1)) return;
   if (player.forced) return;
   cancelAction();
   closeModals();
@@ -233,11 +279,8 @@ if (interactModeBtn) {
   syncInteractModeBtn();
 }
 
-// sidebar Character button — same as the C key (CharSelect.toggle()).
-{
-  const charBtn = document.getElementById("charbtn");
-  if (charBtn) charBtn.addEventListener("click", () => { if (typeof CharSelect !== "undefined") CharSelect.toggle(); });
-}
+// (The sidebar Character button was removed — the character/appearance chooser
+// is reachable only from the isle's first keeper or Newhaven's Registrar now.)
 // sidebar Soap button — same as Left-Shift+S (the soaps comparison menu).
 {
   const soapBtn = document.getElementById("soapbtn");
@@ -278,6 +321,7 @@ function buildTileMenu(t) {
       }
       const lex = typeof husbExamine === "function" && husbExamine(tg.mon);
       if (lex) items.push({ label: `Examine ${targetName(tg)}`, fn: () => log(lex, "sys") });
+      pushEdit(items, editDescFor(tg));
       continue;
     }
     // picked-bare Pomiculture fruit tree: WATER it (regrow the fruit) or CHOP it.
@@ -292,10 +336,17 @@ function buildTileMenu(t) {
         const chop = { label: "Chop tree", fn: () => doTarget(tg) };
         if (hasCan) { items.push(water, chop); } else { items.push(chop); }
         items.push({ label: `Examine ${targetName(tg)}`, fn: () => log("A bare fruit tree — water it to regrow the fruit once it's rested, or fell it for logs.", "sys") });
+        pushEdit(items, editDescFor(tg));
         continue;
       }
     }
-    items.push({ label: hoverLabel(tg), fn: () => doTarget(tg) });
+    // Skill nodes only offer their gather action when the required tool is
+    // carried — no axe hides "Chop", no pickaxe hides "Mine", no rod hides
+    // "Fish at" (Foraging has no tool, so berries/herbs stay bare-handed). The
+    // Examine line below still shows, so you can always inspect the tree/rock.
+    const nodeType = tg.kind === "node" ? NODE_TYPES[tg.node.type] : null;
+    if (!(nodeType && typeof hasTool === "function" && !hasTool(nodeType.tool)))
+      items.push({ label: hoverLabel(tg), fn: () => doTarget(tg) });
     // heat stations can be stoked with logs (fuels the pilot fire)
     if (tg.kind === "station" && typeof stationIsHeat === "function" && stationIsHeat(tg.node)) {
       const bi = typeof bestLogIndex === "function" ? bestLogIndex() : -1;
@@ -321,7 +372,11 @@ function buildTileMenu(t) {
       exam = EXAMINE[tg.ent.id] || ITEMS[tg.ent.id].name;
       if (ITEMS[tg.ent.id].ride)
         items.push({ label: `Pick up ${ITEMS[tg.ent.id].name}`,
-          fn: () => setGoal({ type: "placedPickup", ent: tg.ent }, tg.ent.x, tg.ent.y, 1) });
+          fn: () => {
+            const [gx, gy] = typeof nearestHullTile === "function"
+              ? nearestHullTile(tg.ent, player.x, player.y) : [tg.ent.x, tg.ent.y];
+            setGoal({ type: "placedPickup", ent: tg.ent }, gx, gy, 1);
+          } });
     }
     else if (tg.kind === "obstacle") exam = `${tg.ob.name} — a shortcut for the nimble.${tg.ob.fail ? " Lose your footing and you'll take a tumble." : ""} Agility ${tg.ob.req}.`;
     else if (tg.node) {
@@ -329,6 +384,7 @@ function buildTileMenu(t) {
       exam = NODE_EXAMINE[tg.node.type] || (nt2 ? `${nt2.name}. (${nt2.skill} ${nt2.req})` : null);
     }
     if (exam) items.push({ label: `Examine ${targetName(tg)}`, fn: () => log(exam, "sys") });
+    { const ed = editDescFor(tg); if (ed) { ed.exam = exam || ed.exam; pushEdit(items, ed); } }
   }
   // items lying on the tile: "Take All" first (so left-click grabs everything),
   // then a "Take <item>" line per stack — placed at the FRONT of the menu.
@@ -341,6 +397,9 @@ function buildTileMenu(t) {
       g0.push({ label: `Take ${nm}${g.qty > 1 ? ` (x${g.qty})` : ""}`, fn: () => setGoal({ type: "pickup", item: g }, g.x, g.y, 1) });
     }
     items.unshift(...g0);
+    // one Edit per distinct item kind on the tile, down with the other Edits
+    for (const id of [...new Set(groundHere.map(g => g.id))])
+      if (ITEMS[id]) pushEdit(items, { type: "item", key: id, name: ITEMS[id].name });
   }
   // decorations aren't interactive targets, so they're not in targetsAt — offer
   // Take (pick it up; respawns after 300s) + Examine for whatever decoration
@@ -351,10 +410,18 @@ function buildTileMenu(t) {
     if (dk && !picked) {
       if (typeof decorPickable === "function" && decorPickable(dk))
         items.push({ label: `Take ${decorName(dk)}`, fn: () => setGoal({ type: "decorPick", x: t.x, y: t.y, key: dk }, t.x, t.y, 1) });
+      // city plaza fountains double as respawn anchors: "Set respawn point"
+      // stores this city; death returns the player here instead of Newhaven
+      if (dk.split("#")[0] === "city_fountain") {
+        const here = player.respawn && player.respawn.x === t.x && player.respawn.y === t.y;
+        if (!here) items.push({ label: "Set respawn point", fn: () => setRespawnAt(t.x, t.y) });
+        else items.push({ label: "Clear respawn point (back to Newhaven)", fn: () => { player.respawn = null; log("Respawn point cleared — you'll wake in Newhaven again.", "sys"); saveGame(); } });
+      }
       if (!items.some(it => it.label.startsWith("Examine "))) {
         const dex = decorExamine(dk);
         if (dex) items.push({ label: `Examine ${decorName(dk)}`, fn: () => log(dex, "sys") });
       }
+      pushEdit(items, { type: "decor", key: dk.split("#")[0], name: decorName(dk), exam: decorExamine(dk), x: t.x, y: t.y });
     }
   }
   // village lamplighter candles aren't decor tiles (they're conjured per frame
@@ -368,10 +435,59 @@ function buildTileMenu(t) {
         ? "A household candle burns within, its glow seeping out through shutters and thatch."
         : `A fine wax candle burns atop a ${standName || "sturdy"} stand — set out by the lamplighters at dusk and gathered in again at dawn.`;
       items.push({ label: `Examine ${cs.inside ? "candle" : "candle stand"}`, fn: () => log(dex, "sys") });
+      if (!cs.inside) pushEdit(items, { type: "decor", key: cs.stand || "candlestand_iron", name: "candle stand", exam: dex, x: t.x, y: t.y });
     }
   }
+  // "Walk here" goes ABOVE the tile-level Edit entries below, so on a plain
+  // tile it's the TOP option and a left-click always walks — never opens the
+  // workshop. (Menus led by a real target — Attack/Talk/Gather — are unchanged.)
   items.push({ label: "Walk here", fn: () => walkTo(t.x, t.y) });
+  // the player: right-click your own tile to edit your character
+  if (t.x === player.x && t.y === player.y) {
+    const cname = (typeof CHAR_LIST !== "undefined" && player.character != null && CHAR_LIST[player.character]
+      && (CHAR_LIST[player.character].name || CHAR_LIST[player.character].folder)) || "yourself";
+    pushEdit(items, { type: "player", key: "player", name: cname });
+  }
+  // building roofs: a click on a roofed building's footprint (the ground pick
+  // passes through the roof to the tile beneath) offers "Edit roof" — but only
+  // while the roof is actually VISIBLE, i.e. the player isn't inside that
+  // building (render3d hides the roof for the building you're in).
+  if (world.insideBuilding) {
+    const rb = world.insideBuilding(t.x, t.y);
+    if (rb && rb.roof && rb !== world.insideBuilding(player.x, player.y))
+      pushEdit(items, { type: "roof", key: rb.stone ? "roof_stone" : "roof_wood", spr: rb.roof,
+        spire: rb.kind === "spire", name: "roof", x: t.x, y: t.y });
+  }
+  // the ground itself — every tile's terrain is editable. Votes are keyed per
+  // terrain FAMILY (biome "bg_4", tint base "dirt", the road, a floor), while
+  // `spr` keeps this tile's exact art variant for the panel to highlight.
+  if (world.getGround) {
+    const gk = String(world.getGround(t.x, t.y) || "");
+    if (gk) {
+      const bm = /^(?:bg|at)_(\d+)/.exec(gk);
+      const fam = gk === "dirt#1" ? "road" : bm ? "bg_" + bm[1] : gk.split("#")[0];
+      // at_* biome-atlas keys display as their bg_* fallback variant (same
+      // regional-personality pick the renderer uses when the atlas is tainted)
+      const spr = gk.startsWith("at_") ? "bg_" + bm[1] + "_" + world.personalityAt(t.x, t.y) : gk;
+      pushEdit(items, { type: "terrain", key: fam, spr, name: terrainName(gk, t.x, t.y), x: t.x, y: t.y });
+    }
+  }
   return items;
+}
+
+// Human-readable name for a ground-tile key ("bg_4_2" -> "Forest", "dirt#1" -> "Road")
+function terrainName(gk, x, y) {
+  const k = String(gk);
+  const m = /^(?:bg|at)_(\d+)/.exec(k);
+  if (m) {
+    const b = world.BIOME_NAMES && world.BIOME_NAMES[+m[1]];
+    if (b) return b;
+    return world.isWater(x, y) ? "water" : "ground";
+  }
+  if (k === "dirt#1") return "Road";
+  const base = k.split("#")[0];
+  if (base.startsWith("floor_")) return base.slice(6).replace(/_/g, " ") + " floor";
+  return base.replace(/^g_/, "").replace(/_/g, " ");
 }
 
 // Callers (3):
@@ -409,17 +525,59 @@ window.addEventListener("keydown", e => {
   // option+C toggles cheat mode (checked before the plain-C character screen;
   // e.code because option+c types "ç" on mac keyboards)
   if (e.altKey && e.code === "KeyC") {
-    CHEAT_MODE = !CHEAT_MODE;
-    log(`Cheat mode ${CHEAT_MODE ? "ON" : "OFF"}.`, CHEAT_MODE ? "gold" : "sys");
+    // each mode keeps its OWN save file (storage.js SAVE_KEY): write the
+    // current character to its file, flip the persisted flag, and reload —
+    // CHEAT_MODE itself is left alone so the beforeunload autosave still
+    // lands in the CURRENT mode's save
+    const on = !CHEAT_MODE;
+    if (typeof saveGame === "function") saveGame();
+    try { localStorage.setItem("emberfall_cheat", on ? "1" : "0"); } catch (err) {}
+    log(`Cheat mode ${on ? "ON" : "OFF"} — switching saves…`, on ? "gold" : "sys");
     e.preventDefault();
+    location.reload();
     return;
   }
   if (e.code === "ShiftLeft") keys.ShiftLeft = true;
   // Left-Shift+S opens the Soaps comparison menu (gameplay/stink.js)
-  if (e.code === "KeyS" && keys.ShiftLeft && typeof toggleSoapsMenu === "function") { toggleSoapsMenu(); e.preventDefault(); return; }
+  // P toggles the soaps menu. (Was Left-Shift+S — Shift now BRACES against a
+  // river current while wading, movement.js, so the chord kept firing mid-river.)
+  if ((e.key === "p" || e.key === "P") && typeof toggleSoapsMenu === "function" &&
+      !(e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA"))) {
+    toggleSoapsMenu(); e.preventDefault(); return;
+  }
   if (e.key === "Escape" && typeof soapsMenuOpen === "function" && soapsMenuOpen()) { closeSoapsMenu(); return; }
+  // split selves (gameplay/split.js): Tab hops to the next body, X splits
+  // (or merges, when standing beside another self)
+  if (e.key === "Tab") {
+    if (typeof Split !== "undefined") Split.cycle();
+    e.preventDefault();
+    return;
+  }
+  if ((e.key === "x" || e.key === "X") && !e.altKey && !e.ctrlKey && !e.metaKey) {
+    // ⇧X opens the pack-share window with an adjacent self; plain X splits/merges
+    if (typeof Split !== "undefined") { if (e.shiftKey) Split.share(); else Split.splitOrMerge(); }
+    e.preventDefault();
+    return;
+  }
   if (e.key === "m" || e.key === "M") { wm.open ? closeWorldMap() : openWorldMap(); return; }
-  if (e.key === "c" || e.key === "C") { CharSelect.toggle(); return; }
+  // N notes an odd sound in the bird recordings (a voice, a siren) — logs the
+  // playing clips + offsets for the clean-up tool (gameplay/birdsong.js)
+  if ((e.key === "n" || e.key === "N") && !e.altKey && !e.ctrlKey && !e.metaKey) {
+    if (typeof flagOddSound === "function") flagOddSound();
+    e.preventDefault(); // the "n" must not type itself into the note field
+    return;
+  }
+  // C no longer opens the character/appearance chooser at will — you take (or
+  // change) a form only by talking to the isle's first keeper or, out in the
+  // wide world, Newhaven's Registrar. C still closes the menu if it's open.
+  if (e.key === "c" || e.key === "C") {
+    if (CharSelect.isOpen) { CharSelect.close(); return; }
+    const onIsle = typeof Tutorial !== "undefined" && Tutorial.active && Tutorial.active();
+    if (typeof log === "function")
+      log(onIsle ? "Speak to the keeper who greets you on the isle to choose your form."
+                 : "Seek the Registrar in Newhaven's plaza to take a new form.", "sys");
+    return;
+  }
   if (e.key === "Escape" && CharSelect.isOpen) { CharSelect.close(); return; }
   if (e.key === "Escape" && wm.open) { closeWorldMap(); return; }
   // retired prototype renderer: hold ←/→ to rotate the camera smoothly through 360°

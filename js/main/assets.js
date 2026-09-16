@@ -1,11 +1,16 @@
-// ===== Isle of Emberfall — assets, canvas, and sprite drawing =====
+// ===== Taiao — assets, canvas, and sprite drawing =====
 "use strict";
 
 // ---------- dev cheat mode ----------
-// Toggled at runtime with option+C (gameplay/input.js)
+// Toggled with option+C (gameplay/input.js). The flag is PERSISTED because
+// each mode keeps its OWN save file (storage.js SAVE_KEY picks by CHEAT_MODE
+// at load), so toggling flips the stored flag and reloads into the other
+// save. Absent flag defaults ON (the historical dev default).
 // Callers (5):
 //  gameplay/movement.js:65 gameplay/world.js:64,521,550 main/state.js:116
-let CHEAT_MODE = true;
+let CHEAT_MODE = (() => {
+  try { return localStorage.getItem("emberfall_cheat") !== "0"; } catch (e) { return true; }
+})();
 
 // ---------- assets ----------
 // Callers (2):
@@ -17,13 +22,26 @@ const SHEET_KEYS = ["t", "c", "x", "m", "b", "i", "n", "ta", "tb", "a", "md"];
 const SHEET_TILE = { t: 16, c: 16, x: 16, m: 16, b: 32, i: 32, n: 32, ta: 43, tb: 46, a: 64, md: 64 };
 // Callers (7):
 //  main/assets.js:9,53,54,62 render3d.js:36,37,40
-const SHEET_NOPAD = new Set(["n"]);   // sheets with no inter-tile gap
+// The six 64px icon sheets are gapless 8-col grids (width = cols*64 exactly, no
+// 1px gutters) — reading them at the padded st+1 pitch drifts every cell 1px
+// per column/row and clips column 7 outright.
+const SHEET_NOPAD = new Set(["n", "ml", "fb", "fg", "sp", "tp", "rg"]);   // sheets with no inter-tile gap
 // Callers (1):
 //  render3d.js:41
 const SHEET_COLORKEY = new Set(["n"]);     // sheets where solid-black means transparent
 // Callers (2):
 //  main/assets.js:16,25
 const SHEET_OPTIONAL = new Set(["a"]);     // atlas taint-probe sheet; render3d falls back to bg_* tiles if absent
+// Per-key pixel offset into a PACKED atlas image. Small icon sheets are packed
+// whole (layout intact) into one shared webp by tools/pack_sheets.py, which
+// generates js/sprites/sheet-pack-data.js to repoint ASSET_DATA[key] at the
+// atlas and record each sheet's top-left corner here. Every consumer that
+// resolves SPR coords (icon() below, render3d drawSprTo, the world.js map-icon
+// blit) adds this offset AFTER the sx/sy math, so per-key tile size, padding
+// and explicit rects all keep working unchanged.
+// Callers (3):
+//  main/assets.js:icon render3d.js:drawSprTo gameplay/world.js:overlayMapIcons
+const SHEET_OFFSET = {};
 // Callers (12):
 //  main/assets.js:29,67,76 render3d.js:26,47,56,59,69,72,98 world/map.js:146,443
 const IMGS = {};
@@ -40,15 +58,29 @@ const CORE_SHEET_KEYS = new Set(SHEET_KEYS.slice());
 // Load one sheet into IMGS. IMGS[k] is set immediately (before decode) — every
 // consumer checks img.complete/naturalWidth first, so an in-flight image never
 // draws garbage. `done` fires on load OR error (a single bad sheet must not
-// wedge boot).
+// wedge boot). Keys packed into a shared atlas share ONE Image per URL so the
+// atlas is fetched and decoded once, not once per key.
+const _sheetImgByUrl = {};
 function _loadSheet(k, done) {
-  const im = new Image();
-  im.onload = () => { if (done) done(); };
-  im.onerror = () => {
-    if (!SHEET_OPTIONAL.has(k)) console.error("Failed to load sprite sheet: " + k + " (" + ASSET_DATA[k] + ")");
+  const url = ASSET_DATA[k];
+  let im = _sheetImgByUrl[url];
+  if (im) {
+    IMGS[k] = im;
+    if (im.complete) { if (done) done(); }
+    else if (done) {
+      im.addEventListener("load", () => done(), { once: true });
+      im.addEventListener("error", () => done(), { once: true });
+    }
+    return;
+  }
+  im = new Image();
+  _sheetImgByUrl[url] = im;
+  im.addEventListener("load", () => { if (done) done(); }, { once: true });
+  im.addEventListener("error", () => {
+    if (!SHEET_OPTIONAL.has(k)) console.error("Failed to load sprite sheet: " + k + " (" + url + ")");
     if (done) done();
-  };
-  im.src = ASSET_DATA[k];
+  }, { once: true });
+  im.src = url;
   IMGS[k] = im;
 }
 
@@ -61,8 +93,13 @@ function loadAssets(cb) {
   const core = SHEET_KEYS.filter(k => CORE_SHEET_KEYS.has(k) && has(k));
   const deferred = SHEET_KEYS.filter(k => !CORE_SHEET_KEYS.has(k) && has(k));
   let left = core.length;
+  const total = core.length;
   const boot = () => {
-    if (--left > 0) return;
+    left--;
+    // live loading-bar progress while the "Decoding sprites…" segment is up
+    if (typeof window !== "undefined" && window.__boot) __boot.sub("assets", (total - left) / total);
+    if (left > 0) return;
+    try { performance.mark("ef:coreSheets"); } catch (e) { /* boot beacon */ }
     cb();   // first frame can render — core atlases are in
     // Stream the icon atlases in the background; as each arrives, drop the icon
     // cache so any placeholder icons rebuild with the real art on the next paint.
@@ -120,8 +157,9 @@ function icon(key) {
   const c2 = cv.getContext("2d");
   c2.imageSmoothingEnabled = false;
   const st = SHEET_TILE[sheet] || 16;
-  const sx = extra && extra.sx != null ? extra.sx : c * (SHEET_NOPAD.has(sheet) ? st : st + 1);
-  const sy = extra && extra.sy != null ? extra.sy : r * (SHEET_NOPAD.has(sheet) ? st : st + 1);
+  const off = SHEET_OFFSET[sheet];
+  const sx = (extra && extra.sx != null ? extra.sx : c * (SHEET_NOPAD.has(sheet) ? st : st + 1)) + (off ? off.ox : 0);
+  const sy = (extra && extra.sy != null ? extra.sy : r * (SHEET_NOPAD.has(sheet) ? st : st + 1)) + (off ? off.oy : 0);
   const sw = extra && extra.sw ? extra.sw : st;
   const sh = extra && extra.sh ? extra.sh : st;
   c2.save();
@@ -129,7 +167,7 @@ function icon(key) {
   if (extra && extra.rot) {
     c2.translate(16, 16); c2.rotate(extra.rot * Math.PI / 180); c2.translate(-16, -16);
   }
-  if (SHEET_NOPAD.has(sheet)) {
+  if (SHEET_COLORKEY.has(sheet)) {
     const tmp = document.createElement("canvas");
     tmp.width = 32; tmp.height = 32;
     const tc = tmp.getContext("2d");

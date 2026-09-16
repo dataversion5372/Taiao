@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Fulling per-cloth "fulled cloth" inventory icons =====
+// ===== Taiao — Fulling per-cloth "fulled cloth" inventory icons =====
 // The 32 fulled cloths (js/skills/textiles.js -> ids fulled_0 .. fulled_31,
 // "Fulled cotton cloth" .. "Fulled worldweave"), one finished bolt per woven
 // cloth, used hue-tinted i_cloth placeholders. This 8x4 64px sheet ("fu") gives
@@ -9,7 +9,7 @@
 "use strict";
 (function () {
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["fu"] = "assets/sheets/6aee99a2b17d22e6.webp";
+  ASSET_DATA["fu"] = "assets/sheet-src/fu-fulling-icons.webp";
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("fu")) SHEET_KEYS.push("fu");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["fu"] = 64;
   if (typeof SPR === "undefined") return;

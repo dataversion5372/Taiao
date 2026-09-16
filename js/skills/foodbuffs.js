@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — food & drink practical uses =====
+// ===== Taiao — food & drink practical uses =====
 // Gives several "food" trades a real edge beyond a one-off heal, the way
 // Soapmaking (wash stink) and Candlemaking (carry light) do:
 //   • Cheesemaking & Baking — hearty crafted food leaves you WELL FED: HP

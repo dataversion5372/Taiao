@@ -88,7 +88,7 @@ def main():
         master.alpha_composite(mapping[i], (c*CELL, r*CELL)); man[i] = [c*CELL, r*CELL, CELL, CELL]
     master.save(os.path.join(ROOT, "assets", "item_icons.png"))
     b64 = base64.b64encode(open(os.path.join(ROOT, "assets", "item_icons.png"), "rb").read()).decode()
-    js = ('// ===== Isle of Emberfall - generated item-icon sheet (auto-generated) =====\n'
+    js = ('// ===== Taiao - generated item-icon sheet (auto-generated) =====\n'
           '"use strict";\n'
           f'const ITEM_ICON_SHEET = "data:image/png;base64,{b64}";\n'
           f'const ITEM_ICON_MAP = {json.dumps(man, separators=(",",":"))};\n'

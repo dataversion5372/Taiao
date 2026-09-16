@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - 8-directional sheep sprite (PixelLab-generated) =====
+// ===== Taiao - 8-directional sheep sprite (PixelLab-generated) =====
 // Sheep was the one livestock still on the low-res Kenney m_sheep single sprite while
 // every other farm animal has an 8-dir sheet. This registers mcd_sheep_<dir> (sheet
 // "as", 512x64, 8 dirs x 64px) and points MONSTERS.sheep (+ its _v/_baby, which inherit
@@ -8,7 +8,7 @@
   if (typeof ASSET_DATA === "undefined") { try { window.ASSET_DATA = {}; } catch (e) { return; } }
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("as")) SHEET_KEYS.push("as");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["as"] = 64;
-  ASSET_DATA["as"] = "assets/sheets/79721ca081e8ee1d.webp";
+  ASSET_DATA["as"] = "assets/sheet-src/as-sheep-dir.webp";
   if (typeof SPR === "undefined") return;
   var DIRS = ["south", "south-east", "east", "north-east", "north", "north-west", "west", "south-west"];
   for (var i = 0; i < DIRS.length; i++)

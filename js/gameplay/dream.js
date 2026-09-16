@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Dream Forest shrinking illusion =====
+// ===== Taiao — Dream Forest shrinking illusion =====
 // Walk into a Dream Forest and the dream deepens the further you get from the
 // edge. The illusion is kept mostly at the PERIPHERY (things shrink hard toward
 // the screen edges / just off-screen, the near field stays steady) so it doesn't

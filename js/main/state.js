@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — runtime state, logs, XP, inventory, and passability =====
+// ===== Taiao — runtime state, logs, XP, inventory, and passability =====
 "use strict";
 
 // ---------- state ----------
@@ -76,8 +76,39 @@ const player = {
   unlocked: {},
   // stink metre (gameplay/stink.js): flavour -> accumulated points
   stink: { fl: {} },
+  // chosen respawn city: { x, y, name } of its plaza fountain (right-click a
+  // city fountain -> "Set respawn point"). null = Newhaven (world.playerStart).
+  respawn: null,
+  // Tūhura Isle tutorial progress (gameplay/tutorial.js): { seen, given,
+  // welcomed, graduated }. null on veteran saves that predate the isle.
+  tutorial: null,
+  // split selves (gameplay/split.js): the INACTIVE bodies' snapshots, this
+  // body's number, and this body's task queue (queues swap with the body)
+  bodies: [], num: 1, queue: [],
 };
 let monsters = [], groundItems = [], dynNodes = [], floats = [], splats = [], projectiles = [];
+// per-session monster id counter: render meshes are keyed by uid, not array
+// index, so retiring far monsters (updateWorldStuff) can compact the array
+// without re-aliasing every monster's mesh onto its neighbour's sprite
+let _monUid = 0;
+let _monRetireAt = 0; // next far-monster retirement sweep (every ~2s)
+// Cooperative boot yield for the sliced loading-bar loops (world naming,
+// nearby chunk pre-gen, atlas bake): paint when visible, plain macrotask when
+// the tab is hidden — rAF does NOT fire in hidden tabs and awaiting it would
+// hang the whole boot — plus a 250ms watchdog for a stalled compositor.
+function _bootYield() {
+  return new Promise(r => {
+    if (typeof document !== "undefined" && document.hidden) return setTimeout(r, 0);
+    const t = setTimeout(r, 250);
+    requestAnimationFrame(() => { clearTimeout(t); setTimeout(r, 0); });
+  });
+}
+// Road worker started at the TOP of boot (main.js init) so the spawn region's
+// road A* crunches in parallel with the naming pass; the loading bar's
+// roadGen stage waits on it with real cells-done progress, and render3d's
+// syncRoadWorker ADOPTS this worker afterwards instead of starting a second
+// one. { w, done, total, finished, failed } or null where Workers don't run.
+let _bootRoadWorker = null;
 // decorations the player has picked up: "x,y" -> respawnAt(ms). Runtime-only;
 // the decor billboard is hidden (render3d syncDecor skips it) until it returns.
 let pickedDecor = new Map();
@@ -115,7 +146,8 @@ const PX = t => t * TILE * SCALE;
 // Callers (16):
 //  main/state.js:27,29,31,32,53,55,110 main/ui.js:109,254,273 skills/agility.js:5
 //  skills/crafting.js:15,38 skills/farming.js:16 skills/gathering.js:11 skills/thieving.js:7
-function skillLvl(s) { return levelFromXp(player.skills[s]); }
+// cheat mode: every skill is pinned at MAX_LEVEL (32) — there is no xp
+function skillLvl(s) { return CHEAT_MODE ? MAX_LEVEL : levelFromXp(player.skills[s]); }
 // Callers (15):
 //  main/ui.js:119,289 skills/combat.js:22,40,47,52,58,99 skills/crafting.js:25,31,66
 //  skills/gathering.js:23,28,32 skills/thieving.js:16
@@ -187,6 +219,7 @@ function addSplat(ent, val, delay = 0) { splats.push({ ent, val, t: now + delay 
 // already keep those two text kinds apart.
 let _xpNotifyBatch = 0, _xpNotifyBatchAt = -1;
 function addXp(skill, amt, quiet) {
+  if (CHEAT_MODE) return; // skills are pinned at max (skillLvl) — no xp exists to gain
   // per-character skill aptitude (character-stats.js): a race/class suited to a
   // skill trains it faster (missing skill = 1× = no change).
   amt = Math.round(amt * (typeof charXpMul === "function" ? charXpMul(skill) : 1));
@@ -204,11 +237,16 @@ function addXp(skill, amt, quiet) {
   const batchIndex = _xpNotifyBatch++;
   const delay = batchIndex * 220;
   const stackOffset = batchIndex * 22;
+  // capture the position NOW, not inside the timeout: when a split self earns
+  // xp during its ghost tick (split.js SWAP_FIELDS), `player` holds THAT
+  // body's fields only for this instant — reading it 220ms later put one
+  // division's xp floats over a different division's head
+  const fpx = player.px, fpy = player.py;
   setTimeout(() => {
-    if (!quiet) addFloat(`+${amt} ${skill} xp`, player.px, player.py - 30 - stackOffset);
+    if (!quiet) addFloat(`+${amt} ${skill} xp`, fpx, fpy - 30 - stackOffset);
     if (leveled) {
       log(`Congratulations! Your ${skill} level is now ${after}.`, "gold");
-      addFloat(`${skill} level up! (${after})`, player.px, player.py - 50 - stackOffset, "#ffd75e", 16);
+      addFloat(`${skill} level up! (${after})`, fpx, fpy - 50 - stackOffset, "#ffd75e", 16);
       if (typeof sfx === "function") sfx("levelup", 0.55);
     }
   }, delay);
@@ -339,6 +377,10 @@ function passable(x, y) {
     return false;
   }
   if (CHEAT_MODE) return true;
+  // parked hulls span real tiles (gameplay/placing.js footprints): the water
+  // they cover can't be walked or swum through — click the hull to board it.
+  // The vessel being RIDDEN is exempt (it moves with the player).
+  if (typeof vesselBlockAt === "function" && vesselBlockAt(x, y)) return false;
   // "under" = moving at water level (sailing, or on foot along the river bank
   // beneath a bridge/building deck — player.deck === false); everything else
   // moves at deck level. player.deck is maintained by moveTo(), but someone
@@ -378,6 +420,10 @@ function passable(x, y) {
   }
   if (!world.isWater(x, y)) return false;
   const dc = world.getDecor(x, y) || "";
+  // fence posts standing IN water (the tutorial isle's weirs, waist columns
+  // and the offshore ring) are real barriers — no wading or sailing through
+  // a fence line; its gate_wood tiles stay open (barred() latches those).
+  if (dc === "fence_wood") return false;
   // the player can always cross water — wading on foot or by boat (monsters
   // and NPCs cannot; their movement checks water itself).
   if (!under) {
@@ -428,6 +474,12 @@ function stepClimbOK(fx, fy, tx, ty) {
   // well below deck level means passing UNDERNEATH along the water/bank
   // (same rule passable() uses), so measure against the ground there
   const td = !under ? REN.deckLevel(tx, ty) : null;
+  // stepping off dry land INTO water is always allowed — the water yields.
+  // During a flood the risen surface can sit several steps above a drowned
+  // bank; wading in is a plunge, not a climb. (Deck steps keep the normal
+  // rule; water→water still can't climb a cascade.)
+  if (world.isWater(tx, ty) && !world.isWater(fx, fy) &&
+      (td == null || hFrom < td - 1.01)) return true;
   const hTo = td != null && hFrom >= td - 1.01 ? td : REN.groundLevel(tx, ty);
   return hTo - hFrom <= 0.51;
 }
@@ -446,9 +498,9 @@ const AIR_MAX = 15;        // bubbles shown / seconds-ish of air (was 10 — 1.5
 const MOUTH_Y = 1.1;       // waterline past this = mouth and nose under
 // An equipped snorkel (Glassblowing, face slot) breathes through a tube that
 // tops out this far above the mouth — the drowning waterline moves up by it.
-// MUST stay below the +0.45 sink-cap margin in playerSinkY, or the capped
-// sink could never pass the raised waterline and deep water couldn't drown a
-// snorkeler at all.
+// MOUTH_Y·h + SNORKEL_REACH MUST stay below playerSinkY's cap (1.85·h + 0.45,
+// the full-body-submersion depth), or the capped sink could never pass the
+// raised waterline and deep water couldn't drown a snorkeler at all.
 const SNORKEL_REACH = 0.4;
 // smooth deterministic 0..1 pool noise (bilinear value noise on a hash grid)
 function _poolNoise(x, y) {
@@ -482,19 +534,25 @@ function waterDepthAt(x, y) {
   // heavy rain swells the river (weather.js floodNow, 0..1): everything runs
   // deeper — even the bank shallows stop being safe for the short at the
   // height of a flood — then settles back as the flood integral drains
-  const fl = (typeof floodNow === "function") ? floodNow() : 0;
+  // flood depth only in RIVERS (matches render3d waterLevelAt's gate —
+  // standing pools/springs hold their level when rain swells the rivers)
+  const fl = (typeof floodNow === "function") && world.riverFlowAt &&
+    world.riverFlowAt(x, y) ? floodNow() : 0;
   return (0.35 + _poolNoise(x / 5, y / 5) * 0.95) * (edge ? 0.45 : 1)
-    + fl * (edge ? 0.35 : 0.55);
+    + fl * (edge ? 1.3 : 2.0); // matches render3d FLOOD_AMP — a max flood adds 4 half-steps of water (drowning-deep everywhere; playerSinkY's cap keeps the sprite at the surface)
 }
 function playerSinkY() {
   if (player.sailing || !world.isWater(player.x, player.y)) return 0;
   // standing on a ridden vessel (gameplay/placing.js): dry feet, full air
   if (typeof ridingEnt === "function" && ridingEnt()) return 0;
   if (player.deck !== false && dualTileAt(player.x, player.y)) return 0;
-  // cap the sink just past this character's (height-scaled) drowning line so the
-  // sprite floats under the surface instead of sinking to the sea floor
+  // cap the sink just past this character's (height-scaled) FULL body height —
+  // deep enough that the whole sprite, head included, disappears under the
+  // surface (1.85 = render3d CHAR_SCALE, the visible body height in world
+  // units) — while still keeping the body near the surface instead of
+  // dropping it all the way to the sea floor
   const hm = typeof charHeightMul === "function" ? charHeightMul() : 1;
-  const cap = MOUTH_Y * hm + 0.45;
+  const cap = 1.85 * hm + 0.45;
   return Math.min(waterDepthAt(player.x, player.y), cap);
 }
 // Callers (1):

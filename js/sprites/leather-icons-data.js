@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - Tanning leather inventory-icon sheet (32 leathers) =====
+// ===== Taiao - Tanning leather inventory-icon sheet (32 leathers) =====
 // Slices a hand-made 8x4 leather spritesheet into per-leather icons on the "lt" sheet and
 // repoints every tanning leather's icon (index i -> cell i, matching HIDE_NAMES / tanning
 // order in js/content.js; i===4 is the bare id "leather", the rest are "leather_"+i).
@@ -8,7 +8,7 @@
   if (typeof ASSET_DATA === "undefined") { try { window.ASSET_DATA = {}; } catch (e) { return; } }
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("lt")) SHEET_KEYS.push("lt");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["lt"] = 64;
-  ASSET_DATA["lt"] = "assets/sheets/e792d8c621e72b44.webp";
+  ASSET_DATA["lt"] = "assets/sheet-src/lt-leather-icons.webp";
   if (typeof SPR === "undefined") return;
   for (let i = 0; i < 32; i++) {
     const col = i % 8, row = (i / 8) | 0;

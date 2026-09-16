@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - Carpentry wooden-weapon icon sheet (25 icons) =====
+// ===== Taiao - Carpentry wooden-weapon icon sheet (25 icons) =====
 // 8 wooden bucklers + 9 taiaha + 8 patu (woodcraft.js wc_buckler_/wc_taiaha_/wc_patu_).
 // Slices a hand-made 9x3 sheet into the "cw" sheet and overrides each item's placeholder
 // icon (defineIcon i_shield/i_sw_fe/i_staff). Loads after woodcraft.js so the items exist.
@@ -7,7 +7,7 @@
   if (typeof ASSET_DATA === "undefined") { try { window.ASSET_DATA = {}; } catch (e) { return; } }
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("cw")) SHEET_KEYS.push("cw");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["cw"] = 64;
-  ASSET_DATA["cw"] = "assets/sheets/0598c85b24759975.webp";
+  ASSET_DATA["cw"] = "assets/sheets/cw-cw-icons.0598c85b.webp";
   if (typeof SPR === "undefined") return;
     SPR["i_wc_buckler_2"] = ["cw", 0, 0, { sx: 0, sy: 0, sw: 64, sh: 64 }];
     if (typeof ITEMS !== "undefined" && ITEMS["wc_buckler_2"]) ITEMS["wc_buckler_2"].icon = "i_wc_buckler_2";

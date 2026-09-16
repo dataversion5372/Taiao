@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — per-character body-fit data (auto-generated) =====
+// ===== Taiao — per-character body-fit data (auto-generated) =====
 // From UNDERWEAR (smallclothes) sprite: true body top/bot + 16-station
 // [leftX,rightX] width profile. From TWO clothed outfits: what stays bare;
 // keep only PROTRUSIONS (silhouette minus k=3 opening) in HEAD & LOWER/tail

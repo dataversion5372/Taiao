@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — specialised mining =====
+// ===== Taiao — specialised mining =====
 // Splits Mining into two gathering professions:
 //   Ore-mining (metal ores + structural stone) · Gem-mining (gems + decorative stone)
 //
@@ -14,6 +14,8 @@
   for (const s of SK) { if (!SKILLS.includes(s)) SKILLS.push(s); SKILL_CATEGORY[s] = "Gathering"; }
 
   // ---- re-tag every metal ore rock (+ essence) from Mining → Ore-mining ----
+  // (each also yields a 5-10 ore batch before depleting — handled generically in
+  // gathering.js wildNodeCharged, which covers ALL wild gather nodes, not just ore)
   if (typeof METALS !== "undefined") for (const m of METALS) { const nt = NODE_TYPES[m.rock]; if (nt) nt.skill = "Ore-mining"; }
   if (NODE_TYPES.essence) NODE_TYPES.essence.skill = "Ore-mining";
 

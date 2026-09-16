@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — 8-dir animal sheet frame-order fix =====
+// ===== Taiao — 8-dir animal sheet frame-order fix =====
 // The one-off PixelLab animal sheets (sheep "as", the "aa" barnyard set, the
 // "ab" set) and the wolf/bear/dragon sheet ("wd") were registered assuming
 // column i faces DIR8[i] — the convention of the base "md" sheet (camel etc.).

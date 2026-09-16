@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — world-map marker icon atlas (auto-generated) =====
+// ===== Taiao — world-map marker icon atlas (auto-generated) =====
 // Replaces the hand-drawn Canvas2D vector glyphs in ICON_TYPES (js/gameplay/
 // world.js) with real bitmap art, generated from an AI image-gen pass (see
 // docs/map-icons-sprite-prompt.txt) and extracted by fixed 6x5 grid position
@@ -15,7 +15,7 @@
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("mi")) SHEET_KEYS.push("mi");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["mi"] = 64;
-  ASSET_DATA["mi"] = "assets/sheets/9b10b6d4ca3ebb25.webp";
+  ASSET_DATA["mi"] = "assets/sheet-src/mi-map-icon-atlas.webp";
   SPR["i_mapicon_bank"] = ["mi", 0, 0, {sx:0, sy:0, sw:64, sh:64}];
   SPR["i_mapicon_store"] = ["mi", 1, 0, {sx:64, sy:0, sw:64, sh:64}];
   SPR["i_mapicon_anvil"] = ["mi", 2, 0, {sx:128, sy:0, sw:64, sh:64}];

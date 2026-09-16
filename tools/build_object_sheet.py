@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pack all 8-directional world objects (trees, rocks, crafting stations, walls,
 decor) into one sprite sheet and embed it (data URI) plus a manifest into
-js/sprites/objects-data.js for the Isle of Emberfall game.
+js/sprites/objects-data.js for Taiao game.
 
 Each object folder holds base/rotations/<dir>.png for the 8 CHAR_DIRS. Objects
 are foot-anchored at the bottom of their cell and contain-fit into the cell so
@@ -98,7 +98,7 @@ def main():
     sheet.save(OUT_PNG)
     b64 = base64.b64encode(OUT_PNG.read_bytes()).decode()
     js = (
-        "// ===== Isle of Emberfall - 8-directional world object sheet (auto-generated) =====\n"
+        "// ===== Taiao - 8-directional world object sheet (auto-generated) =====\n"
         '"use strict";\n'
         f"const OBJ_CELL = {CELL};\n"
         f"const OBJ_COLS = {COLS};\n"

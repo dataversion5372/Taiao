@@ -1,6 +1,360 @@
 // ===== world terrain noise and biome classification =====
 "use strict";
 
+// ---------- Tūhura Isle: the hand-shaped tutorial island ----------
+// New characters wake here (gameplay/tutorial.js) and are led through the
+// tutorial in a FIXED ORDER: the isle is a long serpentine chain of twelve
+// zone "pods" (one per tutor — Landing, the Bush, the Cove, the Forge, the
+// Springs, the Lagoon, the Bank, the Farm Vale, the Warden's Pit, the Sky
+// Knoll, the Portal Crown, the Harbour), joined by narrow fenced isthmuses.
+// A dirt path runs the whole spine; each isthmus gate only opens when the
+// previous tutor is done (Tutorial.barred gates by chain position, so the
+// water flanking a fence is barred too — no swimming around).
+//
+// The island is carved at the TERRAIN level — an override on the elevation/
+// climate fields below shaped as a TUBE around the pod-centre polyline —
+// so erosion, biome classify, water depth, the renderer, the world map and
+// BOTH warm workers (which importScripts this exact file) all agree on its
+// shape. features.js excludes procedural settlements/POIs/portals/icons via
+// tutIsleAtMap, and chunks.js stamps path/fences/stations/tutors.
+// All values in MAP units (= game tiles / 2) unless suffixed g.
+var TUT_ISLE = (() => {
+  // RINGED ISLE (user redesign 2026-09-16): ONE circular island — ten outer
+  // ring sectors, four middle-ring chambers, and the crown at the very
+  // centre. The 15-keeper journey weaves in and out of the rings:
+  //   outer 1 → middle 2 → outer 3·4·5 → middle 6 → CENTRE 7 → middle 8 →
+  //   outer 9·10·11 → middle 12 → outer 13·14·15 (the Harbour).
+  // Ring boundaries and sector spokes are FENCES with gate arches where the
+  // journey path crosses (tutFenceAt / tutGateArchAt below feed chunks.js
+  // painting and tutorial.js barred()). All units are MAP units (game/2).
+  const CX = -380, CY = 500;         // island centre
+  const RC = 16, RM = 32, RO = 54;   // centre wall / middle ring / coast radii
+  const D2R = Math.PI / 180;
+  // pod seats (degrees, screen convention: -90 = north/up, +x east).
+  // Pod 2 (Fisher) sits at -42° — nudged OFF the river ray (-36°) so the
+  // camp stands on the west bank of its own river.
+  const OUTER_ANG = { 0: -72, 2: -42, 3: 0, 4: 36, 8: 72, 9: 108, 10: 144, 12: 180, 13: -144, 14: -108 };
+  const MID_ANG   = { 1: -90, 5: 0, 7: 90, 11: 180 };
+  const SPOKES = [];                 // outer-sector boundary angles (deg)
+  for (let k = 0; k < 10; k++) SPOKES.push(-90 + 36 * k);
+  const MIDWALLS = [-45, 45, 135, 225]; // middle-chamber boundary angles (deg)
+  const seat = (ang, rad) => ({ mx: Math.round(CX + Math.cos(ang * D2R) * rad),
+                                my: Math.round(CY + Math.sin(ang * D2R) * rad) });
+  const pods = [];
+  for (let i = 0; i < 15; i++) {
+    let ang = 0, rad = 0, r = 10;
+    if (i === 6) { r = RC - 3; }                                          // the CENTRE crown
+    else if (MID_ANG[i] !== undefined) { ang = MID_ANG[i]; rad = (RC + RM) / 2; r = 8; }
+    else { ang = OUTER_ANG[i]; rad = (RM + RO) / 2; r = 10; }
+    pods.push({ ...seat(ang, rad), r, ang, rad });
+  }
+  // per-pod climate + relief flavour (same consumers as ever, new seats).
+  // EVERY pod gets its own biome (user req 2026-09-16): hum/tmp/farm/wrd are
+  // the per-pod targets tutMix drives the climate fields to (temperature and
+  // weirdField grew per-pod reads for this), chosen so classify() lands each
+  // zone in a different biome — with ONE deliberate exception: the Landing
+  // (0) and the Harbour (14) SHARE the plains, because they form a single
+  // open village shore with no fence between them (see the -90° spoke skip
+  // in _tutFenceBuild). Margins clear the ±0.04 humidity wobble.
+  pods[0].hum = 0.38;                                    // Landing → GRASS
+  pods[1].hum = 0.64; pods[1].tmp = 0.50;                // the Bush chamber → FOREST
+  pods[2].hum = 0.76; pods[2].tmp = 0.70;                // the Cove → WETLAND (rivermouth flats)
+  pods[3].hum = 0.26; pods[3].tmp = 0.60;                // the Forge → BADLANDS
+  pods[4].hum = 0.63; pods[4].tmp = 0.70;                // the Lagoon → JUNGLE
+  pods[5].hum = 0.51;                                    // the Bank camp → MEADOW
+  pods[6].hum = 0.40; pods[6].farm = 0.75; pods[6].civ = 0.60; // Farm Vale = the CENTRE → FARM
+  pods[7].hum = 0.60; pods[7].farm = 0.80;               // Woodcrafting → CHERRY orchard
+  pods[8].hum = 0.63; pods[8].tmp = 0.70; pods[8].farm = 0.75; // Cooking → BAMBOO grove
+  pods[9].hum = 0.78;                                    // the Warden's Pit → SWAMP
+  pods[10].hum = 0.35; pods[10].tmp = 0.70; pods[10].farm = 0.85; // the Springs → OASIS
+  pods[11].hum = 0.45; pods[11].tmp = 0.36;              // the Sky Knoll → TUNDRA
+  pods[12].hum = 0.62; pods[12].tmp = 0.36;              // Candle Hollow → TAIGA
+  pods[13].wrd = 0.18;                                   // Portal Crown → RUINS
+  pods[14].hum = 0.38;                                   // the Harbour → PLAINS, same shore as the Landing
+  const outward = (i, k) => ({ dx: Math.round(Math.cos(pods[i].ang * D2R) * k),
+                               dy: Math.round(Math.sin(pods[i].ang * D2R) * k) });
+  pods[4].pool = { ...outward(4, 6), r: 4.5, d: 0.16 };  // Vrixa's lagoon, toward the SE coast
+  pods[10].pool = { ...outward(10, 5), r: 3.5, d: 0.10 };// Nala's wash-springs, SW
+  pods[11].bump = { r: 7, h: 0.06 };                     // Ravenna's sky knoll (W chamber)
+  pods[12].bump = { r: 6, h: 0.05 };                     // the candle hollow rise
+  pods[13].bump = { r: 6, h: 0.05 };                     // the portal crown
+  // THE RIVER: a RADIAL stream on the -36° ray — springing just outside the
+  // centre wall, running out through the Bank chamber's northern reach and
+  // the whole Fisher sector, opening FREELY to the sea (the weir arcs are
+  // gone, user req 2026-09-16: no fences downstream of the Bush→Cove river
+  // gate). The upstream reach through the Bank chamber is a FENCED corridor
+  // (bank fence lines below) entered through the -45° chamber wall's water
+  // gap: the journey itself now RIDES the river — gate 1 stands mid-channel
+  // where the middle ring crosses the water, and the current carries the
+  // Bushman's graduate down into the Cove. The path still bridges the river
+  // once, between pods 2→3.
+  const RA = -36 * D2R;
+  // the spring rises RIGHT AGAINST the centre wall (user req 2026-09-16:
+  // rSrc RC+2 → RC+0.5, water extent from RC−0.0) — no dry strip behind the
+  // source to walk around; the wall's posts stand in the springhead water
+  const rSrc = RC + 0.5, rCross = (RM + RO) / 2, rMouth = RO + 1.5;
+  const rpt = t => ({ x: CX + Math.cos(RA) * t, y: CY + Math.sin(RA) * t });
+  const river = {
+    ux: Math.cos(RA), uy: Math.sin(RA),  // downstream unit vector (source → sea)
+    rSrc, rCross, rMouth, waterR: 2.6,
+    src: rpt(rSrc), cross: rpt(rCross), mouth: rpt(rMouth),
+  };
+  // the JOURNEY PATH: pod → gate → pod polyline; gate i sits at s = i + 0.5.
+  const wrapMid = (a, b) => { let d = ((b - a + 540) % 360) - 180; return a + d / 2; };
+  const zone = i => i === 6 ? 2 : (MID_ANG[i] !== undefined ? 1 : 0); // 0 outer, 1 middle, 2 centre
+  const gates = [];
+  const angDist = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+  for (let i = 0; i + 1 < 15; i++) {
+    const za = zone(i), zb = zone(i + 1);
+    let g;
+    if (i === 1) {
+      // the RIVER GATE (user req 2026-09-16): gate 1 (Bush → Cove) stands
+      // IN THE RIVER, mid-channel where the middle ring crosses the water —
+      // the ring fence runs bank-to-bank across the course and only this
+      // arch opens (once the Bushman is done); the way into the Cove is to
+      // ride the current down through it.
+      const rg = rpt(RM);
+      g = { mx: Math.round(rg.x), my: Math.round(rg.y) };
+    } else if (za === 0 && zb === 0) {
+      // adjacent outer sectors: the gate must sit ON the shared SPOKE fence
+      // — snap the seats' mid-angle to the nearest sector boundary (a seat
+      // can be nudged off-centre, e.g. the Fisher's river-bank camp)
+      const mid = wrapMid(pods[i].ang, pods[i + 1].ang);
+      let sp = SPOKES[0];
+      for (const a of SPOKES) if (angDist(a, mid) < angDist(sp, mid)) sp = a;
+      g = seat(sp, (RM + RO) / 2);
+    } else if (za === 2 || zb === 2) {   // centre wall crossing
+      g = seat(za === 2 ? pods[i + 1].ang : pods[i].ang, RC);
+    } else {                              // outer ↔ middle: on the RM ring
+      g = seat(wrapMid(pods[i].ang, pods[i + 1].ang), RM);
+    }
+    gates.push({ x: g.mx, y: g.my, i });
+  }
+  const path = [];                        // [{x, y, s}]
+  for (let i = 0; i < 15; i++) {
+    if (i === 6) {
+      // the crown vertex is nudged SE of centre: the 5×5 FENCED FARM (user
+      // req 2026-09-16, tutorial.js stamps) occupies the exact centre, and
+      // the dirt path's east→south dog-leg skirts its fence past the gate
+      path.push({ x: pods[6].mx + 2.5, y: pods[6].my + 2.5, s: 6 });
+    } else path.push({ x: pods[i].mx, y: pods[i].my, s: i });
+    if (i === 1) {
+      // detour to the RIVER ENTRY: from the Bush camp the path leads through
+      // the -45° chamber wall's water gap onto the upstream corridor, then
+      // runs DOWN THE RIVER (mid-channel — no dirt is painted on water) to
+      // the river gate and on to the Fisher's bank.
+      const re = rpt(23);
+      path.push({ x: re.x, y: re.y, s: 1.25 });
+    }
+    if (i < 14) path.push({ x: gates[i].x, y: gates[i].y, s: i + 0.5 });
+  }
+  // THE SWIM-MASTER'S ISLET (user req 2026-09-16): a lone motu off the
+  // Lagoon sector's coast, on pod 4's outward radial (36°). Its distance is
+  // PER-CHARACTER — tutIsletFor() below places it just past the chosen
+  // body's bare-lungs swim range, so a swimmer without the snorkel blacks
+  // out a few strokes short of its beach, whatever form they wear. The
+  // default here is the neutral (form-less) body; gameplay/tutorial.js
+  // recomputes it the moment a character is chosen (and purges the region's
+  // chunks — see chunks.js, which also never persists nor worker-injects
+  // isletZone chunks, so the geometry can stay character-dependent).
+  const IA = 36 * D2R;
+  const isletZone = (() => {   // superset rect (map units) of every possible seat
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const t of [50, 118]) for (const s of [-12, 12]) {
+      const zx = CX + Math.cos(IA) * t - Math.sin(IA) * s;
+      const zy = CY + Math.sin(IA) * t + Math.cos(IA) * s;
+      x0 = Math.min(x0, zx); x1 = Math.max(x1, zx);
+      y0 = Math.min(y0, zy); y1 = Math.max(y1, zy);
+    }
+    return { x0, y0, x1, y1 };
+  })();
+  const M = 130; // private-ocean margin (no foreign land in sight)
+  return {
+    pods, river, gates, path,
+    CX, CY, RC, RM, RO, SPOKES, MIDWALLS, IA, isletZone,
+    islet: null, // seeded below via tutIsletFor(1, 1); re-seated per character
+    gx: pods[0].mx * 2, gy: pods[0].my * 2,
+    bbox: { x0: CX - RO - M, x1: CX + RO + M, y0: CY - RO - M, y1: CY + RO + M },
+  };
+})();
+// Seat the Swim-Master's islet for a body with the given move-speed and
+// height multipliers (character-stats.js playerStats). All in MAP units.
+// The swim maths mirror movement.js exactly:
+//   · a wading step is 190ms/tile ÷ speedMul × 1.25 still-water drag
+//   · AIR is 15 seconds at drain 1 (state.js AIR_MAX) → bare-lungs range
+//     = 15000 / 237.5 × speedMul = 63.2 game tiles = 31.6 map units
+//   · drowning starts where the water tops the mouth (MOUTH_Y 1.1 × height;
+//     depth = (LAND_E − e) / (1 − LAND_E) × 12.5 with LAND_E 0.483), so a
+//     taller body wades a little further out before the clock starts
+// The islet's shore then sits drainStart + swimRange + 2.5 map units past
+// the waterline: every body drowns ~5 tiles short. The snorkel halves the
+// drain (potteryglass.js diveDrain 0.5), doubling the range — with it, any
+// body crosses with air to spare.
+function tutIsletFor(speedMul, heightMul) {
+  const T = TUT_ISLE;
+  const mouthY = 1.1 * (heightMul || 1);
+  const eSub = 0.483 - mouthY / 24.18;          // elevation where the water tops the mouth
+  const D = eSub >= 0.445
+    ? -1.85 + (0.483 - eSub) / 0.0205           // still in the shore taper
+    : (0.44 - eSub) / 0.005;                    // out on the shallows shelf
+  const drainStart = Math.max(0, D + 1.85);     // map units past the waterline (D −1.85)
+  const swim = 31.58 * (speedMul || 1);
+  const shoreR = Math.min(112, (T.RO - 1.85) + drainStart + swim + 2.5);
+  const r = shoreR + 2.5;                       // islet centre (land radius 2.5)
+  return { x: T.CX + Math.cos(T.IA) * r, y: T.CY + Math.sin(T.IA) * r, r: 2.5 };
+}
+TUT_ISLE.islet = tutIsletFor(1, 1);
+// river-ray coordinates of a MAP point: t = radial distance along the ray
+// (map units from the island centre), perp = signed distance off the water
+// course (positive = clockwise side). Meaningful when t is in the river's
+// extent; consumers gate on that themselves.
+function tutRiverCoord(x, y) {
+  const T = TUT_ISLE, Rv = T.river;
+  const dx = x - T.CX, dy = y - T.CY;
+  return { t: dx * Rv.ux + dy * Rv.uy, perp: -dx * Rv.uy + dy * Rv.ux };
+}
+// Signed-distance sample of the ringed isle at MAP point (x,y), or null when
+// outside the bounding box (hot-path early-out — elevation() calls this for
+// every tile). Return contract unchanged from the old chain isle:
+//   d — distance to the journey path · s — chain position (gate i at i+0.5) ·
+//   D — signed distance to the coast (<0 land) · i — the pod whose ZONE the
+//   point sits in (per-pod climate) · ox/oy — seaward normal ·
+//   pRiver 0(source)…1(mouth) · riverLine — distance to the water course.
+function tutIsleSD(x, y) {
+  const T = TUT_ISLE, B = T.bbox;
+  if (x < B.x0 || x > B.x1 || y < B.y0 || y > B.y1) return null;
+  const dx = x - T.CX, dy = y - T.CY;
+  const rad = Math.hypot(dx, dy);
+  const D = rad - T.RO;
+  // journey-path scan (d + s)
+  const P = T.path;
+  let bd2 = Infinity, bs = 0;
+  for (let i = 0; i + 1 < P.length; i++) {
+    const ax = P[i].x, ay = P[i].y;
+    const vx = P[i + 1].x - ax, vy = P[i + 1].y - ay;
+    let t = ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy || 1);
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const ddx = x - ax - vx * t, ddy = y - ay - vy * t;
+    const d2 = ddx * ddx + ddy * ddy;
+    if (d2 < bd2) { bd2 = d2; bs = P[i].s + (P[i + 1].s - P[i].s) * t; }
+  }
+  // zone containment → pod index for climate/relief
+  const ang = Math.atan2(dy, dx) / (Math.PI / 180); // -180..180, -90 = north
+  let zi = 6;
+  if (rad > T.RC) {
+    const table = rad <= T.RM
+      ? { 1: -90, 5: 0, 7: 90, 11: 180 }
+      : { 0: -72, 2: -36, 3: 0, 4: 36, 8: 72, 9: 108, 10: 144, 12: 180, 13: -144, 14: -108 };
+    let best = 1e9;
+    for (const k in table) {
+      const ad = Math.abs(((ang - table[k] + 540) % 360) - 180);
+      if (ad < best) { best = ad; zi = +k; }
+    }
+  }
+  const ox = rad > 0.001 ? dx / rad : 0, oy = rad > 0.001 ? dy / rad : 1;
+  // radial river coords (inline for speed on the hot path)
+  const Rv = T.river;
+  const rt = dx * Rv.ux + dy * Rv.uy, rp = -dx * Rv.uy + dy * Rv.ux;
+  const inExt = rt >= Rv.rSrc - 0.5 && rt <= Rv.rMouth + 0.5;
+  const pRiver = inExt ? (Math.max(Rv.rSrc, Math.min(Rv.rMouth, rt)) - Rv.rSrc) / (Rv.rMouth - Rv.rSrc) : -1;
+  const riverLine = inExt ? Math.abs(rp) : 1e9;
+  return { d: Math.sqrt(bd2), s: bs, D, i: zi, ox, oy, pRiver, riverLine };
+}
+// ---- fence & gate geometry (consumed by chunks.js painting + tutorial.js) ----
+// SINGLE-FILE fences (user req): each ring/spoke/wall/weir is walked
+// parametrically and rounded to GAME tiles — one post per step, never
+// side-by-side doubles. An 8-connected 1-wide line is watertight here:
+// pathing.js findPath and movement.js both forbid diagonal corner-cutting,
+// so no one slips between two diagonally-adjacent posts. Built lazily once
+// (the geometry is seed-independent and static).
+let _tutFenceMap = null; // "gx,gy" -> {kind, gate}
+function _tutFenceBuild() {
+  const T = TUT_ISLE, Rv = T.river;
+  const M = new Map();
+  const put = (gx, gy, kind, gate) => {
+    const k = gx + "," + gy;
+    const cur = M.get(k);
+    if (!cur || (cur.gate === -1 && gate !== -1)) M.set(k, { kind, gate });
+  };
+  // classification at a MAP point: null = gap (river water), else gate flag.
+  // Only the CHAMBER WALLS gap over the water — the -45° wall's gap is the
+  // sanctioned river entry from the Bush chamber. The rings now run BANK TO
+  // BANK across the course (user req 2026-09-16): the middle ring carries
+  // journey gate 1 mid-channel (the river gate), and the centre wall stands
+  // solid (the spring rises just outside it, so no water ever reaches it).
+  const classify = (mx, my, kind) => {
+    if (kind === "wall") {
+      const rc = tutRiverCoord(mx, my);
+      if (Math.abs(rc.perp) < Rv.waterR + 1.4 && rc.t > Rv.rSrc - 2) return null;
+    }
+    for (const g of T.gates)
+      if (Math.hypot(mx - g.x, my - g.y) < 1.6) return { gate: g.i };
+    return { gate: -1 };
+  };
+  const walk = (fn, t0, t1, dt, kind) => {
+    let px = null, py = null;
+    for (let t = t0; t <= t1 + 1e-9; t += dt) {
+      const [mx, my] = fn(Math.min(t, t1));
+      const gx = Math.round(mx * 2), gy = Math.round(my * 2);
+      if (gx === px && gy === py) continue;
+      const c = classify(mx, my, kind);
+      if (c) put(gx, gy, kind, c.gate);
+      px = gx; py = gy;
+    }
+  };
+  const D2R = Math.PI / 180;
+  // the two ring fences (centre wall + middle ring)
+  for (const rr of [T.RC, T.RM])
+    walk(a => [T.CX + Math.cos(a) * rr, T.CY + Math.sin(a) * rr],
+      0, Math.PI * 2, 0.1 / rr, "ring");
+  // outer-sector spokes — out past the waterline (D −1.85) into the surf to
+  // RO+7, where the water is over anyone's head: no more knee-deep wading
+  // around a spoke's last post to skip a gate
+  for (const a of T.SPOKES) {
+    // NO fence between the Landing and the Harbour (user req 2026-09-16):
+    // pods 0 and 14 share one open plains shore — the village spans both
+    if (a === -90) continue;
+    const ux = Math.cos(a * D2R), uy = Math.sin(a * D2R);
+    walk(t => [T.CX + ux * t, T.CY + uy * t], T.RM + 0.6, T.RO + 7, 0.12, "spoke");
+  }
+  // middle-chamber walls ("wall": these alone gap over the river — the -45°
+  // wall's gap is where the Bushman's graduate steps down to the water)
+  for (const a of T.MIDWALLS) {
+    const ux = Math.cos(a * D2R), uy = Math.sin(a * D2R);
+    walk(t => [T.CX + ux * t, T.CY + uy * t], T.RC + 0.6, T.RM - 0.6, 0.12, "wall");
+  }
+  // river-bank fences: the upstream reach runs THROUGH the Bank chamber, so
+  // its corridor is fenced along both banks (perp ±waterR+1.2) — a swimmer
+  // waiting on the river gate can't climb out into the pod-6 camp early.
+  // The east line runs the full reach (tucked under the centre-wall ring at
+  // its head); the west line only below the -45° wall's crossing (upstream
+  // of that the wall itself is the boundary, and its water gap the way in).
+  for (const [side, t0] of [[Rv.waterR + 1.2, 15.0], [-(Rv.waterR + 1.2), 24.6]])
+    walk(t => [T.CX + Rv.ux * t - Rv.uy * side, T.CY + Rv.uy * t + Rv.ux * side],
+      t0, T.RM + 0.6, 0.12, "bank");
+  return M;
+}
+// What stands at MAP point (x,y)? null, or {kind, gate}: kind
+// "ring"|"spoke"|"wall"|"bank"; gate >= 0 = journey-gate arch (gate index),
+// -1 = plain fence post. (The weir arcs and their swim-latch gates are gone
+// — 2026-09-16, no fences downstream of the river gate.)
+function tutFenceAt(x, y) {
+  if (!_tutFenceMap) _tutFenceMap = _tutFenceBuild();
+  return _tutFenceMap.get(Math.round(x * 2) + "," + Math.round(y * 2)) || null;
+}
+// journey-gate arch at MAP point? → gate index or -1 (tutorial.js barred())
+function tutGateArchAt(x, y) {
+  for (const g of TUT_ISLE.gates)
+    if (Math.hypot(x - g.x, y - g.y) < 1.6) return g.i;
+  return -1;
+}
+// inside the island's influence footprint? (features.js exclusions) — the
+// whole private-ocean disc, so no village/POI/portal/icon seeds in it
+function tutIsleAtMap(x, y) {
+  const q = tutIsleSD(x, y);
+  return !!q && q.D < 130;
+}
+
 // Callers (1):
 //  world.js:22
 function createWorldTerrain() {
@@ -46,6 +400,68 @@ function createWorldTerrain() {
     return v + (target - v) * w;
   }
 
+  // ---------- Tūhura Isle overrides (TUT_ISLE + tutIsleSD, top of file) ----
+  // Override weight from a tube sample: 1 across the isle AND its whole
+  // private ocean (out to D=110), fading to natural terrain across 110..130 —
+  // far beyond sight, so no foreign land ever shows from the isle.
+  // (plateau extended 110 → 120 on 2026-09-16 so the Swim-Master's islet —
+  // seated up to ~112 map units out for the fastest bodies — sits wholly on
+  // analytic carve; the fade band narrows to 120..130 accordingly)
+  const tutW = q => q.D <= 120 ? 1 : (130 - q.D) / 10;
+  const tutMix = (q, v, target) => v + (target - v) * tutW(q);
+  // Target elevation from the tube: grassy plateau (soft noise) with per-pod
+  // relief (knolls, pools), a beach taper to the coast, then shallows sloping
+  // to deep sea — a guaranteed moat whatever nature put here.
+  function tutElev(x, y, q) {
+    // the Swim-Master's ISLET (TUT_ISLE.islet, per-character seat): a steep
+    // little dome rising out of the deep — grass crown, one ring of beach,
+    // and water over anyone's head within ~1.5 map units of its shore, so
+    // the drowning clock runs right up to the sand.
+    const I = TUT_ISLE.islet;
+    if (I && q.D > 3) {
+      const pd = Math.hypot(x - I.x, y - I.y);
+      if (pd < 4.5) {
+        const sea = q.D >= 9 ? Math.max(0.335, 0.40 - (q.D - 9) * 0.0009)
+                             : 0.44 - q.D / 9 * 0.045;
+        return Math.max(sea, 0.535 - 0.00832 * pd * pd);
+      }
+    }
+    // deep ring, sloping ever deeper with distance — the isle's private
+    // ocean has no far shore, just water darkening to the horizon
+    if (q.D >= 9) return Math.max(0.335, 0.40 - (q.D - 9) * 0.0009);
+    if (q.D >= 0) return 0.44 - q.D / 9 * 0.045;     // shallows sloping away
+    let e = 0.527 + (fbm(x * 0.09, y * 0.09, S + 881, 2) - 0.5) * 0.02;
+    // shore taper → a sand ring at the coast, reaching plateau by D=-4 so even
+    // the river's banks stay solidly dry and walkable up to the source
+    if (q.D > -4) e -= (q.D + 4) / 4 * 0.082;         // 0.527 at D=-4 → ~0.445 at D=0
+    const p = TUT_ISLE.pods[q.i];
+    if (p.bump) {
+      const bd = Math.hypot(x - p.mx, y - p.my);
+      e += Math.max(0, 1 - bd / p.bump.r) * p.bump.h;
+    }
+    if (p.pool) {
+      const pd = Math.hypot(x - p.mx - p.pool.dx, y - p.my - p.pool.dy);
+      e -= Math.max(0, 1 - pd / p.pool.r) * p.pool.d;
+    }
+    // a straight E–W water CHANNEL spanning the pod (the isle continues along
+    // both banks): flat-bottomed within halfW, feathering over the last unit —
+    // deep enough to drown, so a bankside archer must SHOOT across it.
+    if (p.channel) {
+      const cd = Math.abs(y - p.my - p.channel.dy);
+      if (cd < p.channel.halfW)
+        e -= Math.max(0, Math.min(1, p.channel.halfW - cd)) * p.channel.d;
+    }
+    // THE RIVER: carve the water course down the valley — shallow + wadeable
+    // (so riding the current never drowns), a touch deeper toward the mouth.
+    // Only within the source→mouth extent; feathers over the last tile.
+    if (q.pRiver >= 0 && q.riverLine < TUT_ISLE.river.waterR + 1) {
+      const floor = 0.467 - q.pRiver * 0.02;   // 0.467 at the spring → 0.447 at the mouth
+      const w = Math.max(0, Math.min(1, TUT_ISLE.river.waterR + 1 - q.riverLine));
+      e = e + (floor - e) * w;
+    }
+    return e;
+  }
+
   // Ridge noise produces sharp mountain chains (SimpleHydrology-inspired)
   function ridgeNoise(x, y, s, octaves) {
     let total = 0, amp = 1, max = 0;
@@ -70,7 +486,9 @@ function createWorldTerrain() {
     e += ridge * Math.max(0, cont - 0.50) * 0.40;    // ridges on high terrain
     const isl = fbm(wx * 0.016, wy * 0.016, S + 301, 3);
     if (isl > 0.60) e += (isl - 0.60) * 0.55;
-    return originBlend(x, y, Math.max(0, Math.min(1, e)), 0.565);
+    const v = originBlend(x, y, Math.max(0, Math.min(1, e)), 0.565);
+    const q = tutIsleSD(x, y);
+    return q && q.D < 130 ? tutMix(q, v, tutElev(x, y, q)) : v;
   }
 
   // Latitude: triangle wave maps Y → 0 (equatorial/warm) to 1 (polar/cold),
@@ -97,7 +515,11 @@ function createWorldTerrain() {
     const latT = 1 - warmCurve(lat);
     const altC = Math.max(0, (e - LAND_E) / (1 - LAND_E)) * 0.55;
     const noise = fbm(x * 0.003, y * 0.003, S + 57, 2) * 0.18 - 0.09;
-    return originBlend(x, y, Math.max(0, Math.min(1, latT - altC + noise)), 0.52);
+    const v = originBlend(x, y, Math.max(0, Math.min(1, latT - altC + noise)), 0.52);
+    // Tūhura Isle: forced climate whatever the latitude says — per-POD now
+    // (each zone's unique biome needs its own temperature band)
+    const q = tutIsleSD(x, y);
+    return q && q.D < 130 ? tutMix(q, v, TUT_ISLE.pods[q.i].tmp || 0.52) : v;
   }
 
   // Humidity: latitude bands + valley drainage + basin flow (SimpleHydrology-inspired)
@@ -136,13 +558,37 @@ function createWorldTerrain() {
     const noiseBase = fbm(x * 0.0045, y * 0.0045, S + 31, 3) * 0.28;
     const noiseVar  = (fbm(x * 0.006, y * 0.006, S + 191, 2) - 0.5) * 1.6;
     const noise = noiseBase + noiseVar;
-    return originBlend(x, y,
+    const v = originBlend(x, y,
       Math.max(0, Math.min(1, latHum + concavity * 0.25 + basinFlow + coastHum + noise - altDry)), 0.45);
+    // Tūhura Isle: humidity per zone pod — the Bush pod runs FOREST-wet, the
+    // Farm Vale pod dry enough for FARM fields, the rest grass/meadow. Gentle
+    // noise keeps the biome seams at the gates organic.
+    const q = tutIsleSD(x, y);
+    if (q && q.D < 130) {
+      const wob = (fbm(x * 0.07, y * 0.07, S + 883, 2) - 0.5) * 0.08;
+      return tutMix(q, v, (TUT_ISLE.pods[q.i].hum || 0.50) + wob);
+    }
+    return v;
   }
 
-  const civField   = (x, y) => originBlend(x, y, fbm(x * 0.0012, y * 0.0012, S + 601, 2), 0.72);
-  const weirdField = (x, y) => originBlend(x, y, fbm(x * 0.002,  y * 0.002,  S + 901, 2), 0.5);
-  const farmField  = (x, y) => fbm(x * 0.025, y * 0.025, S + 501, 3);
+  const civField = (x, y) => {
+    const v = originBlend(x, y, fbm(x * 0.0012, y * 0.0012, S + 601, 2), 0.72);
+    const q = tutIsleSD(x, y);
+    return q && q.D < 130 ? tutMix(q, v, TUT_ISLE.pods[q.i].civ || 0.35) : v;
+  };
+  const weirdField = (x, y) => {
+    const v = originBlend(x, y, fbm(x * 0.002, y * 0.002, S + 901, 2), 0.5);
+    const q = tutIsleSD(x, y);
+    // no fantasy biomes on the isle — but the Portal Crown runs LOW weird
+    // (wrd 0.18 → the Ruins biome) for its ancient-stones look
+    const p = q && q.D < 130 ? TUT_ISLE.pods[q.i] : null;
+    return p ? tutMix(q, v, p.wrd != null ? p.wrd : 0.45) : v;
+  };
+  const farmField = (x, y) => {
+    const v = fbm(x * 0.025, y * 0.025, S + 501, 3);
+    const q = tutIsleSD(x, y);
+    return q && q.D < 130 ? tutMix(q, v, TUT_ISLE.pods[q.i].farm || 0.35) : v;
+  };
 
   // Biome classifier: Whittaker latitude × altitude × humidity matrix
   function classify(e, hum, temp, f, c, w) {

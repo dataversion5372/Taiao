@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — one skill per station =====
+// ===== Taiao — one skill per station =====
 // Loaded AFTER every skill file that registers stations/recipe-lists (economy,
 // husbandry, chandlery, paper, sailmaking, … all run by index.html:219).
 //

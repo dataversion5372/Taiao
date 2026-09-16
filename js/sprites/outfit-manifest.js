@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — per-character OUTFIT states (auto-generated) =====
+// ===== Taiao — per-character OUTFIT states (auto-generated) =====
 // Maps each character folder (CHAR_LIST[i].folder) to the outfit states it has
 // under assets/families_source/<folder>/<state>/rotations/{8 dirs}.png. Regenerate:
 // tools/build_outfit_manifest.py

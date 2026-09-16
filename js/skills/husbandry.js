@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Husbandry (animal production) =====
+// ===== Taiao — Husbandry (animal production) =====
 // Raising livestock as a specialised trade. Husbandry is a PASSIVE profession:
 // you commit FEED (bran — the milling by-product — plus grain/forage, or meat
 // for carnivores), a wall-clock timer runs while you roam, and you return to
@@ -34,6 +34,12 @@
   // ---------- animal products (feed the wider economy) ----------
   mk("milk",     "Milk",      "i_cotton", " brightness(1.45) saturate(0.15)", { stack: true, value: 6, prov: "batch" }, "milk — tinted placeholder");
   mk("egg",      "Egg",       "i_cotton", " brightness(1.2) sepia(0.35)",     { stack: true, value: 5, prov: "batch" }, "egg — tinted placeholder");
+  // quail egg — its own item, but an ITEM_FAMILY variant of "egg" so every
+  // recipe that binds an egg (fritters, frying, cake) accepts it; cheapest-
+  // first consumption means these little eggs get used before hens' eggs.
+  mk("quail_egg", "Quail egg", "i_cotton", " brightness(1.1) sepia(0.6) saturate(1.3)", { stack: true, value: 4, prov: "batch" }, "quail egg — tinted placeholder");
+  EXAMINE.quail_egg = "A tiny speckled quail egg — binds a fritter as well as any hen's egg.";
+  if (typeof window !== "undefined") (window.ITEM_FAMILY = window.ITEM_FAMILY || {}).quail_egg = "egg";
   mk("feathers", "Feathers",  "i_shafts", " brightness(1.25)",                { stack: true, value: 4, prov: "batch" }, "feathers — tinted placeholder");
   mk("honey",    "Honey",     "i_pot_hp", " hue-rotate(20deg) saturate(1.7)", { stack: true, value: 12, heals: 3, prov: "batch" }, "honey — tinted placeholder");
   mk("beeswax",  "Beeswax",   "i_bar_au", " hue-rotate(10deg) brightness(1.1)",{ stack: true, value: 14, prov: "batch" }, "beeswax — tinted placeholder");
@@ -55,7 +61,7 @@
   // animal). "Raise ___" tiers yield a young-animal item (kit/piglet/…); the
   // roaming version of the same tier spawns a physical baby that grows in place.
   const HERD = [
-    ["keep_quail",     "Tend quail",              "poultry", 1,  { bran: 1 },            18, [O("egg", 2), O("feathers", 1)]],
+    ["keep_quail",     "Tend quail",              "poultry", 1,  { bran: 1 },            18, [O("quail_egg", 2), O("feathers", 1)]],
     ["keep_hens",      "Tend hens",               "poultry", 2,  { bran: 2 },            20, [O("egg", 3), O("feathers", 1)]],
     ["raise_rabbits",  "Raise rabbits",           "smallstock", 3, { bran: 1 },          18, [O("kit", 1)]],
     ["shear_sheep",    "Shear sheep",             "sheep", 4,  { bran: 2 },              26, [O("fleece", 2)]],
@@ -113,9 +119,9 @@
   (RECIPES.brewing = RECIPES.brewing || []).push(
     { out: "mead", name: "Brew mead", skill: "Brewing", req: scaleLevel(6), xp: 50, in: { honey: 2 }, passive: true, time: 22000, tick: 22000, family: "ales" },
   );
-  (RECIPES.fletching = RECIPES.fletching || []).push(
-    { out: "arrows", qty: 15, name: "Fletch feathered arrows", skill: "Fletching", req: scaleLevel(1), xp: 24, in: { arrow_shafts: 15, feathers: 3, bronze_bar: 1 }, tick: 1500, family: "arrows" },
-  );
+  // (the old "Fletch feathered arrows" → generic `arrows` recipe is retired:
+  //  the iron-arrows rework removed ITEMS.arrows — data.js "Fletch iron
+  //  arrows" is the feathers sink now: 15 shafts + 5 feathers + 15 heads.)
   (RECIPES.crafting = RECIPES.crafting || []).push(
     { out: "candle", qty: 2, name: "Make tallow candles",  skill: "Crafting", req: scaleLevel(2), xp: 20, in: { tallow: 1 },  tick: 1400, family: "candles" },
     { out: "candle", qty: 2, name: "Make beeswax candles", skill: "Crafting", req: scaleLevel(5), xp: 30, in: { beeswax: 1 }, tick: 1400, family: "candles" },

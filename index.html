@@ -2,10 +2,132 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8">
-		<title>Isle of Emberfall — Offline RPG</title>
+		<title>Taiao — Offline RPG</title>
 		<link rel="stylesheet" href="css/style.css">
 	</head>
 	<body>
+		<!-- Boot loading bar: static markup + inline driver so it paints the
+		     instant the page arrives, ~1s before the 5MB bundle even finishes
+		     parsing. Progress is REAL, not a canned animation: segment widths
+		     come from the previous boot's measured ef:* stage durations
+		     (localStorage ef_boot_profile, written by main.js at gameReady),
+		     and the long stages report live sub-progress (per sprite sheet,
+		     per hydrated chunk, per generated chunk). main.js drives it via
+		     window.__boot.stage()/sub()/done(). -->
+		<div id="bootload" role="status" aria-busy="true">
+		  <div id="bl-title">Taiao</div>
+		  <div id="bl-sub">the living world</div>
+		  <div id="bl-track"><div id="bl-fill"></div></div>
+		  <div id="bl-stage">Loading game code…</div>
+		</div>
+		<style>
+		  #bootload { position: fixed; inset: 0; z-index: 9999; background: #14161f;
+		    display: flex; flex-direction: column; align-items: center; justify-content: center;
+		    gap: 18px; font: 15px/1.4 OpenDyslexic, Verdana, sans-serif; color: #e8eaf2;
+		    transition: opacity .35s ease; }
+		  #bl-title { font-size: 26px; font-weight: bold; color: #ffd75e;
+		    text-shadow: 0 2px 8px rgba(0,0,0,.6); letter-spacing: 1px; }
+		  #bl-sub { color: #8f96ad; font-size: 13px; letter-spacing: 3px; margin-top: -12px; }
+		  #bl-track { width: min(420px, 70vw); height: 10px; border: 1px solid #3a3f55;
+		    border-radius: 6px; background: #1c1f2c; overflow: hidden; }
+		  #bl-fill { height: 100%; width: 0%; border-radius: 5px;
+		    background: linear-gradient(90deg, #b98a2e, #ffd75e);
+		    transition: width .15s linear; }
+		  #bl-stage { color: #8f96ad; font-size: 13px; min-height: 1.4em; }
+		</style>
+		<script>
+		(() => {
+		  "use strict";
+		  const fill = document.getElementById("bl-fill");
+		  const stageEl = document.getElementById("bl-stage");
+		  const box = document.getElementById("bootload");
+		  // one segment per ef:* mark, in firing order; each ENDS at its mark.
+		  // Widths: [cold-default, warm-default] ms — cold = first-ever visit
+		  // (world naming dominates), warm = a refresh with a save + caches.
+		  // The matching kind's REAL durations from the previous boot override
+		  // these (ef_boot_profile_c / _w, written by main.js at gameReady), and
+		  // the long stages report live completed-work fractions on top — so the
+		  // fill tracks how much of the game is actually loaded.
+		  const SEGS = [
+		    ["init", "Loading game code…", 1000, 1200],
+		    ["loadGame", null, 5, 5],
+		    ["genWorld", null, 5, 5],
+		    ["migrateBankNets", null, 5, 5],
+		    ["preloadWorldNames", "Recalling place names…", 30, 40],
+		    ["nameGen", "Naming the world…", 9000, 1],
+		    ["preloadSeen", "Restoring explored lands…", 20, 1300],
+		    ["posValidate", null, 5, 5],
+		    ["roadGen", "Charting the roads…", 3000, 1],
+		    ["genNear", "Generating nearby terrain…", 3000, 50],
+		    ["assets", "Decoding sprites…", 300, 700],
+		    ["atlas", "Baking the sprite atlas…", 2500, 650],
+		    ["firstChunks", "Raising the terrain…", 500, 550],
+		    ["renderer", null, 10, 10],
+		    ["gameReady", "Entering Taiao…", 5, 5],
+		  ];
+		  // a save in storage means the NEXT boot is warm-shaped — the same test
+		  // that decides which shape the boot will actually take. Key pick must
+		  // mirror storage.js: cheat mode (persisted flag, default ON) keeps its
+		  // own save file.
+		  let hasSave = false;
+		  try {
+		    const cheat = localStorage.getItem("emberfall_cheat") !== "0";
+		    hasSave = !!localStorage.getItem(cheat ? "emberfall_save_cheat_v1" : "emberfall_save_v2");
+		  } catch (e) {}
+		  let prof = null;
+		  try { prof = JSON.parse(localStorage.getItem(hasSave ? "ef_boot_profile_w" : "ef_boot_profile_c") || "null"); } catch (e) {}
+		  // with a stored profile, an unknown/absent stage means "fast last time"
+		  const dur = SEGS.map(([k, , defC, defW]) => Math.max(1, prof ? (prof[k] || 1) : (hasSave ? defW : defC)));
+		  const total = dur.reduce((a, b) => a + b, 0);
+		  const starts = []; { let acc = 0; for (const d of dur) { starts.push(acc); acc += d; } }
+		  let idx = 0, segT0 = performance.now(), sub = -1, finished = false;
+		  const setLabel = () => { const l = SEGS[idx] && SEGS[idx][1]; if (l) stageEl.textContent = l; };
+		  setLabel();
+		  let shown = 0; // monotonic: real progress never walks backwards
+		  const draw = () => {
+		    if (idx >= SEGS.length) return;
+		    // real sub-progress when the stage reports completed work; otherwise
+		    // track the stage's expected-duration clock linearly (92% correlation
+		    // while on schedule), then crawl asymptotically on an overrun instead
+		    // of stopping dead — the honest "taking longer than usual" signal
+		    let f;
+		    if (sub >= 0) f = sub;
+		    else {
+		      const e = performance.now() - segT0, d = dur[idx];
+		      f = e < d ? (e / d) * 0.92 : 0.92 + 0.08 * (1 - Math.exp(-(e - d) / d));
+		    }
+		    shown = Math.max(shown, Math.min(1, (starts[idx] + dur[idx] * f) / total));
+		    fill.style.width = (shown * 100).toFixed(2) + "%";
+		  };
+		  let raf = requestAnimationFrame(function loop() { draw(); raf = requestAnimationFrame(loop); });
+		  window.__boot = {
+		    stage(n) {
+		      const i = SEGS.findIndex(s => s[0] === n);
+		      if (i < 0 || i < idx) return;
+		      idx = i + 1; segT0 = performance.now(); sub = -1;
+		      setLabel(); draw();
+		    },
+		    sub(n, f) {
+		      if (SEGS[idx] && SEGS[idx][0] === n) { sub = Math.max(0, Math.min(1, f)); draw(); }
+		    },
+		    fail(msg) {
+		      stageEl.textContent = msg || "Something went wrong — check the browser console.";
+		      stageEl.style.color = "#ff9a7a";
+		    },
+		    done() {
+		      if (finished) return; finished = true;
+		      cancelAnimationFrame(raf);
+		      fill.style.width = "100%";
+		      box.style.opacity = "0";
+		      box.setAttribute("aria-busy", "false");
+		      setTimeout(() => box.remove(), 400);
+		    },
+		  };
+		  // a crash during boot must not leave a silent stuck bar
+		  addEventListener("error", () => { if (!finished) window.__boot.fail(); });
+		  addEventListener("unhandledrejection", () => { if (!finished) window.__boot.fail(); });
+		})();
+		</script>
 		<div id="wrap">
 		  <div id="gamecol">
 			<canvas id="game"></canvas>
@@ -100,8 +222,8 @@
 					<button id="mapbtn" title="World map (M)">Map (M)</button>
 					<button id="questbtn" title="Quest Journal (J)">Quests (J)</button>
 						<button id="bestiarybtn" title="Bestiary (B)">Bestiary (B)</button>
-					<button id="charbtn" title="Character (C)">Character (C)</button>
-						<button id="soapbtn" title="Soaps (Left-Shift+S)">Soap (⇧S)</button>
+						<button id="soapbtn" title="Soaps (P)">Soap (P)</button>
+						<button id="pulsebtn" title="Play Pulse — what the game thinks you enjoy (I)">Pulse (I)</button>
 				</div>
 				<button id="interactmodebtn" title="Toggle the default action on animals: Combat (Attack first) or Husbandry (Tend/Feed first). Also the left-click default.">Mode: 🌾 Husbandry</button>
 			</div>
@@ -161,7 +283,9 @@
 			  <button class="tab active" data-tab="inv">Inventory</button>
 			  <button class="tab" data-tab="equip">Equip</button>
 			  <button class="tab" data-tab="skills">Skills</button>
+			  <button class="tab" data-tab="goals">Goals</button>
 			  <button class="tab" data-tab="help">?</button>
+			  <button class="tab" data-tab="cheats" id="cheattab" style="display:none" title="Cheat-mode overrides: time, weather, snow, flood">Cheats</button>
 			</div>
 			<div id="panels">
 				<div id="panel-inv" class="panel active">
@@ -171,13 +295,15 @@
 			  <div id="equipgrid"></div>
 			</div>
 			<div id="panel-skills" class="panel"></div>
+			<div id="panel-goals" class="panel"><!-- built by js/main/ui.js renderGoals from the Tūhura Isle tutorial --></div>
+			<div id="panel-cheats" class="panel"><!-- built by js/gameplay/cheats.js in cheat mode --></div>
 			<div id="panel-help" class="panel">
-			  <h3>Isle of Emberfall</h3>
+			  <h3>Taiao</h3>
 				  <p>An offline single-player tribute to old-school tile MMOs. You start in the city of <b>Newhaven</b>; 37 biomes stretch out forever in every direction, each with its own creatures.</p>
 			  <ul>
 				<li><b>Left-click</b>: walk / gather / attack / talk</li>
 				<li><b>Right-click</b>: context menu · <b>WASD</b>: walk</li>
-				<li><b>Character (C)</b>: choose which of 94 characters you play as; they face the way you move.</li>
+				<li><b>Your character</b>: choose which of the world's folk you play as when your first isle keeper offers a body, or later from Newhaven's Registrar in the plaza; they face the way you move.</li>
 				<li><b>Combat</b>: your style follows your main hand — a bow shoots (arrows in the quiver), a <b>wand or staff weaves runes into spell sentences</b> (runes are words: substances like Fire and Frost, verbs like Strike, Bind and Drain, modifiers like Twin and Wrath), anything else is melee. An offhand <b>dagger</b> in the shield slot lets an archer or mage fight back when enemies close in. <b>Shift+WASD</b> backs away mid-fight without dropping your target. Train Defence by taking hits. A mage can also speak spells directly: <b>Enter</b> opens the chant bar — type the words ("fire strike") and Enter casts them — and <b>V</b> toggles casting by voice (say the words aloud; browsers with speech recognition only). Every chanted word still burns its rune from the pouch.</li>
 				<li><b>Gather</b>: trees, rocks, fishing spots, berry bushes, herb patches.</li>
 				<li><b>Farm</b>: fenced fields grow naturally in Farmland — each one takes a single agriculture skill's seeds. Enter by the gate, <b>hoe</b> the bare soil to till it, then plant and harvest.</li>
@@ -193,6 +319,17 @@
 				<li>Trade at the <b>general store</b>. Bank at the <b>chest</b>. Eat food to heal. Autosaves.</li>
 				<li>Resources get richer with distance: 32 tiers each of trees, ores, fish, herbs, crops, runes and more.</li>
 			  </ul>
+				  <h4 style="margin:10px 0 4px">Sound</h4>
+				  <label style="display:flex;align-items:center;gap:8px;margin:4px 0">Game sounds
+				    <input type="range" id="gamevol" min="0" max="100" step="1" style="flex:1"></label>
+				  <label style="display:flex;align-items:center;gap:8px;margin:4px 0">Nature sounds
+				    <input type="range" id="naturevol" min="0" max="100" step="1" style="flex:1"></label>
+				  <p class="hint">Nature covers birdsong and the rain.</p>
+				  <p class="hint">Hear something odd in a bird recording — a voice, a siren, a car? Press <b>N</b> the moment you hear it (or the button below): the playing clips and their positions are logged so the stray sounds can be cut out of the recordings.</p>
+				  <button id="soundflagbtn">Flag odd bird sound (N)</button>
+				  <button id="soundflagexport">Export sound flags…</button>
+				  <button id="soundflagclear">Clear flags</button>
+				  <p class="hint" id="soundflagcount">no flags yet</p>
 				  <button id="resetbtn">Reset… (exploration / character / both)</button>
 				  <button id="exportbtn">Save to file…</button>
 				  <button id="importbtn">Load from file…</button>

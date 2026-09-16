@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — crop harvest-item icons = "Ready to Harvest" art =====
+// ===== Taiao — crop harvest-item icons = "Ready to Harvest" art =====
 // Sets each of the 160 crops' harvested-item inventory icon to the same real
 // "Ready to Harvest" (stage 3) art its world growth-stage sprite uses.
 // agriculture.js tries to set this directly at CROPS-build time, but that's

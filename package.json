@@ -1,7 +1,7 @@
 {
   "name": "emberfall",
   "version": "1.0.0",
-  "description": "Isle of Emberfall — an offline, single-player 3D tile RPG that runs entirely in the browser.",
+  "description": "Taiao — an offline, single-player 3D tile RPG that runs entirely in the browser.",
   "private": true,
   "scripts": {
     "build": "node tools/build.mjs",
@@ -10,6 +10,7 @@
   },
   "type": "commonjs",
   "devDependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "esbuild": "^0.28.2"
   }
 }

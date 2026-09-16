@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — world-map marker icon atlas #2 (auto-generated) =====
+// ===== Taiao — world-map marker icon atlas #2 (auto-generated) =====
 // Dedicated map/minimap icons for shops and specialised crafting stations that
 // previously reused a generic glyph (see docs/map-icons-2-sprite-prompt.txt).
 // 36 icons: 30 specialised STATION_ICON stations + 6 named SHOP_TYPES shops.
@@ -10,7 +10,7 @@
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("mi2")) SHEET_KEYS.push("mi2");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["mi2"] = 64;
-  ASSET_DATA["mi2"] = "assets/sheets/01d390e9bbd8bba5.webp";
+  ASSET_DATA["mi2"] = "assets/sheet-src/mi2-map-icon-atlas-2.webp";
   SPR["i_mapicon_fletchers_bench"] = ["mi2", 0, 0, {sx:0, sy:0, sw:64, sh:64}];
   SPR["i_mapicon_sawmill"] = ["mi2", 1, 0, {sx:64, sy:0, sw:64, sh:64}];
   SPR["i_mapicon_cooperage"] = ["mi2", 2, 0, {sx:128, sy:0, sw:64, sh:64}];

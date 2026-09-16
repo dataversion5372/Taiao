@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - spun-yarn (Spinning) inventory-icon sheet (auto-generated) =====
+// ===== Taiao - spun-yarn (Spinning) inventory-icon sheet (auto-generated) =====
 // 8x4 grid of 64px cells: one distinct spun yarn per fibre, in tier order. All 32
 // Spinning tiers now produce a DISTINCT yarn item (fillout.js full split), so we
 // repoint data-drivenly: sort RECIPES.spinning by req and point each output item's
@@ -8,7 +8,7 @@
 "use strict";
 (function(){
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["sp"] = "assets/sheets/a1a96c6af2873807.webp";
+  ASSET_DATA["sp"] = "assets/sheet-src/sp-spinning-icons.webp";
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("sp")) SHEET_KEYS.push("sp");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["sp"] = 64;
   if (typeof SPR !== "undefined") for (let k = 0; k < 32; k++) SPR["i_sp" + k] = ["sp", k % 8, Math.floor(k / 8)];

@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — specialised agriculture =====
+// ===== Taiao — specialised agriculture =====
 // Splits Farming into five recognisable growing professions, 32 crops each:
 //   Cerealiculture (grain) · Olericulture (vegetables) · Pomiculture (fruit)
 //   Herbiculture (herbs)   · Fibriculture (fibre crops)
@@ -14,12 +14,12 @@
 "use strict";
 
 (function () {
-  const SK = ["Cerealiculture", "Olericulture", "Pomiculture", "Herbiculture", "Fibriculture"];
-  for (const s of SK) { if (!SKILLS.includes(s)) SKILLS.push(s); SKILL_CATEGORY[s] = "Agriculture"; }
-  if (typeof SKILL_CATEGORY_ORDER !== "undefined" && !SKILL_CATEGORY_ORDER.includes("Agriculture")) {
-    const at = SKILL_CATEGORY_ORDER.indexOf("Food & Drink");
-    SKILL_CATEGORY_ORDER.splice(at < 0 ? 2 : at, 0, "Agriculture");
-  }
+  // The five -culture names are now crop CATEGORIES, not separate skills (user
+  // request 2026-09-15): every crop trains ONE "Farming" skill, but the categories
+  // survive as `crop.cat` — they group the guide, and each farm field's soil still
+  // grows only its own category (farming.js plantCrop, node.skill = the category).
+  if (!SKILLS.includes("Farming")) SKILLS.push("Farming");
+  if (typeof SKILL_CATEGORY !== "undefined" && !SKILL_CATEGORY.Farming) SKILL_CATEGORY.Farming = "Gathering";
 
   let pi = 700;
   const cropSpr = { grain: "wheat_plant", herb: "herb_plant", fibre: "flower_white", veg: "wheat_plant", fruit: "berrybush" };
@@ -55,7 +55,9 @@
     const sprStages = [0, 1, 2, 3].map(stage => "s_farm_" + sl + "_" + i + "_" + stage);
     CROPS["farm_" + sl + "_" + i] = {
       name: lname, seed, item, req: i + 1, plantXp: 8 + i * 2, xp: 40 + i * 8,
-      time: 55000 + i * 4500, yield: [2, 4], spr: cropSpr[kind] || "wheat_plant", sprStages, skill,
+      // skill is always "Farming"; `cat` is the crop's CATEGORY (the -culture name),
+      // used for the soil-type restriction + the guide grouping.
+      time: 55000 + i * 4500, yield: [2, 4], spr: cropSpr[kind] || "wheat_plant", sprStages, skill: "Farming", cat: skill,
       // Pomiculture (fruit) grows a barren fruit tree; the fruit appears on it when
       // ripe, and once picked the bare tree can be chopped (Woodcutting) for logs.
       ...(kind === "fruit" ? { tree: true } : {}),
@@ -92,11 +94,6 @@
   FRUIT.forEach((n, i) => agriCrop("Pomiculture", i, n, null, "fruit"));
 
   Object.assign(PROD_SKILL_INTRO, {
-    Cerealiculture: "Grain farming: sow and reap wheat, barley, rye, oats and 28 more cereals — the grain that feeds Milling, Malting and the whole food economy.",
-    Olericulture: "Vegetable growing: raise 32 vegetables from potatoes and onions to asparagus and kohlrabi in your farm plots.",
-    Pomiculture: "Fruit cultivation: grow 32 fruits, from apples, pears and cherries to dragonfruit and worldfruit.",
-    Herbiculture: "Herb farming: cultivate all 32 herbs in tilled beds instead of only foraging them wild — a steady supply for the apothecaries.",
-    Fibriculture: "Fibre-crop cultivation: grow flax, cotton, hemp and 29 more fibre crops — the raw material every spinner needs.",
-    Farming: "Farming has specialised into Cerealiculture, Olericulture, Pomiculture, Herbiculture and Fibriculture. Your old Farming levels are kept; new planting trains the successor skills.",
+    Farming: "Grow all 160 crops — grains, vegetables, fruit, herbs and fibre crops — in tilled farm plots. Each field's soil grows one category of crop (a cereal field takes cereal seeds, a fruit field fruit, and so on); sow 5 seeds, tend the plot as it grows, then harvest 5-10 crops one at a time. Grain feeds Milling & Malting, herbs the apothecaries, fibre the spinners, and the rest the wider food economy.",
   });
 })();

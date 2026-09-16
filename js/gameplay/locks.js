@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — door & gate locks =====
+// ===== Taiao — door & gate locks =====
 // Locksmithing's catalogue (skills/toolcraft.js) stops being shelf decoration:
 // a deterministic subset of doors and gates in the world are fitted with real
 // locks that must be opened before the door will swing.
@@ -59,6 +59,12 @@ function lockCanon(d) {
 // — magic locks have magic:tier and item:"warded_lock"; key locks carry the
 // lock item named in messages plus the key that turns it.
 function lockAt(d) {
+  // Tūhura Isle: the keepers' village houses (and any isle gate) are never
+  // locked — a fresh hand carries no keys and the isle has no locksmith
+  if (typeof tutIsleSD === "function") {
+    const q = tutIsleSD(d.x / 2, d.y / 2);
+    if (q && q.D < 16) return null;
+  }
   const canon = lockCanon(d);
   const cx = +canon.split(",")[0], cy = +canon.split(",")[1];
   const r = lockHash(cx, cy, 0x10cc), r2 = lockHash(cx, cy, 0xf00d);
@@ -100,6 +106,7 @@ function lockAt(d) {
 
 // the lock still barring this door, or null if unfitted / already opened
 function doorLocked(d) {
+  if (CHEAT_MODE) return null; // cheat mode: every lock in the world stands open
   const L = lockAt(d);
   if (!L) return null;
   // the latch always turns from the INSIDE — a dusk lock-up can't trap

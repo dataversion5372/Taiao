@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — align real boat art to Shipwrighting vessels =====
+// ===== Taiao — align real boat art to Shipwrighting vessels =====
 // boat-icons-data.js ("bi" sheet) carries 24 hand-drawn boat icons, but they are
 // keyed by the world-OBJECT id (boat_coracle, ship_smack, raft_logs, …), which
 // do NOT match the Shipwrighting vessel ITEM ids (coracle, fishing_smack,

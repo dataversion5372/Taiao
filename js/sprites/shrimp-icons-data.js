@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — shrimp inventory icons (raw + cooked) =====
+// ===== Taiao — shrimp inventory icons (raw + cooked) =====
 // Shrimp (the level-1 shore catch, added in content.js addShrimp) used to point
 // at the old monster sheet "m", which was REMOVED in the NZ-fish icon rework —
 // so its icons rendered blank. This restores proper art: one 128x64 sheet "sk",
@@ -7,7 +7,7 @@
 "use strict";
 (function () {
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["sk"] = "assets/sheets/44353b1296d99c06.webp";
+  ASSET_DATA["sk"] = "assets/sheet-src/sk-shrimp-icons.webp";
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("sk")) SHEET_KEYS.push("sk");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["sk"] = 64;
   if (typeof SPR === "undefined") return;

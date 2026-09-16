@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — day/night cycle + light model =====
+// ===== Taiao — day/night cycle + light model =====
 // A global clock drives a sun phase; how much of each cycle is daytime depends on
 // LATITUDE (world tile y). The renderer (render3d.js drawNight) reads daylightNow()
 // to darken the scene at night, and reads the light helpers here to punch fire/
@@ -17,8 +17,21 @@ const DAY_MS = 64 * 60 * 1000;      // 64 min real time = 24 h game time (~32 mi
 const LAT_HALFDAY = 7500;           // |y| of the first endless-day / endless-night poles
 const LAT_PERIOD = 4 * LAT_HALFDAY; // 30000 tiles between like poles
 
-// sun phase 0..1 across the cycle: 0 = midnight, 0.5 = noon
-function dayPhase() { const t = (typeof now !== "undefined" ? now : Date.now()); return (t % DAY_MS) / DAY_MS; }
+// sun phase 0..1 across the cycle: 0 = midnight, 0.5 = noon.
+// __timeOffsetMs (cheats panel) shifts the whole cycle — clocks, sun, shadows,
+// bedtime, shop locks all follow, while wall-clock timers (crops, fires) don't.
+function dayPhase() {
+  // Tūhura Isle (gameplay/tutorial.js): the tutorial pocket keeps a STAGED
+  // clock — always dawn at first, rolled forward as the tutorial progresses.
+  // Null everywhere else / once graduated, so the real clock is untouched.
+  if (typeof Tutorial !== "undefined") {
+    const tp = Tutorial.phaseOverride();
+    if (tp != null) return tp;
+  }
+  const off = (typeof window !== "undefined" && window.__timeOffsetMs) || 0;
+  const t = (typeof now !== "undefined" ? now : Date.now()) + off;
+  return (((t % DAY_MS) + DAY_MS) % DAY_MS) / DAY_MS;
+}
 
 // ---- TIMEZONES: local time varies with LONGITUDE (world tile x) ----
 // One timezone band is TZ_TILES wide and shifts the clock — and the sun — by a
@@ -62,6 +75,10 @@ function isBedtime(x) {
 
 // fraction of the cycle that is daytime at world-tile latitude y (triangle wave)
 function dayFraction(y) {
+  // Tūhura Isle pocket: a flat 50% latitude — even day and night — while the
+  // tutorial is live and the player stands on the isle (nothing else is
+  // on screen there, so the global override is safe)
+  if (typeof Tutorial !== "undefined" && Tutorial.flatSky()) return 0.5;
   const u = ((y + LAT_HALFDAY) / (2 * LAT_HALFDAY)) % 2;
   const uu = u < 0 ? u + 2 : u;
   return Math.abs(1 - uu);          // 0 (endless night) … 1 (endless day)
@@ -200,11 +217,17 @@ function nightState() {
 
 // world-space light sources (in PIXEL coords so the main view can project them;
 // the minimap divides by tile size). {px,py, r(tiles), s(erase strength), col}.
+// memoized per game-frame timestamp: both drawNight (overlay) and
+// renderMinimap call this every night frame — building the list twice
+// doubled the cost of everything below. Callers only map over the result,
+// never mutate it, so sharing one array is safe.
+let _nlAt = -1, _nlOut = null;
 function collectNightLights() {
   const out = [];
   if (typeof player === "undefined" || !player) return out;
   const PXf = (typeof PX === "function") ? PX : (t) => t * 48;
   const NOW = (typeof now !== "undefined") ? now : Date.now();
+  if (NOW === _nlAt && _nlOut) return _nlOut;
   const HM = (typeof HEAT_MAX !== "undefined") ? HEAT_MAX : 1000;
   const c = candleInHand();
   if (c > 0) { const cl = candleLight(c); out.push({ px: player.px, py: player.py, r: cl.r, s: cl.s, col: [255, 222, 150], gr: cl.gr, gs: cl.gs }); }
@@ -244,10 +267,23 @@ function collectNightLights() {
   }
   if (typeof monGlow === "function" && typeof monsters !== "undefined") for (const m of monsters) {
     if (!m.alive) continue;
+    // a light only matters on the overlay or the minimap window (±56 tiles)
+    // — skip the rest of the array before any lookup
+    if (Math.abs(m.x - player.x) > 56 || Math.abs(m.y - player.y) > 56) continue;
     // a monster glows if it's an inherently luminous kind (monGlow) OR it's
-    // standing in a bioluminescent biome (everything there glows).
+    // standing in a bioluminescent biome (everything there glows). The biome
+    // half is cached per monster at its SPAWN tile: biomeNameAt is six
+    // uncached noise-field evaluations, and re-running it per monster per
+    // frame was the single biggest night cost. Monsters wander ≤4 tiles from
+    // spawn, so the spawn-tile biome is the same answer.
     let col = monGlow(m);
-    if (!col && world && world.biomeNameAt) { const bc = bioBiomeGlow(world.biomeNameAt(m.x, m.y)); if (bc) col = bc; }
+    if (!col) {
+      if (m._bioGlow === undefined)
+        m._bioGlow = (world && world.biomeNameAt)
+          ? bioBiomeGlow(world.biomeNameAt(m.sx != null ? m.sx : m.x, m.sy != null ? m.sy : m.y)) || null
+          : null;
+      col = m._bioGlow;
+    }
     if (!col) continue;
     const sc = (typeof MONSTERS !== "undefined" && MONSTERS[m.kind]) ? MONSTERS[m.kind].scale || 1 : 1;
     out.push({ px: PXf(m.x + 0.5), py: PXf(m.y + 0.5), r: 2 + sc * 0.8, s: 0.72, col: [col.r, col.g, col.b] });
@@ -260,6 +296,7 @@ function collectNightLights() {
     if (!npc._lamp) continue;
     out.push({ px: (npc.px != null ? npc.px : PXf(npc.x)), py: (npc.py != null ? npc.py : PXf(npc.y)), r: 2.2, s: 0.8, col: [255, 202, 120] });
   }
+  _nlAt = NOW; _nlOut = out;
   return out;
 }
 
@@ -414,6 +451,15 @@ function litCandlesNear(reach) {
       out.push(s);
     }
   }
+  // Tūhura's Harbour Village (gameplay/tutorial.js villageLamps): the
+  // keepers' lamp stands ride the same clock stagger — the isle's staged
+  // dusk lights them one by one as the keepers come home to the tents.
+  if (typeof Tutorial !== "undefined" && Tutorial.villageLamps)
+    for (const s of Tutorial.villageLamps()) {
+      if (Math.abs(s.x - player.x) > reach || Math.abs(s.y - player.y) > reach * 0.78) continue;
+      if (daylightTrend() > 0 ? dark < 1 - s.thr : dark < s.thr) continue;
+      out.push(s);
+    }
   return out;
 }
 // candle LIGHTS for the light-map (pixel coords). Inside candles glow softer.

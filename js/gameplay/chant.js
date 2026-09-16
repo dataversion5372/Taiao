@@ -110,6 +110,7 @@ function chantCast(text, spoken) {
   const haste = st.hasteUntil && now < st.hasteUntil ? 0.6 : 1;
   if (typeof playerSay === "function") playerSay(words.map(x => x.name).join(" ") + "!", 2600);
   castSentence(mon, w, words, pot);
+  if (typeof Tutorial !== "undefined" && Tutorial.onChant) Tutorial.onChant(); // isle stage task
   player.nextAtkAt = now + Math.round((ITEMS[w].atkTick || 1700) * haste);
   player.lungeT = now;
   if (mon) {

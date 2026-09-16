@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - fibre-crop (Fibriculture) inventory-icon sheet (auto-generated) =====
+// ===== Taiao - fibre-crop (Fibriculture) inventory-icon sheet (auto-generated) =====
 // 32 harvested raw fibres, 8x4 grid of 64px cells, in LEVEL order (req 1..32).
 // The harvested item ids are NOT a clean sequence (reqs 1-12 reuse base FIBERS
 // ids like flax/cotton/hemp; reqs 13-32 are fibriculture_crop_12..31), so we
@@ -9,12 +9,12 @@
 "use strict";
 (function(){
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["fb"] = "assets/sheets/46acd30ed93b2aa5.webp";
+  ASSET_DATA["fb"] = "assets/sheet-src/fb-fibre-icons.webp";
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("fb")) SHEET_KEYS.push("fb");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["fb"] = 64;
   if (typeof SPR !== "undefined") for (let k = 0; k < 32; k++) SPR["i_fb" + k] = ["fb", k % 8, Math.floor(k / 8)];
   if (typeof CROPS !== "undefined" && typeof ITEMS !== "undefined") {
-    const fib = Object.values(CROPS).filter(c => c.skill === "Fibriculture").sort((a, b) => a.req - b.req);
+    const fib = Object.values(CROPS).filter(c => c.cat === "Fibriculture").sort((a, b) => a.req - b.req);
     fib.forEach((c, k) => { if (k < 32 && ITEMS[c.item]) ITEMS[c.item].icon = "i_fb" + k; });
   }
 })();

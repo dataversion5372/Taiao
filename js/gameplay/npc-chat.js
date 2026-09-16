@@ -1,8 +1,9 @@
-// ===== Isle of Emberfall — AI NPC dialogue (Nets ⇄ lfm2.5-230m) =====
+// ===== Taiao — AI NPC dialogue (Nets ⇄ lfm2.5-230m) =====
 // Every NPC within earshot gets its OWN ephemeral lfm2.5-230m instance (managed
-// by tools/npc_bridge.py over the user's Nets framework). Walk near a townsperson
-// and they greet you unprompted; type in the chat bar and every NPC in earshot
-// answers, each in their own voice, as an overhead speech bubble. If the bridge
+// by tools/npc_bridge.py over the user's Nets framework). Type in the chat bar
+// and every NPC in earshot answers, each in their own voice, as an overhead
+// speech bubble. NPCs speak only when spoken to — unprompted earshot greetings
+// are reserved for NPCs flagged npc.talksFirst (see npcChatTick). If the bridge
 // isn't running the game falls back to the canned one-liners — nothing breaks.
 "use strict";
 
@@ -16,6 +17,11 @@
 // ║  npc.line via talkTo() — the original programmed conversation.           ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 const AI_NPC_ENABLED = false;
+
+// Retrieval dialogue (js/gameplay/npc-retrieval.js): NPCs answer from a large
+// pre-written line bank via in-browser semantic search — no brain process
+// needed. Runs whenever the AI brain is parked. Flip off to go fully canned.
+const NPC_RETRIEVAL_ENABLED = true;
 
 const NPC_CHAT = {
   url: "http://127.0.0.1:8788",
@@ -38,7 +44,7 @@ function npcCid(npc) {
 
 // ── STATE-conditioned persona (matches the fine-tune dataset schema) ──────────
 // tools/npc_training/emberfall_npc_dialogue_3000.jsonl trains the model on prompts
-// of the exact shape "You are X, an Emberfall <role>. Voice=…; traits=…. … STATE:
+// of the exact shape "You are X, an Taiao <role>. Voice=…; traits=…. … STATE:
 // location=…; time=…; weather=…; mood=…; relationship=…; quest=…; player_skill=…;
 // shop_open=…; stock=…; known_fact=…." — so we build the same prompt from live game
 // state. (Bigger untrained models read it fine too.)
@@ -230,12 +236,12 @@ function npcPersona(npc) {
   const rel = NPC_CHAT.greetedAt.has(cid) ? "neutral" : "unfamiliar";
   const stockS = (stock !== "none listed" && time !== "evening") ? stock : "nothing right now";
   const f = npcFlair(cid);
-  return `You are ${npc.name}, a villager of the Isle of Emberfall — ${f.temperament}; ${f.attitude}; `
+  return `You are ${npc.name}, a villager of Taiao — ${f.temperament}; ${f.attitude}; `
     + `your voice is ${voice}. Quirk: ${f.quirk}. ${f.hook} You earn your keep as a ${roleKey}, but the `
     + `trade is just work — you are a whole person first, and your moods, opinions, memories and gossip `
     + `matter more to you than shop talk. You are flesh and blood and have lived your whole life on `
-    + `Emberfall; you know nothing of any world, land, device or word beyond it, and strange notions `
-    + `simply puzzle you. "Kia ora" is the greeting of Emberfall folk — when someone comes near, YOU `
+    + `Taiao; you know nothing of any world, land, device or word beyond it, and strange notions `
+    + `simply puzzle you. "Kia ora" is the greeting of Taiao folk — when someone comes near, YOU `
     + `speak first: open with a warm Kia ora and a remark or question of your own, as the one starting `
     + `the conversation, never as if answering a greeting. Speak in-world in 1-3 short sentences like `
     + `natural talk: react to what was `
@@ -303,19 +309,21 @@ function npcHealthProbe() {
   }).catch(() => {});
 }
 
-// Per-frame (throttled): greet NPCs entering earshot, reap those who left.
+// Per-frame (throttled): track NPCs entering/leaving earshot (chat-bar state,
+// talksFirst greetings), reap the instances of those who left.
 function npcChatTick() {
-  if (!AI_NPC_ENABLED) return;   // parked — programmed conversation only
+  if (!AI_NPC_ENABLED && !NPC_RETRIEVAL_ENABLED) return;   // fully canned
   if (performance.now() - NPC_CHAT._lastScan < NPC_CHAT.scanMs) return;
   NPC_CHAT._lastScan = performance.now();
 
   // while offline, keep checking for the bridge every ~4s so starting it later
   // "just works" without reloading the page
-  if (!NPC_CHAT.online && performance.now() - (NPC_CHAT._lastProbe || 0) > 4000)
+  if (AI_NPC_ENABLED && !NPC_CHAT.online && performance.now() - (NPC_CHAT._lastProbe || 0) > 4000)
     npcHealthProbe();
 
   const near = npcsInEarshot();
   const nearCids = new Set();
+  if (!AI_NPC_ENABLED && near.length) npcRetrievalWarm();   // lazy model/bank load
   if (!NPC_CHAT.enteredAt) NPC_CHAT.enteredAt = new Map();
   for (const npc of near) {
     const cid = npcCid(npc);
@@ -325,19 +333,23 @@ function npcChatTick() {
       NPC_CHAT.enteredAt.set(cid, now);   // start the linger clock — no greeting yet
     } else {
       NPC_CHAT.active.set(cid, npc); // refresh the (wandering) npc reference
-      // unprompted greetings only fire once the player has LINGERED in earshot
-      // (~2.5s) — someone just passing through is left in peace. By then the
-      // approach-prewarm has usually made the greeting near-instant too.
-      const since = NPC_CHAT.enteredAt.get(cid) || now;
-      // never greet while the player is mid-sentence — rude to interrupt
-      if (now - since >= 2500 && !(typeof playerIsTyping === "function" && playerIsTyping()))
-        npcGreet(npc, cid);   // npcGreet self-debounces (90s)
+      // Unprompted greetings are OPT-IN: NPCs speak only when spoken to
+      // (clicked, or addressed via the chat bar) unless explicitly flagged
+      // npc.talksFirst — the hook for characters scripted to open the
+      // conversation themselves. For those, the old etiquette still applies:
+      // only after the player has LINGERED in earshot (~2.5s, passers-by are
+      // left in peace), and never while the player is mid-sentence.
+      if (npc.talksFirst) {
+        const since = NPC_CHAT.enteredAt.get(cid) || now;
+        if (now - since >= 2500 && !(typeof playerIsTyping === "function" && playerIsTyping()))
+          npcGreet(npc, cid);   // npcGreet self-debounces (90s)
+      }
     }
   }
   // approach pre-warming: NPCs just OUTSIDE earshot get their persona+history
   // prefilled on the brain (KV snapshot saved) before the player reaches them,
   // so the greeting and first reply land near-instantly.
-  if (!npcChatOffline()) {
+  if (AI_NPC_ENABLED && !npcChatOffline()) {
     if (!NPC_CHAT.prewarmedAt) NPC_CHAT.prewarmedAt = new Map();
     for (const npc of npcsInEarshot(NPC_CHAT.earshot + 3)) {
       const cid = npcCid(npc);
@@ -354,7 +366,7 @@ function npcChatTick() {
     if (!nearCids.has(cid)) {
       NPC_CHAT.active.delete(cid);
       NPC_CHAT.enteredAt.delete(cid);   // reset the linger clock
-      if (!npcChatOffline()) npcFetch("/npc/leave", { id: cid }).catch(() => {});
+      if (AI_NPC_ENABLED && !npcChatOffline()) npcFetch("/npc/leave", { id: cid }).catch(() => {});
     }
   }
   updateChatBar(near.length);
@@ -398,6 +410,20 @@ async function npcAskStream(npc, path, payload) {
 }
 
 function npcGreet(npc, cid) {
+  if (!AI_NPC_ENABLED) {
+    // retrieval mode: greet from the bank ("Kia ora." opener context)
+    if (NPCR.state !== "ready") { npcRetrievalWarm(); return; } // retry next tick
+    const last0 = NPC_CHAT.greetedAt.get(cid) || 0;
+    if (now - last0 < 90000) return;
+    if (NPC_CHAT.pending.has(cid)) return;
+    NPC_CHAT.greetedAt.set(cid, now);
+    NPC_CHAT.pending.add(cid);
+    npcRetrieveReply(npc, null)
+      .then(line => { if (line) npcrSayStreaming(npc, line); })
+      .catch(() => {})
+      .finally(() => NPC_CHAT.pending.delete(cid));
+    return;
+  }
   if (npcChatOffline()) return;
   const last = NPC_CHAT.greetedAt.get(cid) || 0;
   if (now - last < 90000) return;
@@ -418,6 +444,26 @@ function npcBroadcast(text) {
   const near = npcsInEarshot();
   if (!near.length) { log("There's no one nearby to hear you.", "warn"); return; }
   log(`You say: "${text}"`, "sys");
+  if (!AI_NPC_ENABLED) {
+    // retrieval mode: each NPC answers from the bank in their own voice,
+    // staggered a touch so bubbles don't all pop at once.
+    for (const npc of near) {
+      const cid = npcCid(npc);
+      NPC_CHAT.greetedAt.set(cid, now);   // conversing counts as greeted
+      if (NPC_CHAT.pending.has(cid)) continue;
+      NPC_CHAT.pending.add(cid);
+      const delay = 250 + Math.random() * 600;
+      npcRetrieveReply(npc, text)
+        .then(line => new Promise(res => setTimeout(() => res(line), delay)))
+        .then(line => {
+          if (line) npcrSayStreaming(npc, line);
+          else npcSay(npc, (npc.line || "...").replace(/^"|"$/g, ""));  // bank still loading
+        })
+        .catch(() => npcSay(npc, (npc.line || "...").replace(/^"|"$/g, "")))
+        .finally(() => NPC_CHAT.pending.delete(cid));
+    }
+    return;
+  }
   if (npcChatOffline()) { // graceful fallback: canned lines
     for (const npc of near) npcSay(npc, (npc.line || "...").replace(/^"|"$/g, ""));
     return;
@@ -456,9 +502,11 @@ function playerIsTyping() {
 }
 
 // Stream the player's words-so-far to the nearest NPCs (prefix prefill on the
-// brain). No-backspace means the partial is ALWAYS a prefix of the final
-// message, so by the time Enter lands the prompt is already ~fully processed.
+// brain). CURRENTLY UNCALLED: the chat bar allows editing now, which breaks
+// the always-a-prefix guarantee this relied on — if the brain is ever
+// re-enabled, either restore no-backspace or accept full reprocess on edits.
 function npcListenTick(v) {
+  if (!AI_NPC_ENABLED) return;   // brain-only: retrieval needs no prefill
   if (!v || npcChatOffline()) return;
   if (!NPC_CHAT._listen) NPC_CHAT._listen = { sent: "", at: 0, pending: new Set() };
   const L = NPC_CHAT._listen;
@@ -500,33 +548,17 @@ function buildChatBar() {
   _chatBar.appendChild(_chatInput);
   (document.getElementById("gamecol") || document.body).appendChild(_chatBar);
 
+  // a normal chat box: edit freely (backspace and all); nothing is spoken —
+  // no player bubble, no NPC hearing — until Enter commits the line. (The old
+  // no-backspace + live-mirror behaviour served the AI brain's hear-as-you-type
+  // prefix prefill; retrieval consumes nothing until send.)
   _chatInput.addEventListener("keydown", e => {
     e.stopPropagation();
-    // spoken words can't be unspoken: no backspacing, no deleting
-    if (e.key === "Backspace" || e.key === "Delete") { e.preventDefault(); return; }
     if (e.key === "Enter") {
       _playerSend();
     } else if (e.key === "Escape") {
-      // escape can close the bar, but anything already said gets said
-      if (_chatInput.value.trim()) _playerSend();
-      else _chatInput.blur();
+      _chatInput.blur();
     }
-  });
-  // block every deleting edit (cut, select-and-overwrite, autocomplete deletions)
-  _chatInput.addEventListener("beforeinput", e => {
-    if (e.inputType && e.inputType.startsWith("delete")) e.preventDefault();
-  });
-  // collapse any selection to the end so typing can never replace (=delete) text
-  _chatInput.addEventListener("select", () => {
-    const n = _chatInput.value.length;
-    if (_chatInput.selectionStart !== _chatInput.selectionEnd) _chatInput.setSelectionRange(n, n);
-  });
-  // live mirror: the words appear above the player's head as they are typed
-  _chatInput.addEventListener("input", () => {
-    const v = _chatInput.value;
-    if (v) playerSay(v, 5000);
-    else if (player._say) player._say = null;
-    npcListenTick(v);      // nearby NPCs "hear" the words as they're spoken
   });
   // Enter (when not already typing) focuses the bar if anyone is in earshot.
   window.addEventListener("keydown", e => {
@@ -548,7 +580,16 @@ function updateChatBar(nNear) {
 // so the caller skips the canned one-liner. Returns false when the bridge is
 // offline, letting the game fall back to npc.line.
 function npcFocusChat(npc) {
-  if (!AI_NPC_ENABLED) return false;   // parked — talkTo uses the canned line
+  if (!AI_NPC_ENABLED) {
+    if (!NPC_RETRIEVAL_ENABLED) return false;   // fully canned
+    npcRetrievalWarm();
+    buildChatBar();
+    const cid = npcCid(npc);
+    if (!NPC_CHAT.active.has(cid)) { NPC_CHAT.active.set(cid, npc); npcGreet(npc, cid); }
+    _chatBar.classList.add("show");
+    _chatInput.focus();
+    return true;
+  }
   if (!NPC_CHAT.online || npcChatOffline()) {
     // one-time nudge so a missing bridge isn't a silent mystery
     if (!NPC_CHAT._warnedOffline && typeof log === "function") {

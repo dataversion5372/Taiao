@@ -148,10 +148,79 @@ function createWorldChunks(ctx) {
   // hall to Newhaven's, so their city layouts change.
   // v44: gem-vein tiers are cubic-rarity-biased (mineExtraNode) — Quartz
   // boulders most abundant, high tiers rare — so wild node scatter changes.
-  const _IDB_NAME = 'ioe-chunks-v44';
-  // stale caches from earlier versions still occupy disk/origin quota — drop them
-  for (const old of ['ioe-chunks-v3', 'ioe-chunks-v4', 'ioe-chunks-v5', 'ioe-chunks-v6', 'ioe-chunks-v7', 'ioe-chunks-v8', 'ioe-chunks-v9', 'ioe-chunks-v10', 'ioe-chunks-v11', 'ioe-chunks-v12', 'ioe-chunks-v13', 'ioe-chunks-v14', 'ioe-chunks-v15', 'ioe-chunks-v16', 'ioe-chunks-v17', 'ioe-chunks-v18', 'ioe-chunks-v19', 'ioe-chunks-v20', 'ioe-chunks-v21', 'ioe-chunks-v22', 'ioe-chunks-v23', 'ioe-chunks-v24', 'ioe-chunks-v25', 'ioe-chunks-v26', 'ioe-chunks-v27', 'ioe-chunks-v28', 'ioe-chunks-v29', 'ioe-chunks-v30', 'ioe-chunks-v31', 'ioe-chunks-v32', 'ioe-chunks-v33', 'ioe-chunks-v34', 'ioe-chunks-v35', 'ioe-chunks-v36', 'ioe-chunks-v37', 'ioe-chunks-v38', 'ioe-chunks-v39', 'ioe-chunks-v40', 'ioe-chunks-v41', 'ioe-chunks-v42', 'ioe-chunks-v43'])
-    try { indexedDB.deleteDatabase(old); } catch (e) { /* best effort */ }
+  // v45: Tūhura Isle rework — erosion no longer mangles the hand carve
+  // (erosion.js restores the analytic isle elevation), staged water art,
+  // straight waist gate-fences + water-edge posts, clean flush bridge deck.
+  // Persisted isle chunks hold the old ragged ground/decor.
+  // v46: isle round 2 — private deepening OCEAN out to D<130 (no foreign
+  // land in sight), waist/river fences march out to the D<14 line, whitebait
+  // PEN fence + gate, forge terrace = 1 iron + 1 tin, undertow removed.
+  // v47: the whitebait boundary moved to the NORTH WEIR (nGateRow now fences
+  // the channel too, with a mid-channel ride-through water gate); the
+  // south-of-bridge pen row is gone.
+  // v48: the offshore RING — a fence boom circling the isle at D 6.8..7.8
+  // closing every zone's water into a pen; waist columns/river rows now end
+  // at the ring (D<7.8) instead of D<14.
+  // v49: SQUARE pens — the organic D-band ring is replaced by one straight
+  // rectangular frame (PENF) + full-height waist columns; weir rows span
+  // column-to-column. Unique node ids (nodeSeq) also land here.
+  // v50: Tūhura pod content round — bank camp gains trees (pail planks),
+  // Farm Vale gains cows + extra quail/hens; persisted isle chunks lack the
+  // new stamps.
+  // v51: NZ native birds — TUT_TAME now keeps bird spawns on the isle and a
+  // deterministic bird scatter seeds every isle land chunk; persisted chunks
+  // hold spawnDefs from before the strip whitelist grew, i.e. bird-free.
+  // v52: isle NATIVE BUSH — every pod thickets up with native-skinned treeT0
+  // trees + undergrowth (sprv species skins), and the bird scatter grows to
+  // ~8/chunk weighted toward fliers; persisted isle chunks lack all of it.
+  // v53: keeper sightlines — no bush trees within 7 tiles of a tutor's post
+  // (undergrowth to 3), so the orbiting camera can never lose an NPC behind
+  // a crown; v52 isle chunks may have planted right up against them.
+  // v54: truthful tree labels — the isle bush is REAL nzt_* natives (proper
+  // names + Woodcutting reqs) instead of species-skinned "Tree" nodes, and
+  // demoted trees shed their skins; v52/v53 chunks are full of mislabelled
+  // treeT0+sprv plants.
+  // v55: warden's pit loses its lion (the archery lesson is now the isle's
+  // birds) and the Farm Vale loses its cows (milking moved wholly to the
+  // Cook's herd); persisted chunks still hold both in their spawnDefs.
+  // v56: the pit gains six stamped KOREKE (the slay-5-koreke archery lesson
+  // needs guaranteed quail); v55 chunks lack them.
+  // v57: bank chests in every second pod past the Banker's (7/9/11/13);
+  // persisted chunks lack the new vault stamps.
+  // v58: THE RINGED ISLE — Tūhura rebuilt as one circular island (ten outer
+  // sectors, four middle chambers, the crown at the centre; radial river,
+  // ring/spoke fences, weir arcs). Every old serpentine-chain chunk is void.
+  // v59: SINGLE-FILE fences — the ring/spoke/weir lines are rasterized one
+  // post wide (terrain.js _tutFenceBuild) instead of a distance band that
+  // doubled tiles on diagonals; weir walking-lane moved to the camp bank.
+  // v60: unique per-pod biomes, the RIVER GATE journey (gate 1 mid-channel,
+  // weirs gone, bank-fenced upstream corridor, spokes into the surf), the
+  // Harbour Village (pod 14 tents + evening keepers), the Smith's fuelled
+  // furnace, and the Swim-Master's per-character ISLET (whose zone is never
+  // persisted — see _persistChunk).
+  //
+  // AUTO-VERSIONED (2026-09-16, supersedes the hand-bumped -vNN scheme): the
+  // store name carries WORLDGEN_SIG, a build-time hash of every world-gen
+  // source (tools/build.mjs GEN_FILES — terrain/erosion/chunks/features/
+  // world/tutorial/biome-tiles/nz-trees). ANY edit to the isle or to world
+  // generation re-keys the cache on the next build, so persisted chunks can
+  // never go stale against the code — no manual bump, ever. Stale
+  // generations are swept below by enumeration.
+  const _IDB_NAME = 'ioe-chunks-' + (typeof WORLDGEN_SIG !== 'undefined' ? WORLDGEN_SIG : 'dev');
+  // Sweep persisted caches from PREVIOUS generations of this store: any DB
+  // sharing the prefix under a different name is dead weight — enumeration
+  // catches every past name, hashed and hand-versioned (-vNN) alike.
+  function _sweepStaleIDB(prefix, keep) {
+    try {
+      if (indexedDB.databases)
+        indexedDB.databases().then(dbs => {
+          for (const d of dbs || [])
+            if (d && d.name && d.name.startsWith(prefix) && d.name !== keep)
+              try { indexedDB.deleteDatabase(d.name); } catch (e) { /* best effort */ }
+        }).catch(() => { /* enumeration unsupported */ });
+    } catch (e) { /* best effort */ }
+  }
+  _sweepStaleIDB('ioe-chunks-', _IDB_NAME);
   let _db = null;
   function _openDB() {
     if (_db) return Promise.resolve(_db);
@@ -163,7 +232,36 @@ function createWorldChunks(ctx) {
     });
   }
   function _ck(cx, cy) { return `${S}/${cx},${cy}`; }
+  // Does this chunk touch the Swim-Master's isletZone (terrain.js)? The
+  // motu's seat is PER-CHARACTER, so its chunks are never persisted and
+  // never worker-injected — they must always be computed fresh against the
+  // live TUT_ISLE.islet on the main thread.
+  function _inIsletZone(cx, cy) {
+    if (typeof TUT_ISLE === "undefined" || !TUT_ISLE.isletZone) return false;
+    const Z = TUT_ISLE.isletZone;
+    const x0 = cx * CHUNK * 0.5, y0 = cy * CHUNK * 0.5;
+    return x0 < Z.x1 && x0 + CHUNK * 0.5 > Z.x0 && y0 < Z.y1 && y0 + CHUNK * 0.5 > Z.y0;
+  }
+  // Drop every chunk whose bounds intersect the GAME-coord rect — live map,
+  // warm worker fields and the IDB cache together. Used by the tutorial when
+  // the islet re-seats for a newly chosen body (Tutorial.isletSync).
+  function dropChunkRect(gx0, gy0, gx1, gy1) {
+    const c0x = Math.floor(gx0 / CHUNK), c1x = Math.floor(gx1 / CHUNK);
+    const c0y = Math.floor(gy0 / CHUNK), c1y = Math.floor(gy1 / CHUNK);
+    const hit = [];
+    for (let cy = c0y; cy <= c1y; cy++)
+      for (let cx = c0x; cx <= c1x; cx++) hit.push(cx + "," + cy);
+    for (const k of hit) { chunks.delete(k); pendingFields.delete(k); }
+    _openDB().then(db => {
+      const tx = db.transaction('c', 'readwrite');
+      for (const k of hit) {
+        const [cx, cy] = k.split(",");
+        tx.objectStore('c').delete(_ck(+cx, +cy));
+      }
+    }).catch(() => { /* cache miss is fine */ });
+  }
   function _persistChunk(cx, cy, ch) {
+    if (_inIsletZone(cx, cy)) return; // character-dependent geometry — never cache
     _openDB().then(db => {
       const tx = db.transaction('c', 'readwrite');
       tx.objectStore('c').put({
@@ -180,9 +278,13 @@ function createWorldChunks(ctx) {
     try { db = await _openDB(); } catch { return; }
     const todo = [...keys].filter(k => !chunks.has(k));
     if (!todo.length) return;
+    // one shared transaction for the whole batch — a transaction per key made
+    // a ~100-chunk boot hydration pay ~100x the IDB setup overhead
+    const store = db.transaction('c', 'readonly').objectStore('c');
+    let _hyd = 0; // loading-bar sub-progress (boot's "Restoring explored lands…")
     await Promise.all(todo.map(key => new Promise(res => {
       const [ccx, ccy] = key.split(',').map(Number);
-      const r = db.transaction('c', 'readonly').objectStore('c').get(_ck(ccx, ccy));
+      const r = store.get(_ck(ccx, ccy));
       r.onsuccess = e => {
         const dt = e.target.result;
         // never clobber a chunk that was generated (or hydrated) while this
@@ -197,6 +299,9 @@ function createWorldChunks(ctx) {
           chunks.set(key, hyd);
           deriveNpcs(hyd); // shopkeepers exist for cached chunks too
         }
+        _hyd++;
+        if ((_hyd & 7) === 0 && typeof window !== "undefined" && window.__boot)
+          __boot.sub("preloadSeen", _hyd / todo.length);
         res();
       };
       r.onerror = res;
@@ -226,69 +331,28 @@ function createWorldChunks(ctx) {
   }
 
   // ---------- hydraulic erosion (SimpleHydrology port) ----------
-  // Runs particle-based erosion on a flat heightmap array (values 0-1).
-  // Direct port of SimpleHydrology water.h / world.h erosion algorithm:
-  // each droplet descends following the terrain normal, eroding steep slopes
-  // and depositing sediment in flat areas. Returns the discharge accumulation
-  // array (higher = more water flow = river valleys / wet floors).
-  function runErosion(hm, w, h, rng) {
-    const dis  = new Float32Array(w * h); // discharge accumulation
-    const N    = 120;    // droplet count
-    const evap = 0.001;  // evaporation rate (from SimpleHydrology)
-    const dep  = 0.08;   // deposition rate
-    const grav = 0.12;   // gravity scale
-    const entr = 6.0;    // entrainment: discharge amplifies erosion
-    const minV = 0.01;   // minimum droplet volume
-    const maxA = 350;    // maximum droplet age
+  // runErosion + the pass-1/2 field build moved to world/erosion.js
+  // (computeChunkFields), shared verbatim with the chunk-field warm worker so
+  // worker-precomputed and synchronously-built terrain can never drift apart.
+  // The terrain field functions it samples, bundled for the shared code:
+  const _fieldCtx = { S, fbm, elevation, humidity, temperature, farmField, civField, weirdField, classify };
 
-    for (let d = 0; d < N; d++) {
-      let px = rng() * w, py = rng() * h;
-      const si = Math.floor(py) * w + Math.floor(px);
-      if (hm[si] < 0.46) continue; // don't spawn on water
-
-      let vol = 1.0, sed = 0.0, vx = 0.0, vy = 0.0;
-
-      for (let age = 0; age < maxA && vol >= minV; age++) {
-        const ix = Math.floor(px), iy = Math.floor(py);
-        if (ix < 1 || ix >= w - 1 || iy < 1 || iy >= h - 1) break;
-        const idx = iy * w + ix;
-
-        // Surface gradient (terrain normal x/y components)
-        const gx = (hm[idx + 1]   - hm[idx - 1])   * 0.5;
-        const gy = (hm[idx + w]   - hm[idx - w])   * 0.5;
-
-        // Gravity accelerates droplet downslope; momentum dampens direction changes
-        vx = (vx + grav * gx) * 0.85;
-        vy = (vy + grav * gy) * 0.85;
-        const spd = Math.sqrt(vx * vx + vy * vy);
-        if (spd < 1e-6) break;
-        vx /= spd; vy /= spd; // unit velocity
-
-        const npx = px + vx, npy = py + vy;
-        const nix = Math.floor(npx), niy = Math.floor(npy);
-        if (nix < 0 || nix >= w || niy < 0 || niy >= h) break;
-
-        // Height drop; discharge amplifies how much sediment can be transported
-        const dh    = hm[idx] - hm[niy * w + nix];
-        const c_eq  = Math.max(0, (1 + entr * dis[idx]) * dh);
-        const cdiff = c_eq - sed;
-
-        // Erode or deposit
-        sed         += dep * cdiff;
-        hm[idx]      = Math.max(0, hm[idx] - dep * cdiff);
-
-        dis[idx] += vol;
-
-        px = npx; py = npy;
-        vol *= (1 - evap);
-        sed /= (1 - evap);
-      }
-      // Deposit remaining sediment at final position
-      const fx = Math.floor(px), fy = Math.floor(py);
-      if (fx >= 0 && fx < w && fy >= 0 && fy < h)
-        hm[fy * w + fx] = Math.min(1, hm[fy * w + fx] + sed);
-    }
-    return dis;
+  // ---- worker-precomputed terrain fields (render3d syncChunkWorker) ----
+  // The worker runs getChunk's passes 1-2 (eroded elevation grid + biome
+  // classification — the expensive noise half of a chunk data build) off the
+  // main thread ahead of the player and posts the grids back; getChunk then
+  // consumes the pending entry instead of recomputing. Same shared code +
+  // same seed = identical numbers, so either path yields the same chunk.
+  const pendingFields = new Map(); // "cx,cy" -> { eG, bG, tfG }
+  function _fieldInject(key, f) {
+    if (chunks.has(key) || pendingFields.has(key)) return; // generated first / dupe
+    // the islet zone is character-dependent — the worker computed it against
+    // the DEFAULT seat, so its fields can't be trusted; compute locally
+    { const [cx, cy] = key.split(",").map(Number); if (_inIsletZone(cx, cy)) return; }
+    if (pendingFields.size > 256) pendingFields.clear();   // warmed but never visited
+    pendingFields.set(key, {
+      eG: new Float32Array(f.eG), bG: new Int16Array(f.bG), tfG: new Float32Array(f.tfG),
+    });
   }
 
   // ---- shopkeeper NPCs, derived from persisted building records ----
@@ -300,6 +364,74 @@ function createWorldChunks(ctx) {
   // used to silently vanish from cached chunks after a reload.
   const npcDerived = new Set(); // building key -> already spawned this session
   function deriveNpcs(ch) {
+    // Tūhura Isle tutors (gameplay/tutorial.js): derived exactly like
+    // shopkeepers — pure position data, so hydrated chunks get them too.
+    // They stand still; ui.js talkTo routes npc.tutor to the Tutorial module.
+    if (typeof TUT_ISLE !== "undefined" && typeof TUT_TUTORS !== "undefined") {
+      for (let ti = 0; ti < TUT_TUTORS.length; ti++) {
+        const tu = TUT_TUTORS[ti];
+        const pod = TUT_ISLE.pods[tu.pod];
+        // once the staged evening has fallen, a finished keeper's home is
+        // their Harbour Village seat (Tutorial.villageHome) — so a chunk
+        // hydrated at night derives them already settled in the village
+        const vh = (typeof Tutorial !== "undefined" && Tutorial.villageHome)
+          ? Tutorial.villageHome(tu.id) : null;
+        const x = vh ? vh.x : pod.mx * 2 + tu.dx;
+        const y = vh ? vh.y : pod.my * 2 + tu.dy;
+        if (x < ch.cx * CHUNK || x >= (ch.cx + 1) * CHUNK ||
+            y < ch.cy * CHUNK || y >= (ch.cy + 1) * CHUNK) continue;
+        const tkey = "tut:" + tu.id;
+        if (npcDerived.has(tkey)) continue;
+        npcDerived.add(tkey);
+        // each tutor IS a real MIX roster character (TUT_MIX_DEF, shared with
+        // the Tutorial module so dialogue/bar/gate messages agree) — the
+        // nameplate shows their own name with the tutorial title appended.
+        // Legacy spr layers + Māori names stay as the roster-less fallback.
+        let mixKey, mixTitle, name = tu.name + " the " + tu.role;
+        const def = (typeof TUT_MIX_DEF === "function") ? TUT_MIX_DEF(ti) : null;
+        if (def && def.key) {
+          mixKey = def.key;
+          mixTitle = tu.role;
+          if (def.name) name = def.name + " the " + tu.role;
+        }
+        npcs.push({
+          name, x, y, px: PX(x), py: PX(y),
+          look: mixKey ? -1 : tu.look % VILLAGER_LOOKS.length,
+          spr: mixKey ? undefined : VILLAGER_LOOKS[tu.look % VILLAGER_LOOKS.length],
+          mix: mixKey, mixTitle,
+          dir8: "south",
+          _mid: "tut" + tu.id, _home: [x, y], _r: 0,   // rooted: tutors never wander
+          _wanderAt: (typeof performance !== "undefined" ? performance.now() : 0) + 9e9,
+          _mt: 0,
+          tutor: tu.id,
+          line: `"Haere mai! Come, let me show you something."`,
+        });
+      }
+    }
+    // Newhaven's Registrar — the ONE keeper in the wide world (besides Tūhura
+    // Isle's first keeper) who reopens the character/appearance chooser. Stands
+    // in the plaza a step from where graduates arrive (playerStart 1,2; the
+    // fountain seat is 0,0), rooted so newcomers always find them. Named after
+    // their own sprite with the title appended, exactly like the isle keepers.
+    if (typeof MIX_NPCS !== "undefined" && MIX_NPCS && MIX_NPCS.list && MIX_NPCS.list.length) {
+      const RX = 2, RY = 2, rkey = "newhaven:registrar";
+      if (RX >= ch.cx * CHUNK && RX < (ch.cx + 1) * CHUNK &&
+          RY >= ch.cy * CHUNK && RY < (ch.cy + 1) * CHUNK && !npcDerived.has(rkey)) {
+        npcDerived.add(rkey);
+        const rdef = MIX_NPCS.list[0]; // a stable, scholarly roster face
+        npcs.push({
+          name: (rdef && rdef.name ? rdef.name : "The") + " the Registrar",
+          x: RX, y: RY, px: PX(RX), py: PX(RY),
+          look: -1, mix: rdef && rdef.key, mixTitle: "Registrar",
+          dir8: "south",
+          _mid: "newhavenReg", _home: [RX, RY], _r: 0, // rooted: always by the fountain
+          _wanderAt: (typeof performance !== "undefined" ? performance.now() : 0) + 9e9,
+          _mt: 0,
+          charselect: true,
+          line: `"New to Newhaven, or after a new face? I keep the register of forms — step up and choose."`,
+        });
+      }
+    }
     for (const b of ch.buildings || []) {
       const bkey = b.x0 + "," + b.y0;
       if (npcDerived.has(bkey)) continue;
@@ -438,36 +570,13 @@ function createWorldChunks(ctx) {
     const inCh = (x, y) => x >= bx && x < bx + CHUNK && y >= by && y < by + CHUNK;
 
     // --- field grids (chunk + 1 margin) ---
+    // passes 1-2 (raw elevation, erosion, biome classify) live in
+    // world/erosion.js computeChunkFields; a worker-warmed chunk finds its
+    // grids pre-computed in pendingFields and skips straight to stamping
     const GS = CHUNK + 3;
-    const eG  = new Float32Array(GS * GS);
-    const bG  = new Int16Array(GS * GS);
-    const tfG = new Float32Array(GS * GS);
-
-    // Pass 1: raw elevation
-    for (let gy = 0; gy < GS; gy++)
-      for (let gx = 0; gx < GS; gx++)
-        eG[gy * GS + gx] = elevation((bx + gx - 1) * 0.5, (by + gy - 1) * 0.5);
-
-    // Hydraulic erosion (SimpleHydrology): modifies eG in-place, returns discharge.
-    // Uses a separate RNG so erosion doesn't perturb the main chunk rng sequence.
-    const erosionRng = mulberry32(
-      (S ^ Math.imul(ccx * 7, 0x9E3779B1) ^ Math.imul(ccy * 13, 0x85EBCA77)) >>> 0);
-    const disG = runErosion(eG, GS, GS, erosionRng);
-
-    // Pass 2: biome classification using eroded elevations + discharge-boosted humidity
-    for (let gy = 0; gy < GS; gy++)
-      for (let gx = 0; gx < GS; gx++) {
-        const wx = bx + gx - 1, wy = by + gy - 1;
-        const hx = wx * 0.5, hy = wy * 0.5;
-        const i  = gy * GS + gx;
-        const e  = eG[i];
-        // Discharge boosts local humidity (river valleys and basins are wetter)
-        const disHum = Math.min(0.30, disG[i] / 120 * 0.35);
-        const hum = Math.min(1, humidity(hx, hy) + disHum);
-        bG[i]  = classify(e, hum, temperature(hx, hy),
-          farmField(hx, hy), civField(hx, hy), weirdField(hx, hy));
-        tfG[i] = fbm(hx * 0.014, hy * 0.014, S + 0x9A, 2);
-      }
+    const pre = pendingFields.get(key);
+    if (pre) pendingFields.delete(key);
+    const { eG, bG, tfG } = pre || computeChunkFields(_fieldCtx, CHUNK, ccx, ccy);
     const G = (tx, ty) => (ty + 1) * GS + (tx + 1);
 
     // river and road detection via polyline proximity (map coords = game coords / 2)
@@ -542,6 +651,21 @@ function createWorldChunks(ctx) {
         if (sea || river) {
           const wb = bG[i] === B.DEEP ? B.DEEP : bG[i] === B.REEF ? B.REEF : B.WATER;
           g = biomeGround(wb, wx, wy);
+          // Tūhura Isle: staged water art. atlasVariantAt dithers the four
+          // colour variants per tile — fine as land texture, but on water it
+          // reads as a checkerboard and the river/lagoon/sea all scramble
+          // together. On the isle each water body gets ONE fixed variant:
+          // the freshwater river + interior pools vs the coastal shallows vs
+          // the deep ring — so the river reads as a river and the estuary
+          // boundary is a visible seam.
+          if (typeof tutIsleSD === "function") {
+            const tq = tutIsleSD(wx * 0.5, wy * 0.5);
+            if (tq && tq.D < 24) {
+              const fresh = tq.D < 0 ||
+                (tq.pRiver >= 0 && tq.riverLine < TUT_ISLE.river.waterR + 1);
+              g = fresh ? "at_1_2_6" : wb === B.DEEP ? "at_0_1_2" : "at_1_0_6";
+            }
+          }
           // bridge: the road crosses ON TOP of the water — a river, or a
           // shallow sea strait the router paid WATER_COST to ford. The ground
           // stays water (the channel runs unbroken underneath — boats sail
@@ -603,9 +727,16 @@ function createWorldChunks(ctx) {
       decor[li(x, y)] = d;
       if (blk) blocked[li(x, y)] = 1;
     };
+    // node ids MUST be unique for the mesh cache ("n"+id in render3d) — a
+    // monotone counter, NOT nodes.length: the isle stamp pass dropNodes-
+    // splices entries out, and length-based ids then get REUSED by later
+    // addNode calls, so two nodes fought over one mesh every frame and the
+    // later-iterated one rendered while the other stayed invisible (the
+    // vanishing-forge-furnace bug).
+    let nodeSeq = 0;
     const addNode = (type, x, y, blk = true, extra = {}) => {
       if (!inCh(x, y)) return null;
-      const n = { id: key + ":" + nodes.length, type, x, y, alive: true, ...extra };
+      const n = { id: key + ":" + (nodeSeq++), type, x, y, alive: true, ...extra };
       nodes.push(n);
       if (blk) blocked[li(x, y)] = 1;
       return n;
@@ -1456,12 +1587,14 @@ function createWorldChunks(ctx) {
       if (tTrees > 0) {
         const vg = BIOME_VEG[bHere] || veg;
         if ((vg[0] || 0) > 0) {
+          const rubTree = typeof rubberTreeNode === "function" ? rubberTreeNode(bHere, rng) : null;
           const nzTree = typeof nzExtraTreeNode === "function" ? nzExtraTreeNode(bHere, rng) : null;
-          const n = addNode(nzTree || TREES[rollTier(treeCap, rng)].node, x, y, false);
+          const n = addNode(rubTree || nzTree || TREES[rollTier(treeCap, rng)].node, x, y, false);
           // sprite override: a string (single skin) or an array (pick one at
-          // random per node — the Mushroom Forest's giant-mushroom canopy pool)
+          // random per node — the Mushroom Forest's giant-mushroom canopy pool).
+          // Never override the rubber tree: it carries its own dedicated sprite.
           const ov = vg[1] || treeSpr;
-          if (n && ov) n.sprv = Array.isArray(ov) ? ov[Math.floor(rng() * ov.length)] : ov;
+          if (n && ov && n.type !== "rubbertree") n.sprv = Array.isArray(ov) ? ov[Math.floor(rng() * ov.length)] : ov;
           tTrees--;
           continue;
         }
@@ -1676,6 +1809,282 @@ function createWorldChunks(ctx) {
       }
     }
 
+    // --- Tūhura Isle: the tutorial journey (gameplay/tutorial.js) ---
+    // The island chain itself is carved by the terrain override (terrain.js
+    // TUT_ISLE / tutIsleSD); this pass adds the deliberate parts: the dirt
+    // path along the spine, the gate fences across every isthmus waist, the
+    // camp stations / tier-1 resources / portal stone / pier / training
+    // spawns / map label — and strips the biome's ambient hostiles so a
+    // level-1 character can't get mauled between gates.
+    if (typeof TUT_ISLE !== "undefined" && typeof TUT_CONTENT !== "undefined" &&
+        typeof tutIsleSD === "function" &&
+        bx * 0.5 < TUT_ISLE.bbox.x1 && (bx + CHUNK) * 0.5 > TUT_ISLE.bbox.x0 &&
+        by * 0.5 < TUT_ISLE.bbox.y1 && (by + CHUNK) * 0.5 > TUT_ISLE.bbox.y0) {
+      for (let i = spawnDefs.length - 1; i >= 0; i--) {
+        const q = tutIsleSD(spawnDefs[i][1] * 0.5, spawnDefs[i][2] * 0.5);
+        // strip band widened 20 → 60 (2026-09-16): the Swim-Master's islet
+        // sits far offshore and must be just as safe as the isle proper
+        if (q && q.D < 60 && !(typeof TUT_TAME !== "undefined" && TUT_TAME.has(spawnDefs[i][0])))
+          spawnDefs.splice(i, 1);
+      }
+      // NATIVE BIRDS (nz-extra-birds.js + gameplay/birdflight.js): the strip
+      // above keeps TUT_TAME rolls, but the ambient band at this distance
+      // rarely rolls a bird at all — so seed a deterministic scatter of small
+      // natives on every isle land chunk. Fliers give a fresh hand their
+      // first sight of birds on the wing; the kiwi potters on foot.
+      {
+        // weighted toward the fliers (duplicates = weight) so the isle sky is
+        // busy; ruru + kiwi are nocturnal (birdflight.js) and only show at night
+        const ISLE_BIRDS = ["piwakawaka", "piwakawaka", "tui", "tui", "kereru",
+          "kereru", "kotata", "tieke", "titipounamu", "koreke", "pukeko",
+          "ruru", "kiwi"];
+        let seeded = 0;
+        for (let i = 0; i < 40 && seeded < 8; i++) {
+          const x = bx + 2 + Math.floor(rng() * (CHUNK - 4));
+          const y = by + 2 + Math.floor(rng() * (CHUNK - 4));
+          const q = tutIsleSD(x * 0.5, y * 0.5);
+          if (!q || q.D >= -1) continue; // land only, a step in from the surf
+          const kind = ISLE_BIRDS[Math.floor(rng() * ISLE_BIRDS.length)];
+          if (openTile(x, y) && MONSTERS[kind]) { spawnDefs.push([kind, x, y]); seeded++; }
+        }
+      }
+      const dropNodes = (x, y) => {
+        for (let i = nodes.length - 1; i >= 0; i--)
+          if (nodes[i].x === x && nodes[i].y === y) nodes.splice(i, 1);
+      };
+      // LEVEL-1 ISLAND: the isle sits far enough out that localTierCap rolls
+      // high-tier trees/rocks/fish a fresh hand can't touch — demote every
+      // natural TIERED node inside the footprint to tier 1. Labels stay
+      // truthful (user req): a demoted tree is a plain "Tree", so it sheds
+      // any species skin and looks the part. Native nzt_* trees are NOT
+      // demoted — a Rimu is labelled Rimu and needs Rimu's level.
+      for (const n of nodes) {
+        const q = tutIsleSD(n.x * 0.5, n.y * 0.5);
+        if (!q || q.D >= 60) continue; // 12 → 60: the islet's growth demotes too
+        if (n.type.startsWith("treeT") && n.type !== "treeT0") { n.type = "treeT0"; delete n.sprv; }
+        else if (/^rockM\d+$/.test(n.type) || n.type === "iron" || n.type === "goldrock") n.type = "copper";
+        else {
+          const fm = n.type.match(/^fishspot_(\d+)$/);
+          if (fm && +fm[1] > 1) n.type = "fishspot_" + ((n.x + n.y) & 1);
+        }
+      }
+      // RINGED-ISLE painting (user redesign 2026-09-16): terrain.js is the
+      // single source of geometry truth — tutFenceAt() says what stands on
+      // each tile (ring fences, sector spokes, chamber walls, weir arcs,
+      // gate arches). Gate ENFORCEMENT is Tutorial.barred (chain s + river
+      // position, movement.js); the decor here just makes the rules visible.
+      const RIV = TUT_ISLE.river;
+      for (let ly2 = 0; ly2 < CHUNK; ly2++)
+        for (let lx2 = 0; lx2 < CHUNK; lx2++) {
+          const x = bx + lx2, y = by + ly2;
+          const q = tutIsleSD(x * 0.5, y * 0.5);
+          if (!q) continue;
+          const li2 = ly2 * CHUNK + lx2;
+          // BRIDGE: a clean deck band where the journey path crosses the
+          // river — ONLY the Cove→Forge crossing (s past 1.9): between the
+          // Bush chamber and the Cove the path runs DOWN THE WATER itself
+          // (the river-gate ride), and decking there would dry out the ride.
+          if (q.d < 1.1 && q.s > 1.9 && q.pRiver >= 0 && q.riverLine < RIV.waterR + 2) {
+            dropNodes(x, y); decor[li2] = "stone_bridge"; continue;
+          }
+          const f = (typeof tutFenceAt === "function") ? tutFenceAt(x * 0.5, y * 0.5) : null;
+          if (f) {
+            dropNodes(x, y);
+            if (f.gate >= 0) {
+              // a journey-gate arch (gate 1 stands mid-river): physically
+              // open — barred() alone holds it shut
+              decor[li2] = "gate_wood"; blocked[li2] = 0;
+              if (!isWaterKey(ground[li2])) ground[li2] = "dirt#1";
+            } else {
+              decor[li2] = "fence_wood"; blocked[li2] = 1; // posts stand in water too (river banks, surf line)
+            }
+            continue;
+          }
+          if (q.D > -1.5) continue;                     // dry land only for the rest
+          if (isWaterKey(ground[li2])) continue;        // river / pools — leave them
+          if (q.d < 0.9) {                              // the walking path
+            dropNodes(x, y);
+            if (!String(decor[li2] || "").startsWith("stone_bridge")) decor[li2] = null;
+            blocked[li2] = 0;
+            ground[li2] = "dirt#1";
+          }
+        }
+      // hand-placed stamps (absolute game coords, built in tutorial.js)
+      for (const st of TUT_CONTENT.stamps) {
+        const x = st.x, y = st.y;
+        if (!inCh(x, y)) continue;
+        if (st.mon) { if (MONSTERS[st.mon]) spawnDefs.push([st.mon, x, y]); continue; }
+        if (st.label) { labels.push({ x, y, label: st.label, c: st.c || "#ffd75e" }); continue; }
+        dropNodes(x, y);
+        const wat = isWaterKey(ground[li(x, y)]);
+        if (st.node) {
+          if (st.water && !wat) continue; // fishing spots need surviving water
+          // an erosion-carved pond under a land station: terraform it back —
+          // hand-placed content beats a droplet walk
+          if (!st.water && wat) ground[li(x, y)] = biomeGround(B.GRASS, x, y);
+          decor[li(x, y)] = null;
+          if (!st.water) blocked[li(x, y)] = 0;
+          addNode(st.node, x, y, st.blk !== false, st.extra ? { ...st.extra } : {});
+        } else if (st.decor) {
+          // e.g. the pier: stone_bridge decking — over water the ground (and
+          // its blocked flag) stays, exactly like generated bridges; the
+          // passable() deck rule makes it walkable
+          decor[li(x, y)] = st.decor;
+          if (st.blk) blocked[li(x, y)] = 1;
+        }
+      }
+      // the village's PROPER HOUSES (user req 2026-09-16): stamped through
+      // the very same stampBuilding pipeline natural settlements use — real
+      // floors, walls, roofs and a south door (render3d + structAt read
+      // them from the wall decor + ch.buildings records). job/kind stay
+      // null so deriveNpcs spawns no shopkeepers — the keepers themselves
+      // are the villagers. Footprints live in TUT_VILLAGE.houses (pods 0 +
+      // 14, clear of path/pier/seats/lamps); a modest cot-and-stool inside.
+      if (typeof TUT_VILLAGE !== "undefined" && TUT_VILLAGE.houses)
+        for (const hb of TUT_VILLAGE.houses) {
+          const vp = TUT_ISLE.pods[hb.pod];
+          const b = { x0: vp.mx * 2 + hb.x0, y0: vp.my * 2 + hb.y0, w: hb.w, h: hb.h };
+          if (b.x0 + b.w < bx || b.x0 >= bx + CHUNK ||
+              b.y0 + b.h < by || b.y0 >= by + CHUNK) continue;
+          if (stampBuilding(b))
+            furnishInterior(b, [["bed", 1, 1], ["stool", hb.w - 2, 1]]);
+        }
+      // the Swim-Master's ISLET (TUT_ISLE.islet, per-character seat — this
+      // zone is never persisted/injected, see _inIsletZone): the weathered
+      // sea chest with Vrixa's pearl, a shell or two, and a map label.
+      if (TUT_ISLE.islet) {
+        const I = TUT_ISLE.islet;
+        const ix = Math.round(I.x * 2), iy = Math.round(I.y * 2);
+        if (inCh(ix, iy) && !isWaterKey(ground[li(ix, iy)])) {
+          dropNodes(ix, iy);
+          decor[li(ix, iy)] = null; blocked[li(ix, iy)] = 0;
+          addNode("tut_seachest", ix, iy, true);
+          labels.push({ x: ix, y: iy - 4, label: "Te Motu", c: "#7fe3c7" });
+        }
+        for (const [sdx, sdy, dk] of [[-2, 2, "seashell"], [3, -1, "seashell"], [1, 3, "coral_red"]]) {
+          const sx2 = ix + sdx, sy2 = iy + sdy;
+          if (inCh(sx2, sy2) && !isWaterKey(ground[li(sx2, sy2)]) && !decor[li(sx2, sy2)] &&
+              !nodes.some(n => n.x === sx2 && n.y === sy2)) decor[li(sx2, sy2)] = dk;
+        }
+      }
+      // keep every tutor's tile clear of natural growth (the NPCs themselves
+      // are derived in deriveNpcs so hydrated chunks get them too) — and the
+      // Harbour Village seats they come home to at dusk (TUT_VILLAGE)
+      if (typeof TUT_TUTORS !== "undefined") {
+        const clearSpot = (x, y) => {
+          if (!inCh(x, y)) return;
+          if (isWaterKey(ground[li(x, y)])) ground[li(x, y)] = biomeGround(B.GRASS, x, y);
+          dropNodes(x, y);
+          if (decor[li(x, y)] !== "stone_bridge") decor[li(x, y)] = null;
+          blocked[li(x, y)] = 0;
+        };
+        for (const tu of TUT_TUTORS) {
+          const pod = TUT_ISLE.pods[tu.pod];
+          clearSpot(pod.mx * 2 + tu.dx, pod.my * 2 + tu.dy);
+        }
+        if (typeof TUT_VILLAGE !== "undefined") {  // seats + lamps span pods 0 AND 14
+          for (const id in TUT_VILLAGE.seats) {
+            const s2 = TUT_VILLAGE.seats[id], vp = TUT_ISLE.pods[s2.pod];
+            clearSpot(vp.mx * 2 + s2.dx, vp.my * 2 + s2.dy);
+          }
+          for (const L of TUT_VILLAGE.lamps) {
+            const vp = TUT_ISLE.pods[L.pod];
+            clearSpot(vp.mx * 2 + L.dx, vp.my * 2 + L.dy);
+          }
+        }
+      }
+      // NATIVE BUSH (user req): every pod gets the Bush-pod treatment — the
+      // whole isle greens up with REAL native trees (nzt_* nodes: a Rimu is
+      // labelled Rimu, needs Rimu's Woodcutting level and yields its own
+      // rākau — user req: truthful labels + appropriate reqs) plus native
+      // undergrowth, so the birds have crowns to roost in everywhere. The
+      // low natives (mānuka 3, akeake 8, karo 9, ngaio 10…) keep early axes
+      // busy beyond the Bushman's tier-1 thicket; the podocarp giants are
+      // something to come back for. Thick inside the pods, thinning to open
+      // ridge between them; the walking path keeps a clear verge, keepers
+      // keep a 7-tile tree-free ring (sightlines), and this runs AFTER the
+      // stamps so no station/resource tile is ever overplanted.
+      {
+        const CANOPY = ["nzt_rimu", "nzt_tawa", "nzt_kamahi", "nzt_puriri",
+          "nzt_rewarewa", "nzt_kahikatea", "nzt_kauri"];
+        const MID = ["nzt_ponga", "nzt_mamaku", "nzt_tikouka", "nzt_kowhai",
+          "nzt_kotukutuku", "nzt_houhere", "nzt_wheki", "nzt_manuka", "nzt_akeake"];
+        const COAST = ["nzt_pohutukawa", "nzt_ngaio", "nzt_karo"];
+        const UNDER = ["nz_toetoe", "nz_rangiora", "nz_horoeka", "nz_wharariki",
+          "nz_kawakawa", "nz_koru"];
+        const podNear = (x, y, r) => TUT_ISLE.pods.some(p =>
+          Math.abs(x - p.mx * 2) <= r && Math.abs(y - p.my * 2) <= r);
+        const tutors = (typeof TUT_TUTORS !== "undefined")
+          ? TUT_TUTORS.map(tu => ({ x: TUT_ISLE.pods[tu.pod].mx * 2 + tu.dx,
+                                    y: TUT_ISLE.pods[tu.pod].my * 2 + tu.dy }))
+          : [];
+        if (typeof TUT_VILLAGE !== "undefined")  // the evening seats stay clear too
+          for (const id in TUT_VILLAGE.seats) {
+            const s2 = TUT_VILLAGE.seats[id], vp = TUT_ISLE.pods[s2.pod];
+            tutors.push({ x: vp.mx * 2 + s2.dx, y: vp.my * 2 + s2.dy });
+          }
+        const tutorNear = (x, y, r) => tutors.some(t =>
+          Math.abs(x - t.x) <= r && Math.abs(y - t.y) <= r);
+        let trees = 0, plants = 0;
+        for (let t2 = 0; t2 < 340 && (trees < 26 || plants < 16); t2++) {
+          const x = bx + 1 + Math.floor(rng() * (CHUNK - 2));
+          const y = by + 1 + Math.floor(rng() * (CHUNK - 2));
+          const q = tutIsleSD(x * 0.5, y * 0.5);
+          if (!q || q.D >= -1.5) continue;      // dry land, a step in from the surf
+          if (q.d < 1.8) continue;              // clear verge along the spine path
+          if (podNear(x, y, 4)) continue;       // keepers' dooryards stay open
+          const idx = li(x, y);
+          if (isWaterKey(ground[idx]) || blocked[idx] || decor[idx] ||
+              nodes.some(n => n.x === x && n.y === y)) continue;
+          if (!podNear(x, y, 15) && rng() < 0.5) continue; // ridges half as thick
+          if (trees < 26 && rng() < 0.62 && !tutorNear(x, y, 7)) {
+            // pōhutukawa/ngaio hold the coast line, podocarp giants the interior
+            const pool = q.D >= -4 ? COAST : (rng() < 0.3 ? CANOPY : MID);
+            const kind = pool[Math.floor(rng() * pool.length)];
+            if (NODE_TYPES[kind]) { addNode(kind, x, y, false); trees++; }
+          } else if (plants < 16 && !tutorNear(x, y, 3)) {
+            decor[idx] = UNDER[Math.floor(rng() * UNDER.length)];
+            plants++;
+          }
+        }
+      }
+      // KEEPER SIGHTLINES (user req): whatever planted a tree — the biome
+      // scatter, the hand-stamped lesson thickets, the bush pass above — the
+      // orbiting camera must never lose a tutor behind a crown. Within 3
+      // tiles of a tutor's post trees go entirely; in the 3-7 band TALL
+      // natives are removed (labels stay truthful — no re-skinning a Kauri
+      // into a mānuka), while the modest generic "Tree" billboards (the
+      // Bushman's lesson thicket) may stand.
+      if (typeof TUT_TUTORS !== "undefined") {
+        const tutors = TUT_TUTORS.map(tu => ({
+          x: TUT_ISLE.pods[tu.pod].mx * 2 + tu.dx,
+          y: TUT_ISLE.pods[tu.pod].my * 2 + tu.dy }));
+        if (typeof TUT_VILLAGE !== "undefined")  // sightlines hold at the village seats too
+          for (const id in TUT_VILLAGE.seats) {
+            const s2 = TUT_VILLAGE.seats[id], vp = TUT_ISLE.pods[s2.pod];
+            tutors.push({ x: vp.mx * 2 + s2.dx, y: vp.my * 2 + s2.dy });
+          }
+        for (let i = nodes.length - 1; i >= 0; i--) {
+          const n = nodes[i];
+          const nt2 = NODE_TYPES[n.type];
+          if (!nt2 || nt2.skill !== "Woodcutting") continue;
+          let d = Infinity;
+          for (const t of tutors)
+            d = Math.min(d, Math.max(Math.abs(n.x - t.x), Math.abs(n.y - t.y)));
+          if (d > 7) continue;
+          // drawn height: "nzf_*" species art carries its real scale;
+          // generic tree billboards sit around 2.2-2.6
+          const skin = n.sprv || nt2.spr || "";
+          const h = (skin.startsWith("nzf_") && typeof NZ_TREE_SCALE !== "undefined")
+            ? (NZ_TREE_SCALE["nz_" + skin.slice(4)] || 2.2) : 2.4;
+          if (d > 3 && h <= 2.0) continue; // low native in the outer band: fine
+          if (d > 3 && n.type.startsWith("treeT")) continue; // modest lesson tree
+          nodes.splice(i, 1);
+          if (inCh(n.x, n.y)) blocked[li(n.x, n.y)] = 0;
+        }
+      }
+    }
+
     ch = { cx: ccx, cy: ccy, ground, decor, blocked, nodes, spawnDefs, buildings, labels, activated: false };
     chunks.set(key, ch);
     deriveNpcs(ch);
@@ -1702,5 +2111,5 @@ function createWorldChunks(ctx) {
       }, _ck(ch.cx, ch.cy));
     }).catch(() => {});
   }
-  return { chunks, obstacles, npcs, getChunk, preloadSeen, persistChunk, persistAt, flushChunks, pruneChunks, genLog };
+  return { chunks, obstacles, npcs, getChunk, preloadSeen, persistChunk, persistAt, flushChunks, pruneChunks, dropChunkRect, genLog, _fieldInject };
 }

@@ -19,12 +19,17 @@ onmessage = e => {
     self.VCELL = d.vcell;
     self.PCELL = d.pcell;
     self.ICELL = d.icell;
+    self.WORLDGEN_SIG = d.gensig; // features.js keys the name-registry store by it
     importScripts("../data.js", "terrain.js", "features.js");
     features = createWorldFeatures(createWorldTerrain());
     return;
   }
-  if (d.type === "warm" && features)
-    features._roadWarm(d.mx, d.my, d.pad, (key, out) => postMessage({ key, out }));
+  if (d.type === "warm" && features) {
+    // (i, n) = cells done / total for this warm — the boot loading bar's
+    // road progress; warmDone tells the boot wait-stage to stop waiting
+    features._roadWarm(d.mx, d.my, d.pad, (key, out, i, n) => postMessage({ key, out, i, n }));
+    postMessage({ warmDone: true });
+  }
   // world-map overlay: compute a batch of region cells' river + road
   // polylines off-thread (the cold first query can cost seconds of river
   // tracing / road A*) and post each cell back as plain serializable data.

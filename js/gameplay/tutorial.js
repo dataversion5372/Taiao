@@ -1,0 +1,1658 @@
+// ===== Taiao — Tūhura Isle, the tutorial island =====
+// New characters wake on Tūhura Isle ("tūhura" — to explore, to discover): a
+// long serpentine island carved into the terrain (world/terrain.js TUT_ISLE),
+// a chain of fifteen zone pods walked IN ORDER along a dirt path — Landing,
+// the Bush, the Cove, the Forge, the Springs, the Lagoon, the Bank, the Farm
+// Vale, the Woodcrafting camp, the Cooking camp, the Warden's Pit, the Sky
+// Knoll, the Candle Hollow, the Portal Crown and the Harbour, where the
+// Navigator ferries the graduate to Newhaven. Every isthmus
+// between pods carries a fence wall and a gate that only unbars when the
+// previous tutor's lesson is done. There are NO invisible walls: the fences
+// run coast to coast and out to an offshore RING of stakes (chunks.js), so
+// every zone's water is a closed pen; barred() only latches the gate tiles.
+//
+// The isle is an INSTANCED POCKET: it keeps a staged sky (always dawn at
+// first — each islander met rolls time and weather forward one notch), and
+// after graduation the mist takes it back — barred everywhere, scrubbed from
+// the explored map, its portal attunement dissolved.
+//
+// Wiring: chunks.js stamps TUT_CONTENT + the path/fences and derives
+// TUT_TUTORS as mix-sprite NPCs (generated AND hydrated chunks); ui.js
+// talkTo() routes npc.tutor here; daynight/weather/world.latitudeAt consult
+// the sky hooks; movement.js moveTo + portals.js portalTravel consult
+// barred(); main.js spawns fresh saves at Tutorial.START; storage.js
+// persists player.tutorial.
+"use strict";
+
+// ---------- data consumed by world/chunks.js ----------
+// Ambient monster kinds allowed to keep their spawns on the isle — everything
+// else the biome rolls is stripped (the isle must be safe for a level-1 hand).
+const TUT_TAME = new Set(["chicken", "sheep", "cow", "slime", "rabbit", "duck", "quail", "goat",
+  // NZ native birds (nz-extra-birds.js): every non-aggressive small/medium
+  // species is welcome on the isle — the fliers (birdflight.js) give fresh
+  // hands their first sight of birds on the wing. The aggressive weka and the
+  // giants (hakawai, pouākai, moa) stay off the tutorial isle.
+  "tui", "piwakawaka", "kereru", "kiwi", "kaka", "kea", "ruru", "tieke", "kotata",
+  "titipounamu", "koreke", "pukeko", "whio", "putangitangi", "huia", "karearea", "takapu"]);
+
+// The fifteen tutors, in CHAIN ORDER — index i lives in pod i and keeps gate i
+// (between pod i and i+1) latched until their lesson is done. dx/dy are GAME
+// tiles from their pod's centre; look indexes VILLAGER_LOOKS as the fallback
+// skin if the mix roster is absent. `mix` pins the keeper to a specific
+// mix-roster character (index into MIX_NPCS.list) so names/sprites match the
+// designed cast regardless of chain length — see TUT_MIX_DEF.
+const TUT_TUTORS = [
+  { id: "guide",  name: "Kwame",     role: "Guide",       pod: 0,  dx: 0,  dy: 6,  look: 1, mix: 214 },
+  { id: "bush",   name: "Pallo",     role: "Bushman",     pod: 1,  dx: 0,  dy: -4, look: 3, mix: 221 },
+  { id: "fish",   name: "Amenhotep", role: "Fisher",      pod: 2,  dx: -9, dy: 3,  look: 0, mix: 228 },
+  { id: "smith",  name: "Menkaure",  role: "Smith",       pod: 3,  dx: 0,  dy: 3,  look: 5, mix: 235 },
+  { id: "swim",   name: "Vrixa",     role: "Swim-Master", pod: 4,  dx: 10, dy: -4, look: 0, mix: 298 },
+  { id: "bank",   name: "Torvak",    role: "Banker",      pod: 5,  dx: 0,  dy: -3, look: 2, mix: 305 },
+  { id: "farm",   name: "Kenji",     role: "Farmhand",    pod: 6,  dx: 6,  dy: 2,  look: 3, mix: 263 },
+  { id: "wood",   name: "Torra",     role: "Carpenter",   pod: 7,  dx: 0,  dy: 3,  look: 5, mix: 249 },
+  { id: "cook",   name: "Aldric",    role: "Cook",        pod: 8,  dx: 0,  dy: 3,  look: 4, mix: 256 },
+  { id: "war",    name: "Yuki",      role: "Warden",      pod: 9,  dx: 0,  dy: 6,  look: 2, mix: 270 },
+  { id: "soap",   name: "Nala",      role: "Soapmaker",   pod: 10, dx: 7,  dy: 4,  look: 4, mix: 242 },
+  { id: "sky",    name: "Ravenna",   role: "Skywatcher",  pod: 11, dx: 0,  dy: -2, look: 1, mix: 312 },
+  { id: "candle", name: "Miles",     role: "Candlemaker", pod: 12, dx: 3,  dy: -3, look: 4, mix: 277 },
+  { id: "lore",   name: "Runa",      role: "Loremaster",  pod: 13, dx: 3,  dy: -3, look: 4, mix: 284 },
+  { id: "ferry",  name: "Sigrid",    role: "Navigator",   pod: 14, dx: 0,  dy: 26, look: 5, mix: 291 },
+];
+
+// The ROSTER CHARACTER behind tutor i — shared by chunks.js (NPC derivation)
+// and the Tutorial module (dialogue header, journey bar, gate messages), so
+// the isle's cast is one consistent set of real characters: each tutor IS an
+// actual mix-roster person, with their tutorial title appended ("… the
+// Guide"). Deterministic stride walk of the roster; null if roster absent
+// (the Māori fallback names in TUT_TUTORS then apply).
+function TUT_MIX_DEF(i) {
+  if (typeof MIX_NPCS === "undefined" || !MIX_NPCS || !MIX_NPCS.list || !MIX_NPCS.list.length) return null;
+  const N = MIX_NPCS.list.length;
+  // an explicit pin wins (keeps the designed cast stable); else the legacy
+  // deterministic stride walk from the isle's spawn-tile hash
+  const tu = TUT_TUTORS[i];
+  if (tu && tu.mix != null) return MIX_NPCS.list[(((tu.mix % N) + N) % N)];
+  const base = (Math.abs((TUT_ISLE.gx * 31 + TUT_ISLE.gy * 17) | 0)) % N;
+  return MIX_NPCS.list[(((base + i * 7) % N) + N) % N];
+}
+
+// The village layout — shared with chunks.js. The village SPANS BOTH SHORE
+// PODS (user req 2026-09-16): the Landing (pod 0) and the Harbour (pod 14)
+// are one open plains shore with no fence between them (terrain.js skips
+// the -90° spoke), tents scattered through both. `seats` is where each
+// keeper stands once they've come home for the evening (early keepers camp
+// by the Landing, later ones round the Harbour green; the Navigator keeps
+// her own post by the waka), `lamps` the stands lit at dusk — every entry
+// carries its `pod` (0 or 14) plus game-tile offsets from that pod's centre.
+var TUT_VILLAGE = (() => {
+  const seats = {};
+  const homing = TUT_TUTORS.filter(tu => tu.id !== "ferry");
+  homing.forEach((tu, i) => {
+    const pod = i < 7 ? 0 : 14;
+    const ring = i < 7 ? i : i - 7, n = i < 7 ? 7 : homing.length - 7;
+    const a = (ring / n) * Math.PI * 2 - Math.PI / 2;
+    seats[tu.id] = { pod, dx: Math.round(Math.cos(a) * 5.5), dy: Math.round(Math.sin(a) * 5.5) };
+  });
+  const lamps = [];
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + Math.PI / 8;
+    lamps.push({ pod: 0, dx: Math.round(Math.cos(a) * 7.5), dy: Math.round(Math.sin(a) * 7.5) });
+  }
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * Math.PI * 2 + Math.PI / 6;
+    lamps.push({ pod: 14, dx: Math.round(Math.cos(a) * 7.5), dy: Math.round(Math.sin(a) * 7.5) });
+  }
+  // PROPER HOUSES (user req 2026-09-16): real village buildings — chunks.js
+  // stamps these through the same stampBuilding pipeline natural settlements
+  // use (floors, walls, roof, a south door; job/kind null so no shopkeeper
+  // derives). x0/y0 are game-tile offsets of the footprint's NW corner from
+  // the pod centre; placed clear of the path, pier, seats, lamps and stamps.
+  const houses = [
+    { pod: 0,  x0: -13, y0: -6,  w: 5, h: 5 },
+    { pod: 0,  x0: 7,   y0: -9,  w: 5, h: 6 },
+    { pod: 0,  x0: 8,   y0: 5,   w: 5, h: 5 },
+    { pod: 14, x0: -12, y0: -12, w: 5, h: 5 },
+    { pod: 14, x0: 6,   y0: -12, w: 6, h: 5 },
+    { pod: 14, x0: -14, y0: -3,  w: 5, h: 5 },
+    { pod: 14, x0: 9,   y0: 3,   w: 5, h: 5 },
+  ];
+  return { seats, lamps, houses };
+})();
+
+// (The Smith's KNIFE gift is the existing `knife` TOOL item (tool:"knife",
+// toolcraft) — firemaking.js hasBladedWeapon now accepts a CARRIED knife as
+// a spark striker, so no weapon needs wielding to light the furnace.)
+
+// The Swim-Master's islet prize: a barnacled sea chest holding a pearl —
+// the fetch-and-return that proves the snorkel lesson (REQS.swim below).
+// The node itself is stamped by chunks.js at TUT_ISLE.islet's live seat.
+if (typeof NODE_TYPES !== "undefined" && !NODE_TYPES.tut_seachest)
+  NODE_TYPES.tut_seachest = {
+    name: "Weathered sea chest", spr: "treasure_chest", skill: "Foraging",
+    req: 1, xp: 40, item: "pearl", tool: null, tick: 1500, depleteCh: 1,
+    respawn: 600000, deadSpr: null, gatherVerb: "Open",
+  };
+
+// Hand-placed content in ABSOLUTE game coords (built from the pod centres).
+// { node } → resource/station · { decor } → decoration · { mon } → monster
+// spawn · { label } → world-map label. The path, fences and gates are stamped
+// procedurally in chunks.js from the chain geometry, not listed here.
+const TUT_CONTENT = (() => {
+  const P = TUT_ISLE.pods;
+  const at = (i, dx, dy, rest) => ({ x: P[i].mx * 2 + dx, y: P[i].my * 2 + dy, ...rest });
+  const stamps = [
+    // pod 0 — the Landing
+    at(0, 0, -8, { label: "Tūhura Isle", c: "#7fe3c7" }),
+    at(0, 5, 3, { node: "berrybush", blk: false }),
+    at(0, -5, 4, { node: "herbpatch", blk: false }),
+    // the village's LANDING half (user req 2026-09-16: one open plains shore
+    // across pods 0 and 14, no fence between them). PROPER HOUSES come from
+    // TUT_VILLAGE.houses (chunks.js stampBuilding, the real settlement
+    // pipeline) — only a tent and the odd camp fixture remain for flavour.
+    at(0, -9, 7, { decor: "tent", blk: true }),
+    at(0, -4, -7, { decor: "well_roofed", blk: true }),
+    at(0, 5, 9, { decor: "stall", blk: true }),
+    // pod 1 — the Bush: a THICKET of tier-1 trees + foraging (natural higher-
+    // tier growth across the whole isle is also demoted to tier 1 — chunks.js)
+    at(1, -5, -7, { node: "treeT0", blk: false }),
+    at(1, -8, -3, { node: "treeT0", blk: false }),
+    at(1, 5, -6, { node: "treeT0", blk: false }),
+    at(1, -7, 4, { node: "treeT0", blk: false }),
+    at(1, -10, -8, { node: "treeT0", blk: false }),
+    at(1, -12, 1, { node: "treeT0", blk: false }),
+    at(1, 8, -8, { node: "treeT0", blk: false }),
+    at(1, 9, 2, { node: "treeT0", blk: false }),
+    at(1, -3, 7, { node: "treeT0", blk: false }),
+    at(1, 4, 8, { node: "treeT0", blk: false }),
+    at(1, -11, -12, { node: "treeT0", blk: false }),
+    at(1, 12, -4, { node: "treeT0", blk: false }),
+    at(1, 6, 4, { node: "berrybush", blk: false }),
+    at(1, -9, 7, { node: "berrybush", blk: false }),
+    at(1, 3, -8, { node: "herbpatch", blk: false }),
+    at(1, -4, -12, { node: "herbpatch", blk: false }),
+    // pod 2 — the Cove: the radial RIVER runs through this sector (carved in
+    // terrain.js; spring near the centre wall, mouth OPEN to the sea — the
+    // weirs are gone, 2026-09-16: you ARRIVE by riding the current through
+    // the river gate). Amenhotep + cookfire camp on the west bank; whitebait
+    // (fishspot_0) run the stretch below the gate, netted from the banks.
+    // The bridge is stamped by chunks.js where the path crosses to the Forge.
+    at(2, -8, 3, { node: "campfire", extra: { station: true } }),
+    // fishspots ALONG the river ray, downstream of the bridge (absolute
+    // game coords computed from the ray)
+    ...(() => {
+      const Rv = TUT_ISLE.river, T = TUT_ISLE;
+      const spot = (t, side) => ({
+        x: Math.round((T.CX + Rv.ux * t - Rv.uy * side) * 2),
+        y: Math.round((T.CY + Rv.uy * t + Rv.ux * side) * 2),
+        node: "fishspot_0", blk: false, water: true, extra: { left: 16, leftMax: 16 },
+      });
+      const out = [];
+      for (let k = 0; k < 6; k++) out.push(spot(Rv.rCross + 2.2 + k * 1.1, (k % 2 ? 0.7 : -0.7)));
+      return out;
+    })(),
+    // the river's SOURCE, up by the centre wall (Vrixa's swim-up destination)
+    { x: Math.round(TUT_ISLE.river.src.x * 2), y: Math.round(TUT_ISLE.river.src.y * 2) + 2, label: "River Source", c: "#8fd8ff" },
+    // pod 3 — the Forge: anvil + furnace, a soft-copper terrace, one iron rock
+    // and TWO tin rocks (copper+tin smelt to bronze, iron to iron; the extra
+    // tin lets you carry a SPARE bronze bar to the woodcraft camp for arrows).
+    // Nodes respawn. (Stamped AFTER the level-1 demotion pass, so the iron/tin
+    // survive — everything natural on the isle is copper.)
+    at(3, 4, 0, { node: "anvil", extra: { station: true } }),
+    at(3, 7, -2, { node: "furnace", extra: { station: true } }),
+    at(3, -5, -4, { node: "copper" }),
+    at(3, -7, -7, { node: "copper" }),
+    at(3, -9, -3, { node: "copper" }),
+    at(3, -3, -11, { node: "copper" }),
+    at(3, -10, -10, { node: "copper" }),
+    at(3, -1, -6, { node: "copper" }),
+    at(3, -2, -9, { node: "copper" }),
+    at(3, -4, -8, { node: "iron" }),
+    at(3, -7, -10, { node: "rockM1" }),   // tin
+    at(3, -9, -12, { node: "rockM1" }),   // tin (spare, for bronze arrows later)
+    // pod 4 — the Lagoon (Swim-Master): the deep pool is carved in terrain; no
+    // hand-placed content — Vrixa gifts the raft + snorkel.
+    // pod 5 — the Bank camp: the vault, plus a carpenter's bench and a stand
+    // of trees — saw planks and MAKE TEN EMPTY PAILS here (the milk chain
+    // ahead runs on them; Torvak's stage requires the ten).
+    at(5, 2, -2, { node: "bank", extra: { station: true } }),
+    at(5, -4, 2, { node: "workbench", extra: { station: true } }),
+    at(5, -9, -6, { node: "treeT0", blk: false }),
+    at(5, 8, 5, { node: "treeT0", blk: false }),
+    at(5, -8, 7, { node: "treeT0", blk: false }),
+    // pod 6 — the Farm Vale: a millstone + livestock. QUAIL (keep_quail req 1)
+    // and HENS (keep_hens req 2) earn Husbandry XP + the eggs; a sheep to
+    // shear. (No cows here — milking waits for the Cook's herd, user req.)
+    // Pre-grown crop rows are appended below.
+    at(6, 12, -8, { node: "mill", extra: { station: true } }),
+    at(6, -9, 9, { mon: "quail" }),
+    at(6, -6, 10, { mon: "quail" }),
+    at(6, -3, 9, { mon: "quail" }),
+    at(6, -11, 11, { mon: "quail" }),
+    at(6, -5, 13, { mon: "quail" }),
+    at(6, 3, 9, { mon: "chicken" }),
+    at(6, 6, 10, { mon: "chicken" }),
+    at(6, 9, 9, { mon: "chicken" }),
+    at(6, 11, 12, { mon: "chicken" }),
+    at(6, 0, 11, { mon: "sheep" }),
+    // pod 7 — the Woodcrafting camp (Carpenter): fletcher's bench, sawmill,
+    // carpenter's workbench (planks + PAILS for milking), and a stand of
+    // logs. (The wand — and its essence rock — are GONE: no magic taught on
+    // the isle, user req 2026-09-16. State runes still come off the pit's
+    // rocks for the Warden's reagent lesson.)
+    at(7, 5, -3, { node: "fletchers_bench", extra: { station: true } }),
+    at(7, 8, 0, { node: "sawmill", extra: { station: true } }),
+    at(7, 6, 3, { node: "workbench", extra: { station: true } }),
+    at(7, -5, -3, { node: "treeT0", blk: false }),
+    at(7, -8, 1, { node: "treeT0", blk: false }),
+    at(7, -6, 4, { node: "treeT0", blk: false }),
+    at(7, -10, -4, { node: "treeT0", blk: false }),
+    // BANK CHESTS every second pod past Torvak's camp (user req 2026-09-15):
+    // pods 7, 9, 11 and 13 each get a vault chest — same shared vault, so
+    // the fletching arrows, pit loot and knoll gear can bank on the spot.
+    at(7, 0, -7, { node: "bank", extra: { station: true } }),
+    // pod 8 — the Cooking camp (Cook): cookfire (fritters), bakehouse
+    // (flatbread), creamery (curds→cheese) and two COWS — milk them with your
+    // pails (Husbandry 3, milk_cows) for the cheese.
+    at(8, -7, 2, { node: "campfire", extra: { station: true } }),
+    at(8, 3, -3, { node: "bakehouse", extra: { station: true } }),
+    at(8, 7, 2, { node: "creamery", extra: { station: true } }),
+    at(8, -5, 7, { mon: "cow" }),
+    at(8, -2, 8, { mon: "cow" }),
+    // pod 9 — the Warden's Pit: slimes (kill + action-rune drops) and boars
+    // (tallow + hide) on the walkable SOUTH bank; the archery lesson is the
+    // isle's BIRDS (slay five on the wing); two essence rocks (state runes).
+    at(9, -3, 5, { mon: "slime" }),
+    at(9, -6, 4, { mon: "slime" }),
+    at(9, -4, 8, { mon: "slime" }),
+    at(9, 2, 7, { mon: "slime" }),
+    at(9, 5, 5, { mon: "boar" }),
+    at(9, 7, 3, { mon: "boar" }),
+    at(9, 4, 9, { mon: "boar" }),
+    // the archery lesson's koreke — quail that flush and fly when startled,
+    // so every kill is a real shot on the wing
+    at(9, -10, -6, { mon: "koreke" }),
+    at(9, -5, -9, { mon: "koreke" }),
+    at(9, 1, -11, { mon: "koreke" }),
+    at(9, 7, -8, { mon: "koreke" }),
+    at(9, 11, -4, { mon: "koreke" }),
+    at(9, 12, 6, { mon: "koreke" }),
+    at(9, -8, 3, { node: "essence" }),
+    at(9, 8, 4, { node: "essence" }),
+    at(9, -3, -4, { node: "bank", extra: { station: true } }),
+    at(11, 3, 2, { node: "bank", extra: { station: true } }),
+    at(13, 5, 3, { node: "bank", extra: { station: true } }),
+    // pod 10 — the Springs (Soapmaker), NOW AFTER combat: a charcoal clamp (char
+    // your logs → wood ash), a soap works (leach lye, boil it with your warden's
+    // tallow into soap) beside the waist-deep wash pool. Scrub off all your stink.
+    at(10, -7, 3, { node: "charcoal_clamp", extra: { station: true } }),
+    at(10, -3, 4, { node: "soap_works", extra: { station: true } }),
+    // pod 11 — the Sky Knoll (Skywatcher): the crest is a terrain bump; no
+    // content — climb it for the weather/time lesson.
+    // pod 12 — the Candle Hollow (Candlemaker): a spinning wheel (spin your
+    // harvested flax into linen thread) and a chandlery (spin wicks + dip a
+    // tallow candle from your warden's-pit tallow).
+    at(12, -5, 2, { node: "spinning_wheel", extra: { station: true } }),
+    at(12, 5, -2, { node: "chandlery", extra: { station: true } }),
+    // pod 13 — the Portal Crown: the ancient portal + a RUNESTONE ALTAR —
+    // Runa's lesson is RUNECRAFTING (her 50 gifted state runes become 50
+    // air runes here; no spellcasting is taught on the isle, user req)
+    at(13, 0, -6, { node: "portal", extra: { portal: true } }),
+    at(13, -4, 2, { node: "altar", extra: { station: true } }),
+    // pod 14 — the HARBOUR half of the village (user req 2026-09-16): the
+    // keepers' own kāinga — PROPER HOUSES (TUT_VILLAGE.houses, stamped by
+    // chunks.js through the real settlement building pipeline) about a green
+    // with a well, a fire ring, benches and a couple of tents. As dusk
+    // settles the keepers met through the day come home to their seats here
+    // (TUT_VILLAGE + Tutorial.villageHome) and the lamp stands glow alight
+    // one by one (Tutorial.villageLamps → daynight.js).
+    at(14, 1, 9, { decor: "tent", blk: true }),
+    at(14, -6, 7, { decor: "tent2", blk: true }),
+    at(14, 3, 2, { decor: "well", blk: true }),
+    at(14, -1, 4, { decor: "campfire_ring" }),
+    at(14, -2, -3, { decor: "bench_trestle" }),
+    at(14, 2, 5, { decor: "city_bench" }),
+    at(14, 0, 13, { label: "Harbour Village", c: "#ffd75e" }),
+  ];
+  // THE FARM (user req 2026-09-16, replaces the old 50-plot open rows): ONE
+  // fenced 5×5 plot square at the crown's exact centre — five rows, one crop
+  // per row, five RIPE plots each (plantedAt 0) — ringed by a fence with a
+  // single gate mid-east, facing the path (whose crown vertex is nudged SE
+  // in terrain.js so the dirt dog-leg skirts the fence past the gate). The
+  // stage asks for FIFTY of each crop (FARM_GOALS): a full first harvest
+  // averages ~37 per crop (5 plots × 5-10), so at least one replant-and-
+  // regrow cycle (~3 min for tier-0 crops) is deliberately part of the
+  // lesson; Kenji's gift carries 10 seeds of each to keep replanting
+  // solvent (sowing costs 5, each harvested crop returns one 60% of the
+  // time — the maths hold but don't drown the player in spares).
+  const CROP_ROWS = [
+    ["farm_cerealiculture_0", -2],  // wheat
+    ["farm_olericulture_0",   -1],  // potato
+    ["farm_pomiculture_0",     0],  // apple (tree crop)
+    ["farm_herbiculture_0",    1],  // sageleaf
+    ["farm_fibriculture_0",    2],  // flax
+  ];
+  for (const [kind, dyRow] of CROP_ROWS)
+    for (let k = -2; k <= 2; k++)
+      stamps.push(at(6, k, dyRow, { node: "farmplot", blk: false,
+        extra: { farm: true, tilled: true, crop: { kind, plantedAt: 0 } } }));
+  {
+    const ring = new Set();
+    for (let d = -3; d <= 3; d++)
+      for (const [fx, fy] of [[d, -3], [d, 3], [-3, d], [3, d]]) ring.add(fx + "," + fy);
+    ring.delete("3,0"); // the gate
+    for (const k of ring) {
+      const [fx, fy] = k.split(",").map(Number);
+      stamps.push(at(6, fx, fy, { decor: "fence_wood", blk: true }));
+    }
+    stamps.push(at(6, 3, 0, { decor: "gate_wood" }));
+  }
+  // pod 14 — the Harbour pier: a decked walk out over the water to the waka
+  // the Harbour PIER: decking from pod 14's camp straight out to sea, along
+  // its outward radial (the coast lies RO - podRadius ≈ 11 map units out)
+  {
+    const a = TUT_ISLE.pods[14].ang * Math.PI / 180;
+    for (let k = 12; k <= 30; k++)
+      stamps.push(at(14, Math.round(Math.cos(a) * k), Math.round(Math.sin(a) * k), { decor: "stone_bridge" }));
+  }
+  return { stamps };
+})();
+
+// ---------- the tutorial module ----------
+const Tutorial = (() => {
+  const pods = () => TUT_ISLE.pods;
+  const podXY = i => [pods()[i].mx * 2, pods()[i].my * 2];
+  // fresh spawns wake on the Landing's BEACH — outward of pod 0, toward the coast
+  const START = {
+    get x() { return podXY(0)[0] + Math.round(Math.cos(pods()[0].ang * Math.PI / 180) * 10); },
+    get y() { return podXY(0)[1] + Math.round(Math.sin(pods()[0].ang * Math.PI / 180) * 10); },
+  };
+
+  // real roster names (TUT_MIX_DEF above); {id} tokens in dialogue text and
+  // stage notes resolve to them so the copy always matches the actual cast
+  const tutorName = tu => { const d = TUT_MIX_DEF(TUT_TUTORS.indexOf(tu)); return d && d.name ? d.name : tu.name; };
+  const tutorFull = tu => `${tutorName(tu)} the ${tu.role}`;
+  const subst = s => s.replace(/\{(\w+)\}/g, (_, id) => {
+    const tu = TUT_TUTORS.find(t2 => t2.id === id);
+    return tu ? tutorName(tu) : id;
+  });
+
+  let _seenCount = 0;
+  function state() {
+    if (typeof player === "undefined") return null;
+    // A character standing OFF the isle can only be a graduate: veteran saves
+    // carry tutorial:null (storage.js) and are never re-schooled, and a live
+    // tutorial cannot leave the isle (gates, fences, mist). So a missing
+    // record seeds as already-completed off the isle, and a "live" record
+    // found off the isle (saves poisoned by the old resurrection bug, cheat
+    // teleports) graduates on the spot — the journey bar comes down with it.
+    // Fresh spawns and character resets seed standing at Tutorial.START, so
+    // they still get the live journey.
+    const off = !onIsle();
+    if (!player.tutorial || typeof player.tutorial !== "object")
+      player.tutorial = { seen: {}, given: {}, welcomed: off ? 1 : 0, graduated: off ? 1 : 0 };
+    const t = player.tutorial;
+    if (off && !t.graduated) {
+      t.graduated = 1; t.welcomed = 1;
+      if (barEl) { barEl.remove(); barEl = null; }
+    }
+    if (!t.seen) t.seen = {};
+    if (!t.given) t.given = {};
+    // MIGRATIONS (table): stages have gained goals / raised counts over the
+    // 2026-09 rounds. A save that has already MET a LATER keeper can only
+    // have passed the earlier gate under the old rules — credit the current
+    // goals so no gate re-latches behind a mid-journey character. Keyed by
+    // the NEXT keeper's seen flag; credits never lower an existing count.
+    {
+      const MIG = [
+        ["fish",  { queuedTrees: 10, trees: 10 }],                 // bush: queue+fell grew to 10
+        ["smith", { braced: 1, whitebait: 10 }],                   // fish: brace goal + 10 whitebait
+        ["swim",  { furnaceLit: 1 }],                              // smith: light-the-furnace goal
+        ["bank",  { isletPearl: 1, isletReturn: 1 }],              // swim: the motu errand
+        ["farm",  { deposits: 1, pails: 15 }],                     // bank: the pails goal
+        ["wood",  { cropWheat: 50, cropPotato: 50, cropApple: 50, cropSage: 50, cropFlax: 50,
+                    flour: 50, eggs: 10, feathers: 100 }],         // farm: 50s + feathers
+        ["cook",  { shafts: 300, arrow_iron: 300 }],               // wood: the 300-ladder
+        ["ferry", { airRunes: 50 }],                               // lore: altar runecrafting
+      ];
+      for (const [k, credit] of MIG) {
+        if (!t.seen[k]) continue;
+        t.prog = t.prog || {};
+        for (const c in credit) if ((t.prog[c] || 0) < credit[c]) t.prog[c] = credit[c];
+      }
+    }
+    _seenCount = Object.keys(t.seen).length;
+    return t;
+  }
+  const sd = () => (typeof player !== "undefined" && typeof tutIsleSD === "function")
+    ? tutIsleSD(player.x / 2, player.y / 2) : null;
+  // inside the Swim-Master's islet wedge (channel + motu, MAP coords)? Part
+  // of the isle for onIsle() — a swimmer mid-crossing (or resting on the
+  // motu) is emphatically NOT "off the isle", or state() would graduate
+  // them mid-stroke — and the hull-bar / mist region for barred().
+  function inIsletRegion(mx, my) {
+    const I = (typeof TUT_ISLE !== "undefined") ? TUT_ISLE.islet : null;
+    if (!I) return false;
+    const dx = mx - TUT_ISLE.CX, dy = my - TUT_ISLE.CY;
+    const iux = Math.cos(TUT_ISLE.IA), iuy = Math.sin(TUT_ISLE.IA);
+    const it = dx * iux + dy * iuy, is = -dx * iuy + dy * iux;
+    const isletR = Math.hypot(I.x - TUT_ISLE.CX, I.y - TUT_ISLE.CY);
+    return it > TUT_ISLE.RO - 2 && it < isletR + 6 && Math.abs(is) < 10;
+  }
+  const onIsle = () => {
+    const q = sd();
+    return !!q && (q.D < 16 || inIsletRegion(player.x / 2, player.y / 2));
+  };
+  // tutorial "instance" is live: a not-yet-graduated tutorial character
+  const active = () => typeof player !== "undefined" && player.tutorial &&
+    typeof player.tutorial === "object" && !player.tutorial.graduated;
+  // ---------- the Smith's forge task ----------
+  // The Smith stage isn't cleared by talk alone: the player must LIGHT THE
+  // FURNACE (knife + flint + logs — onStoke) and FORGE the four lesson
+  // pieces with their own skill (two iron on Weaponsmithing, two bronze on
+  // Armoursmithing). Equipping them is advice, not a gate (user req
+  // 2026-09-16). No tutor grants XP (experience comes solely from working
+  // the isle's resources) — and none is needed: all four forge recipes are
+  // req 1; the real ladder is Ore-mining/Smelting 1→3 (copper swings and
+  // copper/bronze bars) to reach the iron rock and bar.
+  const SMITH_ITEMS = ["shortsword_iron", "chainbody_bronze", "targe_bronze"];
+  const SMITH_HEADS = 300; // iron arrowheads to smith (20 anvil batches of 15)
+  const SMITH_RECIPES = new Set(["smith_shortsword_iron", "smith_arrowhead_iron", "smith_chainbody_bronze", "smith_targe_bronze"]);
+  const smithForged = () => { const t = state(); const m = (t && t.smithMade) || {}; return SMITH_ITEMS.every(id => m[id]); };
+  // a tutor's stage counts as cleared only when its dialogue is seen AND its
+  // hands-on task is finished
+  const hasBody = () => typeof player !== "undefined" && player && player.character != null;
+
+  // ---------- stage requirements ----------
+  // EVERY stage has a hands-on task beyond meeting its keeper (user req); the
+  // gate only unbars when BOTH are done, and the journey bar shows the pair
+  // as checkboxes. Counter-based tasks store progress in player.tutorial.prog
+  // (persisted); the counters are fed by small hooks in gameplay code:
+  //   onGather (skills/gathering.js tickGather — trees, whitebait, state runes)
+  //   · onQueue (split.js capture — the Bushman's queued felling jobs)
+  //   · onBrace (movement.js — Shift held in a current, the Fisher's stance)
+  //   · onStoke (firemaking.js — the Smith's furnace lit)
+  //   · onCraft (skills/crafting.js — smith pieces, flour, shafts/arrows/bow,
+  //     air runes, fritters, cheese, flatbread, candle) · onHarvest
+  //     (skills/farming.js — the five crops) · onTend (husbandry-animals.js —
+  //     eggs + feathers) · onWash (stink.js — scrub clean) · onBank (ui.js) ·
+  //     onKill (combat.js — slimes, the warden's birds) · onPickup (items.js —
+  //     tallow/hide/action-rune kill drops) · onEquip (items.js — the candle)
+  //     · tick() below (the pearl back to Vrixa / the Sky Knoll crest).
+  // Counters pre-accumulate happily and stop at `need`.
+  const cnt = (t, c) => (t.prog && t.prog[c]) || 0;
+  const allGoals = (t, arr) => arr.every(([c, n]) => cnt(t, c) >= n);
+  const numGoals = (t, arr) => arr.filter(([c, n]) => cnt(t, c) >= n).length;
+  // multi-part stage goal sets: [counter, need, label] triples — the label is
+  // the single source for both the task-log lines (bumpGoal) and the journey
+  // bar's itemised requirement rows (goalItems), so the two can't drift.
+  // the Bushman also TEACHES the Option+click queue: queue ten felling jobs,
+  // then let the hands work the list (split.js capture → onQueue below)
+  const BUSH_GOALS = [["queuedTrees", 10, "queue up 10 trees for felling (Option+click)"], ["trees", 10, "fell 10 trees"]];
+  // the Fisher's first lesson is the BRACE (hold Shift in a current) — the
+  // net is useless until your feet are dug in (movement.js → onBrace)
+  const FISH_GOALS = [["braced", 1, "brace yourself in the water (hold Shift)"], ["whitebait", 10, "catch 10 whitebait"]];
+  const BANK_GOALS = [["deposits", 1, "deposit an item"], ["pails", 15, "make 15 empty pails"]];
+  // 50 of EACH crop (user req 2026-09-16) off the fenced 5×5: a first full
+  // harvest averages ~37 per crop, so replanting-and-regrowing is required.
+  // The 100 feathers are Torra's exact arrow budget (20 batches × 5).
+  const FARM_GOALS = [["cropWheat", 50, "harvest 50 wheat"], ["cropPotato", 50, "harvest 50 potatoes"], ["cropApple", 50, "harvest 50 apples"], ["cropSage", 50, "harvest 50 sageleaves"], ["cropFlax", 50, "harvest 50 flax"], ["flour", 50, "mill 50 flour"], ["eggs", 10, "collect 10 eggs"], ["feathers", 100, "collect 100 feathers"]];
+  // 300 shafts (20 cuts × 35 xp = 700) land Fletching 2 — exactly the level
+  // iron arrows demand; the wand is GONE (no magic on the isle, user req)
+  const WOOD_GOALS = [["shafts", 300, "cut 300 arrow shafts"], ["arrow_iron", 300, "fletch 300 iron arrows"], ["shortbow", 1, "carve a shortbow"]];
+  const COOK_GOALS = [["fritters", 5, "cook 5 whitebait fritters"], ["cheese", 1, "make cottage cheese"], ["flatbread", 5, "bake 5 flatbread"]];
+  const WAR_GOALS  = [["slimes", 3, "slay 3 slimes"], ["tallow", 3, "gather 3 tallow"], ["actionRune", 3, "gather 3 action runes"], ["stateRune", 3, "gather 3 state runes"], ["hide", 3, "gather 3 hide"], ["koreke", 5, "slay 5 koreke"]];
+  // the Swim-Master's islet errand (user req 2026-09-16): snorkel out past
+  // bare-lungs range, lift the sea chest's pearl, and swim it back to HER
+  const SWIM_GOALS = [["isletPearl", 1, "open the islet's sea chest"], ["isletReturn", 1, "bring the pearl back to Vrixa"]];
+  // the Loremaster's lesson is RUNECRAFTING, not spellcasting: her 50 gifted
+  // state runes become 50 air runes at the crown's altar (no magic taught)
+  const LORE_GOALS = [["airRunes", 50, "craft 50 air runes at the altar"]];
+  const GOALS = {}; // counter -> [cap, label]
+  for (const arr of [BUSH_GOALS, FISH_GOALS, BANK_GOALS, FARM_GOALS, WOOD_GOALS, COOK_GOALS, WAR_GOALS, SWIM_GOALS, LORE_GOALS])
+    for (const [c, n, label] of arr) GOALS[c] = [n, label];
+  GOALS.arrowheads = [SMITH_HEADS, `smith ${SMITH_HEADS} iron arrowheads`]; // smith stage counter (15/batch)
+  GOALS.furnaceLit = [1, "light the furnace"];                              // smith stage counter (onStoke)
+  // journey-bar itemisation: one {on, num, need, label} row per goal
+  const goalItems = arr => t => arr.map(([c, n, label]) =>
+    ({ on: cnt(t, c) >= n, num: Math.min(n, cnt(t, c)), need: n, label }));
+  const REQS = {
+    guide: { task: "take a form",              done: () => hasBody() },
+    bush:  { task: "queue 10 trees & fell 10 trees", need: BUSH_GOALS.length, done: t => allGoals(t, BUSH_GOALS), num: t => numGoals(t, BUSH_GOALS), items: goalItems(BUSH_GOALS) },
+    fish:  { task: "brace in the current & catch 10 whitebait", need: FISH_GOALS.length, done: t => allGoals(t, FISH_GOALS), num: t => numGoals(t, FISH_GOALS), items: goalItems(FISH_GOALS) },
+    // forge the four pieces + LIGHT THE FURNACE — equipping is advice now,
+    // not a gate (user req 2026-09-16)
+    smith: { task: "light the furnace & forge your kit", need: SMITH_ITEMS.length + 2,
+             done: t => smithForged() && cnt(t, "arrowheads") >= SMITH_HEADS && cnt(t, "furnaceLit") >= 1,
+             num: t => SMITH_ITEMS.filter(id => t.smithMade && t.smithMade[id]).length + (cnt(t, "arrowheads") >= SMITH_HEADS ? 1 : 0) + (cnt(t, "furnaceLit") >= 1 ? 1 : 0),
+             items: t => {
+               const made = (t && t.smithMade) || {};
+               const nm = id => (typeof ITEMS !== "undefined" && ITEMS[id]) ? ITEMS[id].name.toLowerCase() : id;
+               const heads = cnt(t, "arrowheads"), lit = cnt(t, "furnaceLit");
+               return [{ on: lit >= 1, num: Math.min(1, lit), need: 1, label: "light the furnace" }]
+                 .concat(SMITH_ITEMS.map(id => ({ on: !!made[id], num: made[id] ? 1 : 0, need: 1, label: "forge " + nm(id) })))
+                 .concat([{ on: heads >= SMITH_HEADS, num: Math.min(SMITH_HEADS, heads), need: SMITH_HEADS, label: `smith ${SMITH_HEADS} iron arrowheads` }]);
+             } },
+    soap:  { task: "wash off all your stink",  done: t => !!t.washedClean },
+    swim:  { task: "fetch the islet's pearl & swim it home", need: SWIM_GOALS.length, done: t => allGoals(t, SWIM_GOALS), num: t => numGoals(t, SWIM_GOALS), items: goalItems(SWIM_GOALS) },
+    bank:  { task: "deposit an item & make 15 pails", need: BANK_GOALS.length, done: t => allGoals(t, BANK_GOALS), num: t => numGoals(t, BANK_GOALS), items: goalItems(BANK_GOALS) },
+    farm:  { task: "harvest 50 of each crop (replant!), mill flour, gather eggs & feathers", need: FARM_GOALS.length, done: t => allGoals(t, FARM_GOALS), num: t => numGoals(t, FARM_GOALS), items: goalItems(FARM_GOALS) },
+    wood:  { task: "cut 300 shafts, fletch 300 arrows, carve a bow", need: WOOD_GOALS.length, done: t => allGoals(t, WOOD_GOALS), num: t => numGoals(t, WOOD_GOALS), items: goalItems(WOOD_GOALS) },
+    cook:  { task: "cook fritters, cheese & flatbread", need: COOK_GOALS.length, done: t => allGoals(t, COOK_GOALS), num: t => numGoals(t, COOK_GOALS), items: goalItems(COOK_GOALS) },
+    war:   { task: "clear the pit & slay 5 koreke", need: WAR_GOALS.length, done: t => allGoals(t, WAR_GOALS), num: t => numGoals(t, WAR_GOALS), items: goalItems(WAR_GOALS) },
+    sky:   { task: "climb the Sky Knoll",      done: t => !!t.reachedKnoll },
+    candle:{ task: "dip a rushlight",          done: t => !!t.candleMade,
+             items: t => [
+               { on: !!(t && t.candleMade), num: (t && t.candleMade) ? 1 : 0, need: 1, label: "dip a rushlight" },
+             ] },
+    lore:  { task: "craft 50 air runes at the altar", need: LORE_GOALS.length, done: t => allGoals(t, LORE_GOALS), num: t => numGoals(t, LORE_GOALS), items: goalItems(LORE_GOALS) },
+    ferry: null,   // the Navigator just ferries the graduate — no task
+  };
+  function reqDone(id) {
+    const r = REQS[id]; if (!r) return true;
+    const t = state(); if (!t) return true;
+    if (r.done) return !!r.done(t);
+    return ((t.prog && t.prog[r.n]) || 0) >= r.need;
+  }
+  function reqNum(id) {
+    const r = REQS[id]; const t = state();
+    if (!r || !t) return 0;
+    if (r.num) return r.num(t);
+    if (r.done) return r.done(t) ? 1 : 0;
+    return Math.min(r.need, (t.prog && t.prog[r.n]) || 0);
+  }
+  const reqNeed = id => { const r = REQS[id]; return r ? (r.need || 1) : 0; };
+  // bump counter `c` toward cap `cap` by `inc` (default 1); logs + refreshes.
+  // Generic — works for both single-stage `.n` counters and the multi-part
+  // goal counters (FARM_GOALS etc.), which don't map 1:1 to a REQS entry.
+  function bumpProg(c, cap, label, inc) {
+    if (!active()) return;
+    const t = state(); if (!t) return;
+    const p = t.prog || (t.prog = {});
+    if ((p[c] || 0) >= cap) return;
+    p[c] = Math.min(cap, (p[c] || 0) + (inc || 1));
+    if (typeof log === "function")
+      log(`Task — ${label}: ${p[c]}/${cap}${p[c] >= cap ? " ✓" : ""}`, "gold");
+    if (p[c] >= cap && typeof sfx === "function") sfx("quest", 0.4);
+    refreshBar();
+    if (typeof saveGame === "function") saveGame();
+  }
+  // bump a single-stage `.n` counter (looks up its cap + label from REQS)
+  function reqBump(counter) {
+    const id = Object.keys(REQS).find(k => REQS[k] && REQS[k].n === counter);
+    if (!id) return;
+    bumpProg(counter, REQS[id].need, REQS[id].task);
+  }
+  // bump a multi-part goal counter (cap + label from the GOALS table)
+  function bumpGoal(counter, inc) {
+    const g = GOALS[counter]; if (!g) return;
+    bumpProg(counter, g[0], g[1], inc);
+  }
+  // gameplay hooks (see REQS above). onGather fires once per successful gather
+  // tick with `depleted` true when the node just gave out.
+  function onGather(node, nt, item, depleted) {
+    if (!active() || !nt) return;
+    if (depleted && nt.skill === "Woodcutting") bumpGoal("trees");
+    if (item === "raw_fish") bumpGoal("whitebait");
+    if (item === "state_rune") bumpGoal("stateRune");
+    if (item === "pearl" && node && node.type === "tut_seachest") {
+      bumpGoal("isletPearl");
+      if (typeof log === "function")
+        log("The pearl is yours — now swim it home to the lagoon shore. Mind your air!", "sys");
+    }
+  }
+  // queue-capture hook (split.js capture): the Bushman's stage counts
+  // felling jobs queued with Option+click — the mechanic IS the lesson
+  function onQueue(goal) {
+    if (!active() || !goal || goal.type !== "gather" || !goal.node) return;
+    const nt = (typeof NODE_TYPES !== "undefined") ? NODE_TYPES[goal.node.type] : null;
+    if (nt && nt.skill === "Woodcutting") bumpGoal("queuedTrees");
+  }
+  // brace hook (movement.js, every frame Shift is held in a current): the
+  // Fisher's first checkbox — one-shot, so the per-frame call stays cheap
+  function onBrace() {
+    if (!active()) return;
+    const t = state();
+    if (!t || (t.prog && t.prog.braced)) return;
+    bumpGoal("braced");
+  }
+  // stoke hook (firemaking.js stokeFire, after a successful stoke): the
+  // Smith's "light the furnace" checkbox
+  function onStoke(node) {
+    if (!active() || !node || node.type !== "furnace") return;
+    bumpGoal("furnaceLit");
+  }
+  // farm crop key → goal counter (caps + labels live in FARM_GOALS)
+  const CROP_TASK = {
+    farm_cerealiculture_0: "cropWheat",
+    farm_olericulture_0:   "cropPotato",
+    farm_pomiculture_0:    "cropApple",
+    farm_herbiculture_0:   "cropSage",
+    farm_fibriculture_0:   "cropFlax",
+  };
+  function onHarvest(cropKey) {
+    if (!active()) return;
+    bumpGoal(CROP_TASK[cropKey]);
+  }
+  // husbandry tend — fired once per output item produced (id, qty)
+  function onTend(itemId, qty) {
+    if (!active()) return;
+    // quail eggs are a DIFFERENT item — only NORMAL eggs (from the hens) count
+    // toward the farm pod's eggs goal, not quail eggs (user request)
+    if (itemId === "egg") bumpGoal("eggs", qty || 1);
+    // feathers off the quail and hens — Torra's exact arrow budget ahead
+    if (itemId === "feathers") bumpGoal("feathers", qty || 1);
+  }
+  // washing at the springs: cleared once soap has scrubbed you fully clean
+  // (stinkTotal 0). stink.js fires this on every wash — including a wash while
+  // already clean — so the stage can't wedge if a fresh hand reaches the pool
+  // with no stink to speak of.
+  function onWash() {
+    if (!active()) return;
+    const t = state(); if (!t || t.washedClean) return;
+    const tot = (typeof stinkTotal === "function") ? stinkTotal() : 0;
+    if (tot <= 0) {
+      t.washedClean = 1;
+      if (typeof log === "function") log("Task — wash off all your stink: clean ✓", "gold");
+      if (typeof sfx === "function") sfx("quest", 0.4);
+      refreshBar();
+      if (typeof saveGame === "function") saveGame();
+    }
+  }
+  const onBank = () => bumpGoal("deposits");
+  // kill hook — combat.js passes the monster kind
+  function onKill(kind) {
+    if (!active()) return;
+    if (kind === "slime") bumpGoal("slimes");
+    else if (String(kind).replace(/_v$/, "") === "koreke")
+      bumpGoal("koreke"); // the warden's archery lesson: the pit's quail
+  }
+  // ground-loot pickup hook (items.js pickUp): the warden-pit reagents
+  function onPickup(id, qty) {
+    if (!active()) return;
+    if (id === "tallow") bumpGoal("tallow", qty || 1);
+    else if (id === "hide") bumpGoal("hide", qty || 1);
+    else if (id === "action_rune") bumpGoal("actionRune", qty || 1);
+    else if (id === "state_rune") bumpGoal("stateRune", qty || 1);
+  }
+  // equip hook (items.js equipItem): the smith's worn pieces + the candle
+  function onEquip(id) {
+    if (!active()) return;
+    const t = state(); if (!t) return;
+    // (the smith's equip requirement is gone — only the candle is tracked)
+    if (typeof ITEMS !== "undefined" && ITEMS[id] && ITEMS[id].light && !t.candleEquipped) {
+      t.candleEquipped = 1; // tracked but not a stage requirement
+      refreshBar(); if (typeof saveGame === "function") saveGame();
+    }
+  }
+  const onChant = () => reqBump("chants");
+
+  function tutorComplete(id) {
+    const t = state(); if (!t || !t.seen[id]) return false;
+    return reqDone(id);
+  }
+  // index of the first tutor whose stage is NOT complete — the player may roam
+  // pods 0..frontier; gate `frontier` (at chain s = frontier + 0.5) is shut
+  function frontier() {
+    const t = state();
+    if (!t) return 0;
+    for (let i = 0; i < TUT_TUTORS.length; i++) if (!tutorComplete(TUT_TUTORS[i].id)) return i;
+    return TUT_TUTORS.length;
+  }
+  // craft-completion hook (skills/crafting.js tickCraft, passes the OUTPUT item
+  // id): milling, the woodcraft pieces, the cook's dishes, the candle, and the
+  // smith's forged four (forging also needs the pieces EQUIPPED — see onEquip —
+  // before the forge stage clears).
+  function onCraft(itemId) {
+    if (!active()) return;
+    switch (itemId) {
+      case "flour":          return bumpGoal("flour");
+      case "pail":           return bumpGoal("pails");
+      case "arrowhead_iron": return bumpGoal("arrowheads", 15); // one anvil batch = 15 heads
+      case "arrow_shafts":   return bumpGoal("shafts", 15);     // one cut = 15 shafts
+      case "arrow_iron":     return bumpGoal("arrow_iron", 15); // one fletch = 15 arrows
+      case "shortbow":       return bumpGoal("shortbow");
+      case "air_rune":       // the Loremaster's altar lesson — yield mirrors
+        // craftOnce's scaleYield formula (base 1 + level/8 bonus runes)
+        return bumpGoal("airRunes",
+          1 + Math.floor(((typeof eff === "function") ? eff("Runecrafting") : 1) / 8));
+      case "cooked_fish":    return bumpGoal("fritters");
+      case "cottage_cheese": return bumpGoal("cheese");
+      case "flatbread":      return bumpGoal("flatbread");
+      case "rushlight":  // Miles's goal (user req): dip the humble rushlight —
+      case "candle": {   // a full candle counts too, for the keen ones
+        const t = state();
+        if (t && !t.candleMade) {
+          t.candleMade = 1;
+          if (typeof log === "function") log("Task — dip a rushlight: dipped ✓", "gold");
+          refreshBar(); if (typeof saveGame === "function") saveGame();
+        }
+        return;
+      }
+    }
+    if (SMITH_ITEMS.indexOf(itemId) < 0) return;
+    const t = state(); if (!t) return;
+    if (!t.smithMade) t.smithMade = {};
+    if (t.smithMade[itemId]) return;
+    t.smithMade[itemId] = 1;
+    const made = SMITH_ITEMS.filter(id => t.smithMade[id]).length;
+    if (typeof log === "function") {
+      const nm = (typeof ITEMS !== "undefined" && ITEMS[itemId]) ? ITEMS[itemId].name : itemId;
+      log(`Forged: ${nm}. (${made}/${SMITH_ITEMS.length} pieces)`, "gold");
+      if (made >= SMITH_ITEMS.length) log("All the wearable pieces forged — keep the arrowhead batches coming. (Wearing your work is wise, but the forge gate only asks that you MAKE it.)", "gold");
+    }
+    if (made >= SMITH_ITEMS.length && typeof sfx === "function") sfx("quest", 0.5);
+    refreshBar();
+    if (typeof saveGame === "function") saveGame();
+  }
+  // the tutorial anvil forges ONLY the four lesson pieces (skills/crafting.js
+  // openStation filters its recipe list through this). null = no restriction.
+  function anvilRecipes(node) {
+    if (!active() || typeof tutIsleSD !== "function" || !node || node.type !== "anvil" || node.x == null) return null;
+    const q = tutIsleSD(node.x / 2, node.y / 2);   // the furnace stays unrestricted (smelt any bar)
+    return (q && q.D < 12) ? SMITH_RECIPES : null;
+  }
+
+  // ---------- the staged sky ----------
+  // The isle is a pocket outside the world's clock: it always wakes at the
+  // start of the day under clear skies at a flat 50% latitude, and the sky
+  // only turns when the TUTORIAL turns — each islander met rolls time (and
+  // eventually the weather) forward one notch, morning → noon → a passing
+  // shower on the lagoon-and-bank leg → golden hour on the Sky Knoll → dusk
+  // at the Portal Crown → the farewell under stars. daynight.js (dayPhase/
+  // dayFraction), weather.js (weatherAt) and world.latitudeAt consult these
+  // hooks; they return null/false the instant the character graduates or
+  // strays off the isle, and the real sky snaps back.
+  const TUT_WX = { // weatherAt override objects (shape mirrors cheats.js presets)
+    clear:   { anom: 0.7,  front: 0,   storm: 0,    cloud: 0.04, precip: 0,    kind: null,   wind: { x: 0.4, y: 0 } },
+    cloudy:  { anom: 0.2,  front: 0,   storm: 0.25, cloud: 0.55, precip: 0,    kind: null,   wind: { x: 0.7, y: 0.1 } },
+    rain:    { anom: -0.5, front: 0.4, storm: 0.7,  cloud: 0.95, precip: 0.45, kind: "rain", wind: { x: 1.3, y: 0.3 } },
+    drizzle: { anom: -0.3, front: 0.2, storm: 0.55, cloud: 0.9,  precip: 0.18, kind: "rain", wind: { x: 1.0, y: 0.2 } },
+  };
+  // one stop per keeper met (index = _seenCount): dawn → night across the
+  // fifteen keepers, keeping the rain / golden-hour / stars beats.
+  const STAGES = [
+    { h: 7.5,   wx: "clear",   note: null }, // the isle always wakes just after dawn
+    { h: 8.5,   wx: "clear",   note: "The morning sun climbs a little higher." },      // Guide met
+    { h: 9.5,   wx: "clear",   note: "Mid-morning light spills across the isle." },    // Bushman
+    { h: 10.5,  wx: "clear",   note: "The sun swings toward its peak." },              // Fisher
+    { h: 12,    wx: "clear",   note: "High noon — shadows shrink to nothing under your feet." }, // Smith
+    { h: 13,    wx: "clear",   note: "Early-afternoon warmth lies over the isle." },   // Soapmaker
+    { h: 13.75, wx: "cloudy",  note: "Clouds drift in off the sea. {sky} would tell you the pressure is falling." }, // Swim-Master
+    { h: 14.5,  wx: "rain",    note: "Rain sweeps the isle! Feel it — every storm in this world is real, and rivers swell with it." }, // Banker
+    { h: 15.5,  wx: "drizzle", note: "The downpour softens to drizzle. Petrichor rises off the fields." }, // Farmhand
+    { h: 16.25, wx: "clear",   note: "The front passes — sunlight breaks through washed-clean air." }, // Carpenter
+    { h: 17,    wx: "clear",   note: "Late-afternoon light lengthens every shadow." }, // Cook
+    // sunset on the flat-latitude isle is 18:00 — the candle STAGE (index 13,
+    // active while the dip-and-equip task is under way) must sit BEFORE it
+    // (user req): you make your light while you can still see, and night
+    // proper only falls once the Loremaster is met, candle already burning.
+    { h: 17.4,  wx: "clear",   note: "Golden hour. The whole isle glows like embers." }, // Warden
+    { h: 17.75, wx: "clear",   note: "The sun leans low over the sea — the last long light of the day." }, // Skywatcher
+    { h: 17.95, wx: "clear",   note: "The sun touches the horizon — dip your rushlight by the last of the light; night is minutes away." }, // Candlemaker
+    { h: 20,    wx: "clear",   note: "Night gathers; the portal ring glimmers on its crown." }, // Loremaster
+    { h: 21,    wx: "clear",   note: "Night proper — the stars wheel above the isle. Time to think about the crossing." }, // Navigator
+  ];
+  const stage = () => STAGES[Math.min(_seenCount, STAGES.length - 1)];
+  const skyActive = () => active() && onIsle();
+  // dayPhase 0..1 such that the LOCAL clock where the player stands reads h
+  function phaseOverride() {
+    if (!skyActive()) return null;
+    const tz = (typeof tzZone === "function") ? tzZone(player.x) : 0;
+    const p = stage().h / 24 - tz / 24;
+    return p - Math.floor(p);
+  }
+  const weatherOverride = () => skyActive() ? TUT_WX[stage().wx] : null;
+  const flatSky = () => skyActive(); // daynight dayFraction + world.latitudeAt → 0.5
+  function advanceStage(prevCount) {
+    const prev = Math.min(prevCount, STAGES.length - 1);
+    const cur = Math.min(_seenCount, STAGES.length - 1);
+    if (cur === prev || !skyActive()) return;
+    const s = STAGES[cur];
+    if (s.note && typeof log === "function") log(subst(s.note), "gold");
+    if (typeof sfx === "function") sfx("quest", 0.35);
+  }
+
+  // ---------- the river ----------
+  // Geometry is in terrain.js (TUT_ISLE.river / tutIsleSD → pRiver 0=source …
+  // 1=mouth, riverLine = distance to the water course). The journey ITSELF
+  // rides the river now (2026-09-16): the upstream corridor is open from the
+  // Bush chamber's wall gap, gate 1 stands mid-channel on the middle ring,
+  // and below it the course runs fence-free to the sea. The path crosses
+  // back over on the Cove→Forge bridge.
+  const RV = () => TUT_ISLE.river;
+  const isRiverWater = q => !!q && q.pRiver >= 0 && q.riverLine < RV().waterR + 0.6;
+  // downstream current (source→mouth = outward along the river ray): the
+  // rideable drift (movement.js river-pull — hold Shift to brace against
+  // it). Only on the water course itself; the sea has no current.
+  function riverFlow(x, y) {
+    if (!active() || typeof tutIsleSD !== "function") return null;
+    return isRiverWater(tutIsleSD(x / 2, y / 2)) ? [RV().ux, RV().uy] : null;
+  }
+
+  // ---------- the Swim-Master's islet seat ----------
+  // The motu's distance is PER-CHARACTER (terrain.js tutIsletFor): re-seat it
+  // whenever the worn body changes — at boot for a loaded save, and the
+  // moment the Guide's chooser (or a later re-choosing) commits. Because the
+  // islet is carved into the analytic terrain, every live chunk in its zone
+  // is dropped so ground, stamps and the explored map regenerate at the new
+  // seat (chunks.js never persists nor worker-injects isletZone chunks, so
+  // that's the whole cleanup).
+  let _isletChar;
+  function isletSync() {
+    if (!active() || typeof tutIsletFor !== "function" || typeof TUT_ISLE === "undefined") return;
+    const key = (typeof player !== "undefined" && player && player.character != null) ? String(player.character) : "";
+    if (key === _isletChar) return;
+    _isletChar = key;
+    const next = tutIsletFor(
+      (typeof charSpeedMul === "function") ? charSpeedMul() : 1,
+      (typeof charHeightMul === "function") ? charHeightMul() : 1);
+    const cur = TUT_ISLE.islet;
+    if (cur && Math.abs(cur.x - next.x) < 0.5 && Math.abs(cur.y - next.y) < 0.5) return;
+    TUT_ISLE.islet = next;
+    const Z = TUT_ISLE.isletZone;
+    if (typeof world !== "undefined" && world && world.dropChunkRect)
+      world.dropChunkRect(Z.x0 * 2, Z.y0 * 2, Z.x1 * 2, Z.y1 * 2);
+    // the world map + minimap composite cached bake images — drop the zone's
+    // chunk bakes/mips/macros too so the motu redraws at its new seat
+    // (map.js never persists zone artefacts, so in-memory is the whole job)
+    if (typeof world !== "undefined" && world && world.mapDropRect)
+      world.mapDropRect(Z.x0, Z.y0, Z.x1, Z.y1);
+    if (typeof seenChunks !== "undefined" && typeof world !== "undefined" && world && world.CHUNK)
+      for (const k of [...seenChunks]) {
+        const [cx, cy] = k.split(",").map(Number);
+        const mx = (cx * world.CHUNK + world.CHUNK / 2) / 2, my = (cy * world.CHUNK + world.CHUNK / 2) / 2;
+        if (mx >= Z.x0 && mx <= Z.x1 && my >= Z.y0 && my <= Z.y1) seenChunks.delete(k);
+      }
+  }
+
+  // ---------- the Harbour Village evening ----------
+  // Once the staged day reaches dusk (the Skywatcher met — h 17.75), every
+  // keeper whose stage is DONE walks home to their seat in pod 14's village
+  // (TUT_VILLAGE.seats); the frontier keeper and those ahead hold their
+  // posts, and the Navigator never leaves her waka. deriveNpcs (chunks.js)
+  // asks villageHome() so freshly hydrated chunks seat them right, and
+  // _villageSync moves the LIVE npc objects when the state flips mid-session
+  // (hooked into refreshBar, so any progress event settles them).
+  function villageAt() {
+    const t = state();
+    return !!(t && !t.graduated && stage().h >= 17.5);
+  }
+  function villageHome(id) {
+    if (typeof TUT_VILLAGE === "undefined" || !villageAt()) return null;
+    const seat = TUT_VILLAGE.seats[id];
+    if (!seat) return null;
+    const i = TUT_TUTORS.findIndex(tu => tu.id === id);
+    if (i < 0 || i >= frontier()) return null;
+    const [px, py] = podXY(seat.pod); // the village spans BOTH shore pods (0 + 14)
+    return { x: px + seat.dx, y: py + seat.dy };
+  }
+  function _villageSync() {
+    if (typeof TUT_ISLE === "undefined") return;
+    const list = (typeof world !== "undefined" && world && world.npcs) ||
+      (typeof npcs !== "undefined" ? npcs : null);
+    if (!list) return;
+    let moved = 0;
+    for (const n of list) {
+      if (!n.tutor) continue;
+      const tu = TUT_TUTORS.find(t2 => t2.id === n.tutor);
+      if (!tu) continue;
+      const vh = villageHome(n.tutor);
+      const pod = TUT_ISLE.pods[tu.pod];
+      const hx = vh ? vh.x : pod.mx * 2 + tu.dx;
+      const hy = vh ? vh.y : pod.my * 2 + tu.dy;
+      if (n._home && n._home[0] === hx && n._home[1] === hy) continue;
+      n.x = hx; n.y = hy; n.px = PX(hx); n.py = PX(hy);
+      n._home = [hx, hy]; n._mt = 0;
+      if (vh) moved++;
+    }
+    if (moved && villageAt()) {
+      const t = state();
+      if (t && !t.villageAnnounced) {
+        t.villageAnnounced = 1;
+        if (typeof log === "function")
+          log("As the light lowers, the keepers you've met walk the shore road home to the Harbour Village — lamplight blooms among the tents.", "gold");
+      }
+    }
+  }
+  // the village lamp stands, for daynight.js litCandlesNear: lit one by one
+  // as the staged dusk deepens (thr staggering, same as settlement stands)
+  function villageLamps() {
+    if (!villageAt() || typeof TUT_VILLAGE === "undefined") return [];
+    return TUT_VILLAGE.lamps.map((L, i) => {
+      const [px, py] = podXY(L.pod);   // stands light both halves of the shore
+      return {
+        x: px + L.dx, y: py + L.dy, inside: false, tier: 15 + (i % 5),
+        thr: 0.08 + (i / TUT_VILLAGE.lamps.length) * 0.35,
+        stand: ["candlestand_wood", "candlestand_iron", "candlestand_brass"][i % 3],
+      };
+    });
+  }
+
+  // ---------- the gates & the seal ----------
+  // Returns a message string when (x,y) is off limits, false when clear.
+  // NO INVISIBLE WALLS (user req): every tutorial boundary is a physical
+  // fence — the waist columns, the river weirs and the offshore ring
+  // (chunks.js) — and this function only latches the walkable GATE tiles in
+  // them:
+  //  · waist gate column i stays latched until keeper i has sent you on
+  //  · the Swim-Master's islet channel bars HULLS while the tutorial lives
+  //    (the crossing must be swum — that's the lesson) and mists over with
+  //    the rest once the isle is sealed
+  //  · outside a live tutorial the whole footprint is mist (the SEAL — a
+  //    different mode, not a tutorial boundary)
+  function barred(x, y) {
+    if (typeof tutIsleSD !== "function") return false;
+    const q = tutIsleSD(x / 2, y / 2);
+    if (!q) return false;
+    // the islet channel (pod 4's outward ray, coast → islet): far outside
+    // the D<14 isle band, so it's handled before the early-out below
+    if (inIsletRegion(x / 2, y / 2)) {
+      if (!active())
+        return "A wall of pearly mist churns ahead. Nothing you do finds a way through.";
+      if (player.sailing || (typeof ridingEnt === "function" && ridingEnt()))
+        return "The chop over the drowned shelf would swamp any hull — this crossing must be SWUM.";
+    }
+    if (q.D >= 14) return false;
+    if (!active())
+      return "A wall of pearly mist churns ahead. Nothing you do finds a way through.";
+    // journey-gate arches (ring/spoke crossings, terrain.js tutGateArchAt):
+    // latch ONLY the arch tiles — every other fence tile is physically
+    // blocked, so no rule needs to live there
+    const gi = (typeof tutGateArchAt === "function") ? tutGateArchAt(x / 2, y / 2) : -1;
+    if (gi >= 0) {
+      const f = frontier();
+      if (f >= gi + 1) return false;                         // keeper gi done — gate open
+      const keeper = TUT_TUTORS[Math.min(f, TUT_TUTORS.length - 1)];
+      // the very first gate won't open until you've taken a form
+      if (keeper.id === "guide" && !hasBody())
+        return `You are still a spark of light. ${tutorName(keeper)} must give you a form before you may go on.`;
+      const t2 = state();
+      if (t2 && t2.seen[keeper.id] && !reqDone(keeper.id))
+        return `The gate stays latched until you ${REQS[keeper.id].task} — ${tutorName(keeper)} will send you on then.`;
+      return `The gate is latched. ${tutorFull(keeper)} must send you onward first.`;
+    }
+    return false;
+  }
+
+  // ---------- staged skill reveal ----------
+  // During the tutorial the Skills tab only lists what the keepers have
+  // introduced so far — whole categories for broad lessons (so dynamically
+  // added professions ride along), single skills for pointed ones. Anything
+  // the player somehow earns XP in shows regardless, and graduation (or a
+  // veteran save) reveals everything.
+  const TUT_SKILL_INTRO = {
+    bush:  { skills: ["Woodcutting"] },
+    fish:  { skills: ["Fishing"] },
+    smith: { skills: ["Stone-mining", "Ore-mining", "Gem-mining", "Smelting", "Weaponsmithing", "Armoursmithing", "Firemaking"] },
+    soap:  { skills: ["Charcoaling", "Soapmaking"] },
+    swim:  { skills: ["Sailing", "Shipwrighting", "Agility"] },
+    bank:  { skills: ["Carpentry"] },                           // pails at Torvak's bench
+    farm:  { skills: ["Farming", "Milling", "Husbandry"] },
+    wood:  { skills: ["Sawing", "Fletching", "Carpentry"] },   // the full wood trades (Carpentry met at the bank camp)
+    cook:  { skills: ["Cheesemaking", "Baking", "Cooking"] },
+    war:   { skills: ["Melee", "Strength", "Defence", "Health", "Archery"] },
+    candle:{ skills: ["Candlemaking", "Spinning"] },            // Spinning turns harvested flax into wick-linen
+    lore:  { skills: ["Runecrafting"] },
+  };
+  function skillVisible(s) {
+    if (!active()) return true;                        // graduated / veteran: everything
+    if (typeof player !== "undefined" && player.skills && (player.skills[s] || 0) > 0) return true;
+    const t = state();
+    if (!t) return true;
+    const cat = (typeof SKILL_CATEGORY !== "undefined" && SKILL_CATEGORY[s]) || "Other";
+    for (const id in t.seen) {
+      const m = TUT_SKILL_INTRO[id];
+      if (!m) continue;
+      if (m.skills && m.skills.includes(s)) return true;
+      if (m.cats && m.cats.includes(cat)) return true;
+    }
+    return false;
+  }
+
+  // ---------- rewards ----------
+  // Item grants are existence-guarded so a renamed id degrades to coins
+  // instead of silently vanishing.
+  function grant(tid, reward) {
+    const t = state();
+    if (!t || t.given[tid] || !reward) return;
+    t.given[tid] = 1;
+    const parts = [];
+    for (const [id, qty] of reward.items || []) {
+      if (typeof ITEMS !== "undefined" && ITEMS[id] && typeof addItem === "function") {
+        addItem(id, qty);
+        parts.push(`${qty > 1 ? qty + "× " : ""}${ITEMS[id].name}`);
+      } else if (typeof addItem === "function") {
+        addItem("coins", 15 * qty);
+        parts.push(`${15 * qty} coins`);
+      }
+    }
+    if (reward.coins && typeof addItem === "function") { addItem("coins", reward.coins); parts.push(`${reward.coins} coins`); }
+    for (const sk in reward.xp || {})
+      if (typeof addXp === "function" && typeof SKILLS !== "undefined" && SKILLS.includes(sk)) {
+        addXp(sk, reward.xp[sk]);
+        parts.push(`${reward.xp[sk]} ${sk} xp`);
+      }
+    if (parts.length && typeof log === "function") log(`Gift received: ${parts.join(", ")}.`, "gold");
+    if (typeof sfx === "function") sfx("coins", 0.5);
+    if (typeof saveGame === "function") saveGame();
+  }
+
+  // ---------- dialogue content ----------
+  // Each tutor: short, punchy pages. `act` buttons open the real UI so every
+  // lesson ends in DOING, not reading. Rewards land when the last page closes
+  // — which is also what unbars the next gate on the path.
+  const DLG = {
+    guide: {
+      reward: { coins: 25 },
+      pages: [
+        { h: "Haere mai — welcome to Tūhura Isle!",
+          t: ["You wake on the Isle of Discovery, traveller — empty-handed, as everyone arrives. Don't fret: every keeper on this path equips you for the lesson they teach, tool by tool, until you walk off my isle fully kitted.",
+              "Out past that horizon lies a world that never ends — thousands of towns, dozens of trades, storms and seasons, monsters and mysteries. All of it is yours.",
+              "This isle is a journey: follow the dirt path east, camp to camp. At every gate waits a keeper with something wonderful to teach — and each gate only unbars when its keeper has finished with you. No rushing ahead!"] },
+        { h: "The basics",
+          t: ["Click the ground to walk. Click a tree, a rock, a fire or a person to use them — your character handles the rest. RIGHT-click anything for more choices; almost everything can be examined.",
+              "Your packs, skills and equipment live in the sidebar tabs. Your Skills tab starts near-empty — each keeper AWAKENS the crafts they teach, and the rest of the world's trades open the day you sail. The ? tab holds a full guide whenever you're lost, and the bar at the top of your screen tracks the journey."] },
+        { h: "Be anyone — choose now",
+          t: ["Look at yourself, e hoa — you're still a spark of unformed light! You cannot set foot on the path until you take a BODY. Tap the button below and choose one: dozens of folk, each with their own build, pace and wardrobe.",
+              "The first gate will not open while you're still just light — so choose before you go. (Change your mind any time by talking to me again; out in the world, Newhaven's Registrar keeps the register of forms.)",
+              "One more thing: Tūhura keeps its own sky. It always wakes at dawn, and time only turns as YOU learn — meet the keepers and watch the day roll on: noon, rain, sunset, stars.",
+              "Choose your body, then take the path east — {bush} the Bushman is expecting you."],
+          act: [["Choose my body", "charselect"]] },
+      ],
+    },
+    bush: {
+      reward: { items: [["axe_iron", 1]] },
+      pages: [
+        { h: "The bush provides",
+          t: ["Kia ora! Take my spare iron axe — it's yours. See all these young trees? With an axe in your pack, click one and you'll fell it for logs. Berry bushes, herb patches, wildflowers, even boulders — nearly everything growing or lying about can be gathered, and it all grows back in time.",
+              "There are over thirty-five skills in this world — every one starts exactly like this: click, gather, learn."] },
+        { h: "Trees of Aotearoa",
+          t: ["Out in the wide world the forests fill with kauri, rimu, kahikatea, tōtara — real giants, some of the tallest and oldest trees anywhere. Higher-tier trees need a higher Woodcutting level and better axes, but their timber is worth it.",
+              "Listen in the deep bush and you'll meet the birds too — tūī, kererū, kea, even kiwi scratching about at night."] },
+        { h: "Work the queue",
+          t: ["Now the woodsman's real trick: PLANNING the day's felling. Hold OPTION and CLICK a tree and the job joins your QUEUE — a white ring marks every tree waiting its turn, and your hands move to the next the moment the last stump settles. QUEUE TEN FELLING JOBS, and FELL TEN TREES — that's my lesson, both halves.",
+              "It works for nearly everything: harvest rows, ore terraces, pickups. Queue the work, then let yourself get on with it."] },
+        { h: "Tools matter",
+          t: ["A better axe fells faster. That's true everywhere: good field tools speed your gathering, and fine workshop tools raise the quality of what you craft. Keep those LOGS — you'll saw, fletch and carpenter with them further up the path.",
+              "Ten trees down, then here's the fun of it: there's NO dry road to the cove. Follow my path to where the stream slips through the chamber wall, wade in, and let the current CARRY you — the RIVER GATE in the ring wall swings open the moment your tenth tree falls, and the water itself will set you on {fish}'s bank. (Hold SHIFT any time you'd rather stand than drift.)"] },
+      ],
+    },
+    fish: {
+      reward: { items: [["small_net", 1], ["fishing_rod", 1]] },
+      pages: [
+        { h: "The rivermouth run",
+          t: ["Kia ora — and what an entrance, riding the gate down like a whitebait yourself! See where my little stream meets the sea? That's a RIVERMOUTH — and every spring the whitebait (īnanga) run up it in silver clouds. Take my scoop-net and my old rod; the net's the tool for whitebait.",
+              "First lesson before any net touches water: wade in and BRACE — hold SHIFT with your feet dug in against the current. Feel it stop pulling? THAT is the stance you fish from; let go and the river tears you off the spot. Brace once for me, then we net. Every fishing spot in the world holds ONE kind of fish — shallow shore, deep sea and freshwater each carry their own; rarer waters, rarer fish."] },
+        { h: "Fish of Aotearoa",
+          t: ["These waters teem — hoki and snapper offshore, tuna (that's our eel!) and kōura in the fresh water, and whitebait right here at the mouth. Net TEN of them, braced the whole while; you'll want every one.",
+              "Because raw kai does you no good. Cooked, it heals you — and the finest dishes grant buffs: faster gathering, harder hitting, tougher skin."] },
+        { h: "Whitebait fritters",
+          t: ["Here's a secret worth the whole isle: HOLD ONTO your raw whitebait. Up the path {farm} keeps the fowl for eggs, and {cook} will show you how to bind whitebait and egg into golden WHITEBAIT FRITTERS. Best kai on Tūhura.",
+              "So: net your whitebait now. Then CROSS THE BRIDGE over the river and carry on to {smith}'s forge through the next gate."] },
+      ],
+    },
+    smith: {
+      reward: { items: [["pickaxe_iron", 1], ["knife", 1], ["flint", 1]] },
+      pages: [
+        { h: "From rock to blade",
+          t: ["This pickaxe is yours — but the craft you'll earn stroke by stroke; nothing here is given. Swing the pick at my terrace: COPPER first, and as your arms harden the dark IRON rock and the pale TIN rocks will yield too. Rocks regrow — mine a little extra tin so you carry a SPARE bronze bar up the path.",
+              "Smelt your ore into BARS at the furnace: copper AND tin together make bronze; iron makes iron. Every swing, every bar, every piece hammered at the anvil earns its own experience — work bronze until iron is within your reach."] },
+        { h: "First, light the furnace",
+          t: ["A cold furnace smelts nothing — every fire on this isle burns REAL fuel. So take my working KNIFE and this piece of FLINT — keep both in your pack. Stand at the furnace, STRIKE a spark, then STOKE the fire with logs. LIGHTING MY FURNACE is the first mark of your lesson — and every stoke feeds your FIREMAKING; even a fizzled spark is practice.",
+              "Plain logs burn hot enough to smelt copper and bronze — but IRON wants a fiercer fire. Fell a MĀNUKA when your Woodcutting reaches 3 and stoke with its rākau, and keep striking until your Firemaking can hold that heat. The flint never wears out; it lights every fire you'll ever lay."] },
+        { h: "Forge your kit",
+          t: ["No hand-outs from me: you'll earn your gear at the anvil. Forge all FOUR pieces:",
+              "• an IRON SHORTSWORD and IRON ARROWHEADS — three hundred heads, twenty anvil batches (Weaponsmithing) • a BRONZE CHAINBODY and a BRONZE TARGE (Armoursmithing).",
+              "The forge gate opens when the furnace has ROARED and all four are MADE. Wear them if you're wise — armour SHOWS on your body, tinted to its metal — but the making is the lesson. My anvil forges only those four; the rest of the world's arms wait beyond the isle."] },
+        { h: "Everything connects",
+          t: ["This is the whole economy in miniature: the miner feeds the smelter, the smelter the smith, the smith arms the fighter, whose drops feed thirty-five other trades. There are THIRTY-TWO tiers of metal out there, humble copper to Eternium, climbing the further you roam.",
+              "Master a craft — repeat a recipe family — and your quality climbs above other makers'; your goods even carry your name. Now: to the terrace, the furnace, the anvil. Forge your four and wear them, then on to {swim} at the lagoon."] },
+      ],
+    },
+    soap: {
+      pages: [
+        { h: "You reek, traveller",
+          t: ["Look at the state of you — fish guts, forge smoke, monster ichor, honest sweat. Your stink metre climbs as you work and fight, and after that pit you're RIPE. Let it climb too high out in the world and shopkeepers bar their doors until you wash!"] },
+        { h: "Char, leach, boil",
+          t: ["No bars handed out — you'll MAKE your soap from what you carry. Char some of your LOGS at my clamp: a slow fire turns wood into charcoal and WOOD ASH. Leach the ash into LYE at the soap works, then boil the lye with the TALLOW you rendered off the warden's beasts — a bar of soap.",
+              "Two crafts in that: Charcoaling for the ash, Soapmaking for the lye and the bar."] },
+        { h: "Scrub clean",
+          t: ["Then wade into my spring pool behind me — waist deep, safe — and SCRUB with your soap until every trace of stink is gone. Different soaps target different reeks; fancier bars scrub harder.",
+              "Clean at last? Then climb on — {sky} keeps the knoll just past the gate."] },
+      ],
+    },
+    swim: {
+      reward: { items: [["log_raft", 1], ["snorkel", 1]] },
+      pages: [
+        { h: "Respect the water",
+          t: ["You can wade and swim — but watch the depth. Once the waterline passes your nose, your AIR drains. Run out and you'll black out and wash ashore, lighter in the pockets. Try my lagoon behind me: it shelves off fast into deep blue.",
+              "That snorkel I've given you buys you nearly double the distance. Glassblowers make them."] },
+        { h: "The motu errand",
+          t: ["Now for MY lesson. Look out to sea past the lagoon, south-east: a lone MOTU rides the swell — and on its sand sits an old sea chest with a PEARL in it. Fetch it for me, and swim it home. That's the whole task — and the whole trick.",
+              "Because the crossing is measured against YOUR body, e hoa — exactly one breath too wide. Strike out with bare lungs and the deep will take you a few strokes short of the sand, I promise you. EQUIP THE SNORKEL: it halves the thirst of your lungs, and the crossing becomes yours with air to spare. Rest on the motu, then swim the pearl back and put it in MY hand — the errand ends here beside me.",
+              "And don't dream of paddling it — the chop over the drowned shelf would swamp any hull. This one is swum, out and back."] },
+        { h: "Never the open sea",
+          t: ["Heed this too: the open sea past the fences is no road. The fence lines run off the beaches into the surf, and beyond them the water only gets DEEPER, with nowhere at all to land — bare lungs give out fast out there.",
+              "So don't go looking for a way around a gate by sea; there isn't one worth your life. The path is the only way on — trust it. The lagoon is safe to practise; the deep is not."] },
+        { h: "Ride the river",
+          t: ["You've already felt a river CARRY you — that ride down through the gate was my favourite doorway on the isle. Wade across any river unbraced and the current bears you downstream as you go; BRACE with SHIFT and your line is your own. When storms swell a river into flood, it runs deeper, colder and far stronger.",
+              "Want the full run? The corridor above the river gate climbs all the way to the SOURCE (marked on your map) — wade up, touch the spring, and ride the whole course to the sea. No need, mind; just the pearl."] },
+        { h: "Boats & bridges",
+          t: ["I've packed a log raft into your bag — stand at the water's edge, place it, and paddle (anywhere but my motu channel!). Shipwrights build proper hulls up to great sailing ships; bigger hulls draw more water and shoulder through waves.",
+              "Where roads meet water, the world builds stone bridges — and over shallow seas, whole causeways on piles. You'll sail UNDER some; tall hulls must duck the low ones. Now — the motu waits, and so does my pearl."] },
+      ],
+    },
+    bank: {
+      reward: { coins: 100 },
+      pages: [
+        { h: "Your vault",
+          t: ["That chest by my tent is a BANK. Anything you store is safe forever — death can't touch it. Out here on a lonely isle, the vault is free and private.",
+              "On the mainland it gets grander: every road-connected settlement shares one network. Stash your ore in one town, withdraw it in the next — the Bank of Newhaven's web spans nearly the whole known world."] },
+        { h: "Open an account",
+          t: ["Big city networks want a signature at their main branch — a grand three-storey hall with a row of tellers. Village co-ops will sign you at the counter.",
+              "Here — a hundred coins of seed money. Put something in the vault before you walk on, just to feel it."] },
+        { h: "Pails before you go",
+          t: ["One more thing — see my CARPENTER'S BENCH? The camps ahead run on MILK, and milk needs pails. Fell a tree here, saw your logs into PLANKS at the bench, and MAKE FIFTEEN EMPTY PAILS.",
+              "Fifteen pails is a load, so here's the lesson, e hoa: stash the spares in the vault — it carries what your pack can't, and they'll be waiting at any bank you find. {farm}'s fields are through the gate."] },
+      ],
+    },
+    farm: {
+      reward: { items: [["hoe", 1], ["seed_cerealiculture_0", 10], ["seed_olericulture_0", 10], ["seed_pomiculture_0", 10], ["seed_herbiculture_0", 10], ["seed_fibriculture_0", 10]] },
+      pages: [
+        { h: "The land remembers",
+          t: ["Welcome to the heart of the isle! See my little farm behind the fence — FIVE ROWS, five plots each, one row for every crop: wheat, potatoes, apples, sageleaves, flax. All ripe and waiting. Take this hoe and TEN SEEDS of each, and step in through the gate.",
+              "Your task is a real farmer's week: bring in FIFTY of each crop. One picking won't do it — a ripe plot gives five to ten — so here's the marvel: crops grow in REAL time. REPLANT each row as you clear it (sowing takes five seeds; most harvested crops drop one back), and while the rows regrow, mill, tend, wander. The world doesn't pause for anyone — it works alongside you."] },
+        { h: "Mill & tend",
+          t: ["Grain becomes food at the MILLSTONE: mill FIFTY wheat into flour (bran comes off with it) — your whole wheat harvest, ground fine; you'll bake with it up the path. Keep your flax too; it spins into linen for candle wicks later.",
+              "Livestock roam the pasture — TEND them for wool, milk, feathers and eggs. Tend my QUAIL and hens for TEN eggs (save some for the fritters!) and ONE HUNDRED FEATHERS — that's the exact fletching budget for {wood}'s three hundred arrows, so every feather counts. Watch for GIANT animals — one in six is born big and gives double."] },
+        { h: "Onward",
+          t: ["So: fifty of each crop — reap, replant, reap again — fifty flour milled, ten eggs and a hundred feathers gathered. Keep those pails handy — {cook} up the path keeps COWS, and once your Husbandry reaches THREE they'll fill every pail you carry. When the farm's given up its bounty, {wood} keeps the woodcrafting camp through the next gate.",
+              "And in a real settlement at dusk, watch the lamplighters set glowing candle-stands along the streets, gathered again by dawn. This world lives its own life."] },
+      ],
+    },
+    wood: {
+      pages: [
+        { h: "Boards, shafts and bows",
+          t: ["Kia ora! This is the woodcrafting camp. Everything here begins with LOGS — the ones you felled in the bush. At the sawmill you SAW logs into boards; at my bench you shape them further.",
+              "Three skills live here: Sawing, Fletching and Carpentry. No gifts from me — you'll make your own kit from wood you cut."] },
+        { h: "Fletch & carve",
+          t: ["The ladder goes like this. FIRST: cut THREE HUNDRED ARROW SHAFTS at my bench — twenty logs, fifteen shafts a cut. By the last bundle your Fletching will have reached LEVEL TWO, and level two is exactly what iron arrows demand. SECOND: bind them — fifteen shafts, five of the vale's feathers, fifteen of {smith}'s iron heads per batch — until THREE HUNDRED IRON ARROWS fill your quiver. Your hundred feathers and three hundred arrowheads are the exact budget: twenty batches, nothing wasted.",
+              "THIRD: carve a SHORTBOW from a couple of logs. That bow and those arrows are how you'll bring down the warden's koreke later, so make them well."] },
+        { h: "Onward",
+          t: ["Those pails you sawed back at {bank}'s camp will earn their keep soon — {cook} at the next camp keeps cows too, and cows mean milk, and milk means cheese. Then on you go!"] },
+      ],
+    },
+    cook: {
+      pages: [
+        { h: "The hearth",
+          t: ["Welcome to my kitchen! Cooking heals you, and the finest dishes grant buffs. Three trades here: Cooking, Baking and Cheesemaking. My fires are yours to light — you've carried flint since {smith}'s forge: strike your blade, stoke with logs, same as he taught you.",
+              "First the FRITTERS: bind raw whitebait with an egg at my cookfire and fry it — cook FIVE golden whitebait fritters."] },
+        { h: "Cheese & bread",
+          t: ["Cheese, now — you'll need MILK. Take your empty PAILS to my COWS and milk them (a little Husbandry does it — tend the vale's flocks if yours isn't there yet). Curdle the milk at my creamery into curds, then press ONE COTTAGE CHEESE.",
+              "And bread: that flour you milled bakes into FLATBREAD at my bakehouse — bake FIVE. Fritters, cheese, flatbread: feed the isle before you fight!"] },
+        { h: "Onward",
+          t: ["Five fritters, a cottage cheese, five flatbread — then {war} waits at the pit past the gate. Go well fed."] },
+      ],
+    },
+    war: {
+      reward: { items: [["potion_health", 2]] },
+      pages: [
+        { h: "Two ways to fight",
+          t: ["Draw that iron shortsword you forged — and take these two health draughts. The SLIMES in the pit are yours: click one and go. MELEE is sword and shield up close; ARCHERY looses real arrows that arc through the air — you can kite, but you need line of sight.",
+              "(There are stranger arts out in the wide world — woven magic, spoken spells — but those are lessons for beyond the mist, not for my pit.)"] },
+        { h: "The pit's harvest",
+          t: ["Prove yourself: slay THREE SLIMES, and gather THREE TALLOW and THREE HIDE from the pit's beasts, THREE ACTION RUNES off the slimes, and THREE STATE RUNES (mine the essence rocks for those). Monsters drop coins and rare REAGENTS that gate whole crafting skills — hunters feed the whole economy. Every kill fills your BESTIARY (press B).",
+              "The wilds get harder the further you roam from Newhaven, but near towns and roads there are PEACE ZONES — nothing jumps you on Main Street."],
+          act: [["Open the bestiary (B)", "bestiary"]] },
+        { h: "Koreke on the wing",
+          t: ["See the KOREKE — the little quail about the pit? Startle one and it takes to the air, and a bird on the wing is beyond any blade; this is what your bow is for. Nock an arrow, lead the flight, and bring FIVE KOREKE down. That is archery.",
+              "Slimes slain, reagents gathered, five koreke down — then wash up with {soap} at the springs past the gate; you've earned a scrub."] },
+      ],
+    },
+    sky: {
+      reward: { coins: 30 },
+      pages: [
+        { h: "The sun keeps time",
+          t: ["Look up! Out in the wide world, day and night roll on REAL time — and the world is so wide it has TIMEZONES: every 256 tiles east is an hour ahead. Newhaven's clocks already read three hours ahead of ours.",
+              "This isle sits at an even 50% latitude — half day, half night. Sail far enough north or south out there and latitude changes the days themselves: polar summers where the sun never sets, winters where it barely rises.",
+              "Here on Tūhura the sky turns as YOU learn — each keeper finished rolls the day forward. You've already walked through the rain. Stay the course and you'll earn the stars."] },
+        { h: "Weather is real",
+          t: ["Weather fronts drift across the world like the real thing — you can watch the pressure fall before a storm on a barometer. Rain swells the rivers into flood. In the cold lands, heavy snowfall settles white on every roof and field, then melts away after.",
+              "Open the world map (M) and you'll find the day/night bands and a synoptic weather chart. Plan your travels like a sailor. {candle} keeps the hollow just past my knoll."],
+          act: [["Open the world map (M)", "map"]] },
+      ],
+    },
+    candle: {
+      pages: [
+        { h: "Light against the dark",
+          t: ["Evening's coming on — feel how the isle dims? Out in the world, night is DARK, and a carried light is worth more than gold in a dungeon or a midnight road. That's my craft: Candlemaking.",
+              "No gift — you've already gathered the makings. Remember that flax you reaped in the vale, and the tallow off the warden's beasts? Those become a candle."] },
+        { h: "Dip a rushlight",
+          t: ["We start with the humblest light there is: the RUSHLIGHT. No wick to spin — just tallow off the warden's beasts, dipped at my chandlery until it holds a flame. DIP ONE and the gate opens.",
+              "Carry it lit in your off-hand (click it in your pack) and its glow walks with you — you'll want that tonight. When your Candlemaking grows, come back to wicks and tapers, scented and cathedral candles beyond. {lore} waits at the portal crown."] },
+      ],
+    },
+    lore: {
+      reward: { items: [["state_rune", 50]] },
+      pages: [
+        { h: "The craft of runes",
+          t: ["Take these — FIFTY raw STATE RUNES, humming with unshaped intent. Raw, they're just cold stones; shaped at a RUNESTONE ALTAR they become true runes. That's my craft: RUNECRAFTING.",
+              "My altar stands beside the portal. Work all fifty into AIR RUNES — the lightest, kindest shaping there is — and feel the craft settle into your hands. (As your Runecrafting deepens, each raw stone yields more.)"] },
+        { h: "The ancient portals",
+          t: ["Why air runes? Look at that stone ring on the crown: an ANCIENT PORTAL — one of a network scattered across the endless world. Step up to it and it will ATTUNE to you. Do that with every portal you find, and you can leap between them — FOR A PRICE IN RUNES. The further the jump, the finer the rune the veil demands; your fifty air runes are short-hop fare.",
+              "Go on, touch it — feel the attunement take. The mist will reclaim this one when you sail, but out there, every portal you wake is yours for good."] },
+        { h: "Quests & the journal",
+          t: ["Out there, folk marked with a ✦ have WORK for you — letters to carry, roads to clear, sealed rooms to open. Finish one and they'll trust you with something bigger. Press J for your journal; M for the world map, which zooms from your street to the whole world.",
+              "Right-click a city fountain to set your RESPAWN there, so death returns you somewhere friendly. The harbour waits below — {ferry} will see you across."],
+          act: [["Open the quest journal (J)", "questlog"]] },
+      ],
+    },
+    ferry: {
+      pages: [
+        { h: "Ready for the wide world?",
+          t: ["I'm {ferry}. My waka has crossed more sea than you've dreamt of, and when you're ready, my karakia will carry you straight to NEWHAVEN — the great city at the centre of everything, where every road begins.",
+              "But know this: Tūhura exists between the tides. The moment you leave, the mist takes it back — no chart, ship or portal will ever find it again. So take your time, and take every gift."] },
+        { h: "The crossing",
+          t: ["In Newhaven you'll find the grand bank, the markets, the quest-givers, and roads running to a thousand towns beyond. Your respawn will follow you there.",
+              "Say the word, and we go."],
+          act: [["Carry me to Newhaven!", "graduate"], ["I'll explore a little longer", "close"]] },
+      ],
+    },
+  };
+
+  // action buttons → real UI
+  const ACTS = {
+    charselect: () => { close(); if (typeof CharSelect !== "undefined") CharSelect.open(); },
+    bestiary: () => { close(); if (typeof openBestiary === "function") openBestiary(); },
+    map: () => { close(); if (typeof openWorldMap === "function") openWorldMap(); },
+    questlog: () => { close(); if (typeof Quests !== "undefined") Quests.openLog(); },
+    graduate: () => { close(); graduate(); },
+    // (the Cook's pail-for-milk barter was removed 2026-09-15, user req —
+    // milk is earned at her cows with your own Husbandry, no shortcut)
+    close: () => close(),
+  };
+
+  // ---------- journey progress ----------
+  // The old top-of-screen journey BAR (#tutbar) was RETIRED (2026-09-15, user
+  // req): its live, itemised stage checklist now lives in the sidebar Goals tab
+  // (main/ui.js renderGoals, fed by goalState()). refreshBar survives as the one
+  // call every progress hook (bumpProg, talk, graduate, charselect, …) already
+  // makes — it just tears down any stray bar element (defensive: legacy saves /
+  // hot reload) and flags the UI dirty so an open Goals tab repaints at once.
+  let barEl = null;
+  function refreshBar() {
+    if (barEl) { barEl.remove(); barEl = null; }
+    if (typeof uiDirty !== "undefined") uiDirty = true;
+    // every progress event funnels through here — settle the keepers' evening
+    // village move whenever the frontier or the staged clock has advanced
+    _villageSync();
+  }
+
+  // Structured snapshot of the CURRENT stage's goals for the sidebar Goals tab
+  // (js/main/ui.js renderGoals). Reuses the very same REQS/reqNum/items machinery
+  // the journey bar itemises, so the tab and the bar can never drift. Returns
+  // null off-tutorial; {graduated:true, cur:null} once the whole isle is walked.
+  function goalState() {
+    const t = state();
+    if (!t) return null;
+    const total = TUT_TUTORS.length;
+    const doneN = TUT_TUTORS.filter(tu => tutorComplete(tu.id)).length;
+    const pct = Math.round(doneN / total * 100);
+    const f = frontier();
+    if (t.graduated || f >= total)
+      return { graduated: true, doneN, total, pct, cur: null };
+    const tu = TUT_TUTORS[f];
+    const met = !!(t.seen && t.seen[tu.id]);
+    const rows = [{ on: met, label: "meet " + tutorName(tu), num: met ? 1 : 0, need: 1 }];
+    const r = REQS[tu.id];
+    if (r) {
+      if (r.items) {
+        for (const it of r.items(t)) rows.push({ on: it.on, label: it.label, num: it.num, need: it.need });
+      } else {
+        rows.push({ on: reqDone(tu.id), label: r.task, num: reqNum(tu.id), need: reqNeed(tu.id) });
+      }
+    }
+    return { graduated: false, doneN, total, pct,
+      cur: { id: tu.id, name: tutorName(tu), role: tu.role, full: tutorFull(tu), met, rows } };
+  }
+
+  // ---------- dialogue UI ----------
+  let el = null, cur = null, page = 0;
+  function ensureDom() {
+    if (el) return;
+    el = document.createElement("div");
+    el.id = "tutdlg";
+    el.style.cssText = "display:none;position:fixed;inset:0;z-index:9000;background:rgba(8,9,14,.55);" +
+      "align-items:center;justify-content:center;font:15px/1.5 inherit;";
+    el.innerHTML =
+      `<div id="tutdlg-card" style="width:min(560px,92vw);max-height:80vh;overflow:auto;background:#161a26;` +
+      `border:1px solid #3a4a6a;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.6);padding:18px 22px;color:#dfe6f2;">` +
+      `<div style="display:flex;align-items:baseline;gap:10px;">` +
+      `<div id="tutdlg-name" style="font-size:19px;font-weight:bold;color:#ffd75e;"></div>` +
+      `<div id="tutdlg-role" style="font-size:13px;color:#8fa3c8;"></div>` +
+      `<button id="tutdlg-x" style="margin-left:auto;background:none;border:none;color:#8fa3c8;font-size:18px;cursor:pointer;">✕</button></div>` +
+      `<div id="tutdlg-h" style="margin:10px 0 6px;font-size:16px;font-weight:bold;color:#7fe3c7;"></div>` +
+      `<div id="tutdlg-body"></div>` +
+      `<div id="tutdlg-acts" style="margin-top:12px;"></div>` +
+      `<div style="display:flex;align-items:center;margin-top:14px;gap:8px;">` +
+      `<button id="tutdlg-back" style="padding:7px 14px;background:#232a3d;color:#b8c4dd;border:1px solid #3a4a6a;border-radius:5px;cursor:pointer;font:inherit;">◂ Back</button>` +
+      `<div id="tutdlg-dots" style="flex:1;text-align:center;color:#5a6a8a;letter-spacing:4px;"></div>` +
+      `<button id="tutdlg-next" style="padding:7px 16px;background:#2c4a7c;color:#eaf1ff;border:1px solid #4a6aa0;border-radius:5px;cursor:pointer;font:inherit;font-weight:bold;">Next ▸</button>` +
+      `</div></div>`;
+    document.body.appendChild(el);
+    el.addEventListener("mousedown", e => { if (e.target === el) close(); e.stopPropagation(); });
+    el.addEventListener("click", e => e.stopPropagation());
+    document.getElementById("tutdlg-x").onclick = close;
+    document.getElementById("tutdlg-back").onclick = () => { if (page > 0) { page--; render(); } };
+    document.getElementById("tutdlg-next").onclick = next;
+    document.addEventListener("keydown", e => {
+      if (!isOpen()) return;
+      // typing somewhere (the chat bar, the odd-sound flag note): the dialog
+      // must not steal Enter/space out of the input's keystrokes
+      const ae = document.activeElement;
+      if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
+      if (e.key === "Escape") { e.stopPropagation(); close(); }
+      if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); next(); }
+    }, true);
+  }
+  const isOpen = () => el && el.style.display === "flex";
+  function close() { if (el) el.style.display = "none"; cur = null; }
+  // one-page nudge shown when the Guide is re-visited while you're still a
+  // spark of light (the C key is disabled — the Guide is the only chooser)
+  const GUIDE_REMIND_PAGES = [{ h: "Take a form first, e hoa",
+    t: ["You're still a spark of unformed light — the path east won't open until you've taken a body. Choose one now and become someone.",
+        "You can always come back to me and pick a different form later."],
+    act: [["Choose my character", "charselect"]] }];
+  // With no fence between the Landing and the Harbour (one open village
+  // shore), a fresh hand can stroll up to Sigrid on DAY ONE — she plays
+  // village host, but the crossing (and her stage) waits for the journey:
+  // these pages show instead of her real ones while any keeper is unmet,
+  // and finishing them marks NOTHING seen (the staged sky doesn't turn).
+  const FERRY_EARLY_PAGES = [{ h: "The waka waits — but not for you, yet",
+    t: ["Haere mai to the village, traveller! This shore is where the keepers lay their heads when the day's teaching is done — walk among the tents; you're welcome here any hour.",
+        "But my waka sails for NEWHAVEN only when every keeper on the path has sent you on. Finish the journey, e hoa — gate by gate, lesson by lesson — then come find me by the pier and we'll talk about the crossing."] }];
+  const curPages = () => (cur && cur._remind) ? GUIDE_REMIND_PAGES
+    : (cur && cur._early) ? FERRY_EARLY_PAGES
+    : (cur ? DLG[cur.id].pages : []);
+  function next() {
+    if (!cur) return;
+    const pages = curPages();
+    if (page < pages.length - 1) { page++; render(); }
+    else finish();
+  }
+  function finish() {
+    if (!cur) return;
+    // the Navigator's early village-host chat leaves no trace: her stage
+    // isn't "met" and the staged sky holds still
+    if (cur._early) { close(); return; }
+    const t = state();
+    if (t) {
+      const prev = _seenCount;
+      t.seen[cur.id] = 1;
+      _seenCount = Object.keys(t.seen).length;
+      grant(cur.id, DLG[cur.id].reward);
+      advanceStage(prev); // the staged sky rolls forward with each keeper met
+      // announce the keeper's hands-on task (the gate stays shut until it's done)
+      if (REQS[cur.id] && !reqDone(cur.id) && typeof log === "function")
+        log(`${tutorName(cur)}'s task: ${REQS[cur.id].task} — then the gate opens.`, "gold");
+      refreshBar();
+      if (typeof saveGame === "function") saveGame();
+      if (typeof uiDirty !== "undefined") uiDirty = true;
+    }
+    close();
+  }
+  // mark seen + grant without closing twice (action buttons close themselves)
+  function finishSilent() {
+    if (cur && cur._early) return;
+    const t = state();
+    if (t && cur) {
+      const prev = _seenCount;
+      t.seen[cur.id] = 1;
+      _seenCount = Object.keys(t.seen).length;
+      grant(cur.id, DLG[cur.id].reward);
+      advanceStage(prev);
+      refreshBar();
+    }
+  }
+  function render() {
+    const d = DLG[cur.id], pages = curPages(), p = pages[page];
+    document.getElementById("tutdlg-name").textContent = tutorName(cur);
+    document.getElementById("tutdlg-role").textContent = "· " + cur.role + " of Tūhura Isle";
+    document.getElementById("tutdlg-h").textContent = p.h || "";
+    const body = document.getElementById("tutdlg-body");
+    body.innerHTML = "";
+    for (const para of p.t) {
+      const pe = document.createElement("p");
+      pe.style.cssText = "margin:7px 0;color:#cdd7ea;";
+      pe.textContent = subst(para);
+      body.appendChild(pe);
+    }
+    // the Guide's first page appends the live itinerary (not on the reminder)
+    if (cur.id === "guide" && !cur._remind && page === 0) body.appendChild(progressList());
+    const acts = document.getElementById("tutdlg-acts");
+    acts.innerHTML = "";
+    for (const [label, key] of p.act || []) {
+      const b = document.createElement("button");
+      b.textContent = label;
+      b.style.cssText = "display:block;width:100%;margin:5px 0;padding:9px 12px;text-align:left;" +
+        "background:#1f3a2e;color:#9fe8c0;border:1px solid #3a7a58;border-radius:5px;cursor:pointer;font:inherit;";
+      // opening the character chooser also marks the Guide's talk done (you've
+      // read to the last page) — so once you pick a form the first gate opens
+      // without a re-visit. graduate/close likewise finish silently.
+      b.onclick = () => { if (key === "graduate" || key === "close" || key === "charselect") finishSilent(); ACTS[key] && ACTS[key](); };
+      acts.appendChild(b);
+    }
+    const last = page === pages.length - 1;
+    document.getElementById("tutdlg-back").style.visibility = page > 0 ? "visible" : "hidden";
+    document.getElementById("tutdlg-next").textContent = last ? (!cur._remind && d.reward && !state().given[cur.id] ? "Thanks! ✦" : "Done") : "Next ▸";
+    document.getElementById("tutdlg-dots").textContent =
+      pages.map((_, i) => (i === page ? "●" : "○")).join(" ");
+  }
+  function progressList() {
+    const t = state();
+    const f = frontier();
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "margin-top:10px;padding:10px 12px;background:#121623;border:1px solid #2a3550;border-radius:6px;";
+    const head = document.createElement("div");
+    head.style.cssText = "color:#8fa3c8;font-size:13px;margin-bottom:6px;";
+    head.textContent = `The journey east — ${_seenCount} / ${TUT_TUTORS.length} keepers met`;
+    wrap.appendChild(head);
+    TUT_TUTORS.forEach((tu, i) => {
+      const row = document.createElement("div");
+      const done = tutorComplete(tu.id);
+      const lockd = i > f;
+      row.style.cssText = `font-size:13px;color:${done ? "#6fae8a" : lockd ? "#4a5670" : "#7fe3c7"};`;
+      const r = REQS[tu.id];
+      const suffix = (r && t && t.seen[tu.id] && !done)
+        ? ` — ${r.task}${reqNeed(tu.id) > 1 ? ` (${reqNum(tu.id)}/${reqNeed(tu.id)})` : ""}`
+        : i === f ? " — " + dirFrom(tu) : "";
+      row.textContent = `${done ? "✦" : lockd ? "🔒" : "◈"} ${tutorFull(tu)}${suffix}`;
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+  function dirFrom(tu) {
+    const [px, py] = podXY(tu.pod);
+    const dx = px + tu.dx - player.x, dy = py + tu.dy - player.y;
+    const d = Math.round(Math.hypot(dx, dy));
+    if (d < 6) return "right here";
+    const dirs = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
+    return `${d} tiles ${dirs[Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) & 7]}`;
+  }
+
+  // ---------- entry points ----------
+  function talk(npc) {
+    const def = TUT_TUTORS.find(x => x.id === npc.tutor);
+    if (!def || !DLG[def.id]) return false;
+    ensureDom();
+    cur = def;
+    // Guide re-visited while still a spark → jump straight to the "take a form"
+    // nudge instead of replaying the whole intro
+    const t = state();
+    cur._remind = def.id === "guide" && !!(t && t.seen.guide) && !hasBody();
+    // Sigrid reached ahead of the journey's end (the open village shore
+    // makes that a one-minute stroll from the Landing): host, don't ferry
+    cur._early = def.id === "ferry" && frontier() < TUT_TUTORS.length - 1;
+    page = 0;
+    el.style.display = "flex";
+    render();
+    refreshBar();
+    return true;
+  }
+
+  // the one-time welcome popup, a few beats after a fresh character boots in
+  // (also re-hangs the journey bar on every boot of a live tutorial save)
+  function maybeWelcome() {
+    const t = state();
+    refreshBar();
+    if (!t || t.welcomed || t.graduated || !onIsle()) return;
+    t.welcomed = 1;
+    if (typeof log === "function") {
+      log("A nameless spark of light washes ashore on Tūhura Isle — the Isle of Discovery.", "gold");
+      log(`Talk to ${tutorFull(TUT_TUTORS[0])} (just north of you), then follow the path east.`, "sys");
+    }
+    setTimeout(() => { talk({ tutor: "guide" }); if (typeof saveGame === "function") saveGame(); }, 1200);
+  }
+
+  // the Navigator's crossing: teleport to Newhaven, then SEAL the isle —
+  // it exists only inside the tutorial, so the mist takes back every trace
+  function graduate() {
+    const t = state();
+    const s = world.playerStart;
+    world.getChunk(Math.floor(s.x / world.CHUNK), Math.floor(s.y / world.CHUNK));
+    if (typeof cancelAction === "function") cancelAction();
+    player.x = s.x; player.y = s.y;
+    player.px = PX(s.x); player.py = PX(s.y);
+    player.moving = null; player.path = []; player.forced = null;
+    player.level = 0; player.deck = undefined; player.sailing = null;
+    player.respawn = null; // wake in Newhaven from here on
+    if (t) t.graduated = 1;
+    // scrub the isle from the world: explored-map marks, hot chunk data and
+    // any attuned isle portal all dissolve (barred() keeps feet and hulls out)
+    const B = TUT_ISLE.bbox, CS = world.CHUNK;
+    const x0 = B.x0 * 2 - 48, x1 = B.x1 * 2 + 48, y0 = B.y0 * 2 - 48, y1 = B.y1 * 2 + 48;
+    const inRect = (x, y) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+    if (typeof seenChunks !== "undefined")
+      for (const k of [...seenChunks]) {
+        const [cx, cy] = k.split(",").map(Number);
+        if (inRect(cx * CS + CS / 2, cy * CS + CS / 2)) seenChunks.delete(k);
+      }
+    if (world.chunks)
+      for (const k of [...world.chunks.keys()]) {
+        const [cx, cy] = k.split(",").map(Number);
+        if (inRect(cx * CS + CS / 2, cy * CS + CS / 2)) world.chunks.delete(k);
+      }
+    for (const k of Object.keys(player.portals || {})) {
+      const [px, py] = k.split(",").map(Number);
+      if (inRect(px, py)) delete player.portals[k];
+    }
+    refreshBar(); // graduated → the journey bar comes down
+    if (typeof log === "function") {
+      log("The Navigator's karakia rises — the sea itself folds beneath the waka...", "gold");
+      log("Welcome to NEWHAVEN, heart of the endless world. Your story starts now.", "gold");
+      log("Behind you the mist closes over Tūhura Isle. No chart, ship or portal will find it again.", "sys");
+    }
+    if (typeof sfx === "function") sfx("portal", 0.7);
+    if (typeof saveGame === "function") saveGame();
+    if (typeof uiDirty !== "undefined") uiDirty = true;
+  }
+
+  // ---------- per-frame tick (main.js) ----------
+  // Reaching the river source (once the swim lesson opened it) rewards the
+  // climb and cues the ride down. Cheap: only checks when a live tutorial
+  // character is actually on the isle.
+  // one-shot after load: an isle-geometry change (e.g. the 2026-09-16 ringed
+  // rebuild) leaves relics in an older save — a mid-journey character whose
+  // saved position is now open private ocean, and explored-map chunks that
+  // now hold nothing but that ocean. Wash the character ashore at their
+  // frontier keeper's camp and prune the drowned exploration so the world
+  // map/minimap read clean.
+  let _shoreChecked = false;
+  function _shoreWash(t) {
+    _shoreChecked = true;
+    if (typeof tutIsleSD !== "function" || typeof world === "undefined" || !world) return;
+    // prune runs for EVERY save (graduates carry the old explored band too)
+    if (typeof seenChunks !== "undefined" && world.CHUNK) {
+      for (const k of [...seenChunks]) {
+        const [cx, cy] = k.split(",").map(Number);
+        const q2 = tutIsleSD((cx * world.CHUNK + world.CHUNK / 2) / 2,
+                             (cy * world.CHUNK + world.CHUNK / 2) / 2);
+        if (q2 && q2.D > 12) seenChunks.delete(k); // whole chunk = private ocean now
+      }
+    }
+    if (!t || t.graduated) return;
+    const q = tutIsleSD(player.x / 2, player.y / 2);
+    // a character saved standing on (or swimming for) the Swim-Master's
+    // islet is exactly where they mean to be — no tide-rescue for them
+    if (inIsletRegion(player.x / 2, player.y / 2)) return;
+    // adrift: outside the coast, or bobbing in the coastal shallows — a
+    // legitimate lagoon/river swimmer sits well inland (D < -3) and is left be
+    if (q && q.D < 60 && (q.D > 1 || (q.D > -3 && world.isWater(player.x, player.y)))) {
+      const f = Math.min(frontier(), TUT_TUTORS.length - 1);
+      const [px, py] = podXY(TUT_TUTORS[f].pod);
+      let tx = px, ty = py;
+      ring: for (let d = 0; d <= 6; d++)
+        for (let dy = -d; dy <= d; dy++) for (let dx = -d; dx <= d; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== d) continue;
+          if (typeof passable === "function" && passable(px + dx, py + dy)) { tx = px + dx; ty = py + dy; break ring; }
+        }
+      player.x = tx; player.y = ty; player.px = PX(tx); player.py = PX(ty);
+      player.path = []; player.goal = null; player.moving = null; player.sailing = null;
+      if (typeof log === "function")
+        log("The isle has shifted in the mists — the tide sets you ashore by your keeper's camp.", "gold");
+      if (typeof saveGame === "function") saveGame();
+    }
+  }
+  function tick() {
+    const t = state();
+    isletSync(); // re-seat the motu the moment the worn body changes (also at boot, BEFORE the shore-wash looks around)
+    if (!_shoreChecked && typeof gameReady !== "undefined" && gameReady) _shoreWash(t);
+    if (!t || t.graduated) return;
+    // the Swim-Master's errand, leg two: pearl in hand, back TO VRIXA — the
+    // fetch completes at her side (user req), not just any dry shore
+    if (t.prog && t.prog.isletPearl && !t.prog.isletReturn) {
+      const sw = TUT_TUTORS.find(t2 => t2.id === "swim");
+      if (sw) {
+        const [vx, vy] = podXY(sw.pod);
+        if ((player.x - (vx + sw.dx)) ** 2 + (player.y - (vy + sw.dy)) ** 2 < 64)
+          bumpGoal("isletReturn");
+      }
+    }
+    // the Swim-Master's task: reach the River Source (opened by the swim lesson)
+    if (!t.reachedSource && t.seen.swim) {
+      const R = RV();
+      const sx = R.src.x * 2, sy = R.src.y * 2;
+      if ((player.x - sx) ** 2 + (player.y - sy) ** 2 < 100) {
+        t.reachedSource = 1;
+        if (typeof log === "function") {
+          log("You reach the river's source — a cold spring bubbling from the rocks. ✓", "gold");
+          log("Wade in and let the current carry you down. Ride it all the way to the sea!", "sys");
+        }
+        if (typeof sfx === "function") sfx("quest", 0.5);
+        refreshBar();
+        if (typeof saveGame === "function") saveGame();
+      }
+    }
+    // the Skywatcher's task: climb to the Sky Knoll's crest (pod 11's bump top)
+    if (!t.reachedKnoll) {
+      const kp = TUT_ISLE.pods[11];
+      if ((player.x - kp.mx * 2) ** 2 + (player.y - kp.my * 2) ** 2 < 36) {
+        t.reachedKnoll = 1;
+        if (typeof log === "function")
+          log("You crest the Sky Knoll — the whole isle spread beneath you. ✓", "gold");
+        if (typeof sfx === "function") sfx("quest", 0.4);
+        refreshBar();
+        if (typeof saveGame === "function") saveGame();
+      }
+    }
+  }
+
+  return { START, talk, maybeWelcome, graduate, state, onIsle, active,
+    phaseOverride, weatherOverride, flatSky, barred, frontier, refreshBar, goalState,
+    skillVisible, riverFlow, tick, onCraft, anvilRecipes,
+    villageHome, villageLamps,
+    onGather, onWash, onBank, onKill, onChant,
+    onQueue, onBrace, onStoke,
+    onHarvest, onTend, onEquip, onPickup };
+})();
+if (typeof window !== "undefined") window.Tutorial = Tutorial;

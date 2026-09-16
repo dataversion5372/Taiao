@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — monster AI and movement =====
+// ===== Taiao — monster AI and movement =====
 "use strict";
 
 // ---------- swimming (aquatic monsters) ----------
@@ -35,11 +35,27 @@ function updateMonsters(dt) {
     const def = MONSTERS[m.kind];
     if (!m.alive) {
       if (now >= m.respawnAt) {
-        m.alive = true; m.hp = def.hp;
+        m.alive = true; m.hp = monMaxHp(m.kind);
         m.x = m.sx; m.y = m.sy; m.px = PX(m.sx); m.py = PX(m.sy);
         m.moving = null;
         m.fx = null; // afflictions don't follow it through the grave
         if (m.canSwim) { m.swimY = undefined; m.swimTgt = undefined; } // swimTick re-seeds
+        // a bird shot from the sky respawns back on its feet, not mid-flight
+        m.flight = null; m.flyAbs = undefined; m.flyY = 0; m.takeoffAt = 0; m.dormant = false;
+        // a slain FLIER doesn't pop back up on the same branch moments later
+        // (a fresh full bar right where you're standing read as "its health
+        // reset") — the replacement bird turns up elsewhere in the wood
+        if (typeof birdCfg === "function" && birdCfg(m)) {
+          for (let t2 = 0; t2 < 12; t2++) {
+            const a = Math.random() * 2 * Math.PI, r = 12 + Math.random() * 14;
+            const nx = Math.round(m.sx + Math.cos(a) * r), ny = Math.round(m.sy + Math.sin(a) * r);
+            if (world.isWater(nx, ny) || world.isBlocked(nx, ny)) continue;
+            m.sx = nx; m.sy = ny;
+            m.x = nx; m.y = ny; m.px = PX(nx); m.py = PX(ny);
+            m.spawnBiome = world.biomeAt(nx, ny);
+            break;
+          }
+        }
       }
       continue;
     }
@@ -53,11 +69,15 @@ function updateMonsters(dt) {
     if (m.fx && m.fx.burnUntil && now < m.fx.burnUntil && now >= (m.fx.burnNextAt || 0) &&
         !(now < m.fx.stasisUntil)) {
       m.fx.burnNextAt = now + 1200;
-      const bd = m.fx.burnDmg || 1;
+      const bd = Math.min(m.fx.burnDmg || 1, Math.max(0, m.hp)); // don't overkill-splat
       m.hp -= bd;
       addSplat(m, bd);
       if (m.hp <= 0) { killMonster(m); continue; }
     }
+    // NZ flying birds: the flight layer (gameplay/birdflight.js) owns any bird
+    // that's on the wing or up a perch; a grounded flier falls through to the
+    // ordinary wander AI below until its take-off timer comes due
+    if (typeof birdFlightTick === "function" && birdFlightTick(m, def, dt, distP)) continue;
     if (m.moving) {
       const mv = m.moving;
       mv.t += dt / mv.dur;
@@ -83,7 +103,7 @@ function updateMonsters(dt) {
       // once it's had 8s clear of arrows does straying past 10 tiles from
       // its spawn break the chase (and heal it back up).
       const recentlyHit = m.hitAt && now - m.hitAt < 8000;
-      if ((distS > 10 && !recentlyHit) || upstairs) { m.target = null; m.hp = def.hp; }
+      if ((distS > 10 && !recentlyHit) || upstairs) { m.target = null; m.hp = monMaxHp(m.kind); }
       else if (m.fx && now < m.fx.stunUntil) {
         // petrified / in stasis: no step, no swing
       }
@@ -98,6 +118,10 @@ function updateMonsters(dt) {
       } else if (!(m.fx && now < m.fx.rootUntil)) { // rooted feet can't chase
         monStepToward(m, player.x, player.y);
       }
+    } else if (m.fx && now < m.fx.fleeUntil) {
+      // fleeing without a target (a flushed flightless bird, a routed calm
+      // monster): bolt straight away from the player
+      monStepToward(m, m.x + Math.sign(m.x - player.x || 1) * 8, m.y + Math.sign(m.y - player.y || 1) * 8);
     } else if (distS > 4) {
       // stranded far from home (a broken chase, a player-death reset): march
       // back toward spawn. The wander rule below only accepts steps landing
@@ -126,6 +150,10 @@ function updateMonsters(dt) {
       }
     }
   }
+  // ambient nature audio: nearby birds sing (inverse-square by distance to
+  // the current body) and the rain/wind/sea beds track the live weather
+  if (typeof birdsongTick === "function") birdsongTick();
+  if (typeof ambienceTick === "function") ambienceTick();
 }
 // Callers (3):
 //  gameplay/monsters.js:42,61,63
@@ -203,5 +231,6 @@ function dir8From(dx, dy) {
 // 0: an upstairs player/entity can't touch a monster through the floor. Omit
 // `level` for the old any-storey match (monster-vs-monster placement).
 function monsterAt(x, y, level) {
-  return monsters.find(m => m.alive && m.x === x && m.y === y && (level == null || (m.level | 0) === (level | 0)));
+  // dormant = a nocturnal bird hidden away for the day: no body to bump into
+  return monsters.find(m => m.alive && !m.dormant && m.x === x && m.y === y && (level == null || (m.level | 0) === (level | 0)));
 }

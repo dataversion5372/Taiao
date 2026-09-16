@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — pathfinding and queued goals =====
+// ===== Taiao — pathfinding and queued goals =====
 "use strict";
 
 // ---------- pathfinding (infinite grid; keys are "x,y" strings) ----------
@@ -53,6 +53,9 @@ function cancelAction() { player.act = null; player.goal = null; }
 // Callers (11):
 //  gameplay/input.js:87,88,89,90,91,92,93,94,95,96 skills/combat.js:128
 function setGoal(goal, tx, ty, reach) {
+  // Shift+click queue capture (gameplay/split.js): the goal is appended to
+  // the current body's task queue instead of being pursued now
+  if (typeof Split !== "undefined" && Split.capture(goal, tx, ty, reach)) return;
   if (player.forced) return;
   cancelAction();
   closeModals();
@@ -93,7 +96,9 @@ function executeGoal() {
   else if (goal.type === "placedPickup") pickUpPlaced(goal.ent);
   else if (goal.type === "board") boardVessel(goal.ent);
   else if (goal.type === "decorPick") pickUpDecor(goal.x, goal.y, goal.key);
-  else if (goal.type === "husbAction") husbDoAction(goal.mon, goal.act);
+  // start CONTINUOUS tending — tickHusb keeps tending each tick until the animal
+  // is depleted (husbSpent), then stops. nextAt:now → first tend fires at once.
+  else if (goal.type === "husbAction") player.act = { kind: "husb", mon: goal.mon, actId: goal.act, nextAt: now };
   else if (goal.type === "husbFeed") husbDoFeed(goal.mon);
   else if (goal.type === "husbHarvest") husbHarvest(goal.mon); // back-compat
 }

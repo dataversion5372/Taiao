@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Smeltable alloys =====
+// ===== Taiao — Smeltable alloys =====
 // Bronze (copper+tin, fixed to be a real alloy in data.js) is the only alloy
 // bar in the base 32-tier METALS ladder. This adds 15 more: real-world alloys
 // at the low/mid tiers (brass, pewter, cupronickel, tool steel, rose gold,
@@ -60,6 +60,13 @@
   // needs no separate patch, but Tin gets its own pure bar too).
   const tinSmelt = RECIPES.smelt.find(r => r.out === "bar_1");
   if (tinSmelt) tinSmelt.req = 1;
+
+  // Every smelted bar now takes 6× as long (user request 2026-09-15). Applied
+  // ONCE here — this is the last file to touch RECIPES.smelt, so it covers every
+  // bar uniformly (data.js base + content.js tiers + the alloys above). The tick
+  // is the per-bar time (crafting.js tickCraft nextAt; passive jobs read it too).
+  const SMELT_TIME_MULT = 6;
+  for (const r of RECIPES.smelt) if (r.tick) r.tick *= SMELT_TIME_MULT;
 
   for (const cat in RECIPES) RECIPES[cat].forEach((r, i) => {
     if (!r.id) r.id = cat + ":" + (r.out || i) + ":" + i;

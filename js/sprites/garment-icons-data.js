@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — cultural garment icons =====
+// ===== Taiao — cultural garment icons =====
 // Real inventory icons for the 48 Tailoring garments (js/skills/garments.js), the
 // soft-cloth wardrobe drawn from the character roster (docs/player-character-
 // outfits.txt; sheet prompt docs/garment-sprite-prompt.txt). ONE self-registering
@@ -11,7 +11,7 @@
   if (typeof ASSET_DATA === "undefined") { try { window.ASSET_DATA = {}; } catch (e) { return; } }
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("gc")) SHEET_KEYS.push("gc");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["gc"] = 64;
-  ASSET_DATA["gc"] = "assets/sheets/ab4a955b597fd5a6.webp";
+  ASSET_DATA["gc"] = "assets/sheet-src/gc-garment-icons.webp";
   if (typeof SPR === "undefined") return;
   var IDS = [
     "wizard_hat", "flat_cap", "hood", "cowl", "cloth_coif", "turban", "desert_headwrap", "feather_headdress",

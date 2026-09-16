@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — player movement =====
+// ===== Taiao — player movement =====
 "use strict";
 
 // 8-way facing from a tile delta (matches CHAR_DIRS / DIR8 sprite directions)
@@ -31,31 +31,52 @@ function rotInputByCam(dx, dy) {
 // Drowning: wading with the waterline past mouth and nose drains air (one
 // bubble a second); at zero the deep takes all remaining HP. Surfacing —
 // or cheat mode, which breathes underwater — refills instantly.
+// Sums the diving bonuses of every equipped item so any gear can help:
+//  diveReach — raises the drowning waterline (wade/dive deeper): summed
+//  diveDrain — air-drain multiplier once under (lower = better): the best (min)
+//  diveAir   — extra bubbles of reserve air: summed (see airMaxNow)
+// The snorkel sets diveReach=SNORKEL_REACH, diveDrain=0.5 (potteryglass.js), so
+// snorkel-only behaviour is byte-identical to before this refactor. The rubber
+// rebreather/waders (skills/rubbermaking.js) stack on top.
+function diveGear() {
+  let reach = 0, drain = 1, air = 0;
+  if (player.equip) for (const slot in player.equip) {
+    const e = player.equip[slot]; if (!e) continue;
+    const d = ITEMS[typeof e === "string" ? e : e.id]; if (!d) continue;
+    if (d.diveReach) reach += d.diveReach;
+    if (d.diveDrain != null) drain = Math.min(drain, d.diveDrain);
+    if (d.diveAir) air += d.diveAir;
+  }
+  return { reach, drain, air };
+}
+function airMaxNow() { return AIR_MAX + diveGear().air; }
 function tickAir(dt) {
-  if (player.air === undefined) player.air = AIR_MAX;
+  const g = diveGear();
+  const amax = AIR_MAX + g.air;
+  if (player.air === undefined || player.air > amax) player.air = amax;
   // a taller character's nose sits higher, so they wade deeper before the
   // waterline reaches it (character-stats.js height scales MOUTH_Y).
-  // A snorkel (Glassblowing, face slot) raises the drowning waterline by its
-  // tube's reach, and even once the tube top goes under, the trapped tube
-  // air halves the drain — together they roughly double how far out you can
-  // walk before the deep takes you.
-  const snorkel = player.equip && player.equip.face === "snorkel";
-  const mouthY = MOUTH_Y * (typeof charHeightMul === "function" ? charHeightMul() : 1)
-    + (snorkel ? SNORKEL_REACH : 0);
+  const mouthY = MOUTH_Y * (typeof charHeightMul === "function" ? charHeightMul() : 1) + g.reach;
   if (!CHEAT_MODE && playerSinkY() > mouthY) {
-    player.air -= dt / 1000 * (snorkel ? 0.5 : 1);
+    player.air -= dt / 1000 * g.drain;
     if (player.air <= 0) {
-      player.air = AIR_MAX;
+      player.air = amax;
       const dmg = player.hp;
       player.hp = 0;
       addSplat(player, dmg);
       playerDie("deep");
     }
-  } else player.air = AIR_MAX;
+  } else player.air = amax;
 }
 // Callers (1):
 //  main.js:38
 function stepPlayer(dt) {
+  // ghost ticks (gameplay/split.js): while an INACTIVE split body is swapped
+  // in, the live keyboard belongs to the active body only — read a dead map
+  const K = (typeof Split !== "undefined" && Split.isGhost()) ? {} : keys;
+  // dead but not yet respawned: hold everything still so the killing blow's
+  // splat plays out, then tickPlayerDying teleports us back to town
+  if (player.dying) { tickPlayerDying(); return; }
   tickAir(dt);
   if (player.forced) {
     const f = player.forced;
@@ -73,8 +94,9 @@ function stepPlayer(dt) {
         player.px = PX(f.fromX); player.py = PX(f.fromY);
         player.stunUntil = now + 1400;
         if (f.dmg) {
-          player.hp -= f.dmg;
-          if (typeof addSplat === "function") addSplat(player, f.dmg);
+          const fd = Math.min(f.dmg, Math.max(0, player.hp)); // fatal fall shows remaining HP, not overkill
+          player.hp -= fd;
+          if (typeof addSplat === "function") addSplat(player, fd);
           if (player.hp <= 0) { player.forced = null; playerDie(f.name); return; }
         }
         log(`You lose your footing on the ${f.name.toLowerCase()} and tumble back!`, "warn");
@@ -105,15 +127,94 @@ function stepPlayer(dt) {
     return;
   }
   if (now < player.stunUntil) return;
-  let kdx = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
-  let kdy = (keys.s ? 1 : 0) - (keys.w ? 1 : 0); // arrows: up/down zoom, left/right rotate view
+  // ---- river current ----
+  // Flowing water pulls anyone on foot in it downstream at 0.75 walk speed.
+  // Standing idle you drift; WALKING you still move where you steer at full
+  // speed, but the current adds its component on top — cross a river and you
+  // track a DIAGONAL (1 across : 0.75 down, via the accumulator below).
+  // Holding SHIFT braces you: feet dug in, no pull at all — and working in
+  // the flow NEEDS the brace: netting whitebait (or any action) mid-river
+  // without Shift is torn up and you wash downstream. Standing up on a deck
+  // is exempt; a river in flood runs faster; boats under way steer freely
+  // (idle boats still drift).
+  let pull = null;
+  if (!player.forced &&
+      world.isWater(player.x, player.y) &&
+      (player.deck === false || !dualTileAt(player.x, player.y)) &&
+      now >= (player.driftAt || 0)) {
+    const trf = (typeof Tutorial !== "undefined") ? Tutorial.riverFlow(player.x, player.y) : null;
+    const f = trf || (world.riverFlowAt && world.riverFlowAt(player.x, player.y));
+    // the Fisher's first lesson: bracing against a current (Shift, feet dug in)
+    if (f && K.Shift && typeof Tutorial !== "undefined" && Tutorial.onBrace) Tutorial.onBrace();
+    if (f && !K.Shift) {
+      if (player.act) {
+        cancelAction();
+        if (!player._braceLogAt || now - player._braceLogAt > 6000) {
+          log("The current sweeps you off — hold Shift to brace while you work.", "warn");
+          player._braceLogAt = now;
+        }
+      }
+      const idle = !player.path.length && !player.goal &&
+        !K.w && !K.a && !K.s && !K.d;
+      if (idle) {
+        // pure drift downstream at the current's own 0.75 walk speed.
+        // Candidate steps are RANKED BY ALIGNMENT with the flow vector (the
+        // old hardcoded axis-then-diagonal list assumed an axis-aligned
+        // river — on Tūhura's -36° course its "slip past a snag" fallback
+        // could bounce the swimmer up the WRONG diagonal). Best-aligned step
+        // first, anything pointing meaningfully upstream never considered.
+        const cand = [[1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1]]
+          .map(d => ({ d, dot: (d[0] * f[0] + d[1] * f[1]) / Math.hypot(d[0], d[1]) }))
+          .filter(c => c.dot > 0.35)
+          .sort((a, b) => b.dot - a.dot)
+          .map(c => c.d);
+        for (const [dx, dy] of cand) {
+          if (!dx && !dy) continue;
+          const nx = player.x + dx, ny = player.y + dy;
+          if (world.isWater(nx, ny) && passable(nx, ny) &&
+              !(typeof ridingEnt === "function" && ridingEnt() &&
+                typeof hullStepOK === "function" && !hullStepOK(ridingEnt(), nx, ny))) {
+            moveTo(nx, ny);
+            const fl = (typeof floodNow === "function") ? floodNow() : 0;
+            if (player.moving) {
+              player.moving.dur = 190 / (0.75 * (1 + fl * 1.4));
+              if (trf) player.moving.deck = false;   // ride UNDER the bridge, not up onto it
+            }
+            break;
+          }
+        }
+        return;
+      }
+      // steering: the pull rides along as a step modifier (below) — on foot only
+      if (!player.sailing) pull = { px: Math.sign(f[0]), py: Math.sign(f[1]) };
+    }
+  }
+  if (!pull) player._pullAcc = 0;
+  // a step straight ACROSS the flow banks 0.75 tiles of downstream push;
+  // each time a whole tile is owed the step goes out as the diagonal instead
+  const pullStep = (sdx, sdy) => {
+    if (!pull || (sdx * pull.px + sdy * pull.py) !== 0) return null;
+    player._pullAcc = (player._pullAcc || 0) + 0.75;
+    if (player._pullAcc < 1) return null;
+    const ddx = Math.max(-1, Math.min(1, sdx + pull.px));
+    const ddy = Math.max(-1, Math.min(1, sdy + pull.py));
+    return [ddx, ddy];
+  };
+  const pullHint = () => {
+    if (!player._braceLogAt || now - player._braceLogAt > 9000) {
+      log("The current pulls you downstream — hold Shift to brace.", "warn");
+      player._braceLogAt = now;
+    }
+  };
+  let kdx = (K.d ? 1 : 0) - (K.a ? 1 : 0);
+  let kdy = (K.s ? 1 : 0) - (K.w ? 1 : 0); // arrows: up/down zoom, left/right rotate view
   if (camStep || (typeof LC3D !== "undefined" && REN === LC3D)) { const r = rotInputByCam(kdx, kdy); kdx = r[0]; kdy = r[1]; }
   if (kdx || kdy) {
     // Shift+WASD: combat footwork — give ground (or circle) WITHOUT dropping
     // the fight. The archer keeps loosing at the target while retreating;
     // walking backwards with a drawn bow is slower than a monster's charge
     // (285ms/tile), so the gap still closes — retreat buys shots, not escape.
-    const fighting = keys.Shift && player.act && player.act.kind === "combat" &&
+    const fighting = K.Shift && player.act && player.act.kind === "combat" &&
       player.act.mon && player.act.mon.alive;
     if (fighting) player.goal = null;
     else cancelAction();
@@ -125,6 +226,13 @@ function stepPlayer(dt) {
     // obstacles (piers, boulders).
     const steep = !CHEAT_MODE && passable(player.x + kdx, player.y + kdy) &&
       !stepClimbOK(player.x, player.y, player.x + kdx, player.y + kdy);
+    // unbraced river crossing: when a tile of downstream push is owed, this
+    // step goes out as the diagonal (across + downstream) instead
+    const ps = pullStep(kdx, kdy);
+    if (ps) {
+      if (tryStep(ps[0], ps[1])) { player._pullAcc -= 1; pullHint(); return; }
+      player._pullAcc = 1;   // drift blocked by an obstacle — retry next step
+    }
     tryStep(kdx, kdy) || tryStep(kdx, 0) || tryStep(0, kdy) ||
       // pushing a pure direction into a 1-tile obstacle (a bridge pier in the
       // channel, a boulder): deflect diagonally, else sidestep around it
@@ -182,37 +290,41 @@ function stepPlayer(dt) {
         }
         return;
       }
+      // the hull spans real tiles (placing.js footprints): the whole ship
+      // must fit through on its new heading, not just the anchor tile
+      if (rid && typeof hullStepOK === "function" && !hullStepOK(rid, n.x, n.y)) {
+        player.path = [];
+        player.goal = null;
+        if (!player._hullLogAt || now - player._hullLogAt > 3000) {
+          log(`The ${ITEMS[rid.id].name.toLowerCase()} won't fit through there.`, "warn");
+          player._hullLogAt = now;
+        }
+        return;
+      }
+    }
+    // unbraced river crossing by click: the current owes the same downstream
+    // push; when a whole tile is due the step drifts diagonally off the path,
+    // and the path is replanned from the new tile so it stays step-adjacent
+    const pp = pullStep(n.x - player.x, n.y - player.y);
+    if (pp) {
+      const nx2 = player.x + pp[0], ny2 = player.y + pp[1];
+      if (passable(nx2, ny2) && stepClimbOK(player.x, player.y, nx2, ny2)) {
+        player._pullAcc -= 1;
+        moveTo(nx2, ny2);
+        const g = player.goal;
+        player.path = (g && findPath(g.tx, g.ty, g.reach)) || [];
+        if (!player.path.length) player.goal = null; // unroutable after the drift — let go
+        pullHint();
+        return;
+      }
+      player._pullAcc = 1;   // drift blocked — carry the debt to the next step
     }
     player.path.shift();
     moveTo(n.x, n.y);
     return;
   }
-  // river current: standing idle in flowing water carries you downstream in
-  // one constant motion at 3/4 walk speed (not while up on a deck over the
-  // water). Steps chain the moment the previous one completes, so the drift
-  // is fluid; a click or keypress takes priority on the next tick.
-  if (!player.act && world.isWater(player.x, player.y) &&
-      (player.deck === false || !dualTileAt(player.x, player.y)) &&
-      now >= (player.driftAt || 0)) {
-    const f = world.riverFlowAt && world.riverFlowAt(player.x, player.y);
-    if (f) {
-      const cand = Math.abs(f[0]) >= Math.abs(f[1])
-        ? [[Math.sign(f[0]), 0], [0, Math.sign(f[1])]]
-        : [[0, Math.sign(f[1])], [Math.sign(f[0]), 0]];
-      for (const [dx, dy] of cand) {
-        if (!dx && !dy) continue;
-        const nx = player.x + dx, ny = player.y + dy;
-        if (world.isWater(nx, ny) && passable(nx, ny)) {
-          moveTo(nx, ny);
-          // carried, not walking — a river in flood (weather.js) runs faster
-          // and sweeps you along harder than the lazy fair-weather current
-          const fl = (typeof floodNow === "function") ? floodNow() : 0;
-          if (player.moving) player.moving.dur = 190 / (0.75 * (1 + fl * 0.8));
-          break;
-        }
-      }
-    }
-  }
+  // (idle drift + the walking pull accumulator live at the top of this
+  // function; Shift braces both)
 }
 // Callers (1):
 //  gameplay/movement.js:39
@@ -231,6 +343,14 @@ function tryStep(dx, dy) {
       }
       return false;
     }
+    // the whole hull must fit at the new anchor on its new heading
+    if (rid && typeof hullStepOK === "function" && !hullStepOK(rid, nx, ny)) {
+      if (!player._hullLogAt || now - player._hullLogAt > 3000) {
+        log(`The ${ITEMS[rid.id].name.toLowerCase()} won't fit through there.`, "warn");
+        player._hullLogAt = now;
+      }
+      return false;
+    }
   }
   if (dx && dy && (!passable(nx, player.y) || !passable(player.x, ny))) return false;
   if (!stepClimbOK(player.x, player.y, nx, ny)) return false; // no climbing >½ step
@@ -246,6 +366,18 @@ function tryStep(dx, dy) {
 //  render3d.js:524,572
 //  world/map.js:36,61,63,67,68,69,78,85,97,101,113,114,119,126,132,134,139,162,169,175,189,202,209,232,238,243,244,248,249,270,282,290,292,298,330,331,337,343,356,601,602,617,622,645
 function moveTo(nx, ny) {
+  // Tūhura Isle gates & seal (gameplay/tutorial.js): every step — walking,
+  // wading or sailing — funnels through here. During the tutorial the gate
+  // past the current keeper stays latched; after graduation the whole isle
+  // is mist. barred() returns the message explaining which.
+  if (typeof Tutorial !== "undefined") {
+    const b = Tutorial.barred(nx, ny);
+    if (b) {
+      player.path = []; player.goal = null;
+      log(b, "sys");
+      return;
+    }
+  }
   // stepping into a doorway swings the closed door/gate open on the way through
   if (world.structAt) {
     const s = world.structAt(nx, ny);
@@ -329,7 +461,9 @@ function moveTo(nx, ny) {
         const fl = (typeof floodNow === "function") ? floodNow() : 0;
         const sl = Math.hypot(nx - player.x, ny - player.y) || 1;
         const dot = ((nx - player.x) * f[0] + (ny - player.y) * f[1]) / sl;
-        dur /= Math.max(0.25, 1 + 0.75 * (1 + fl) * dot);
+        // the upstream floor drops with the flood too — a swollen river is
+        // nearly impassable against the current
+        dur /= Math.max(0.25 - fl * 0.1, 1 + 0.75 * (1 + fl * 1.6) * dot);
       } else if (!CHEAT_MODE) dur *= 1.25; // still-water wade
     }
     }
@@ -344,7 +478,8 @@ function moveTo(nx, ny) {
   // Agility passive: a nimble character covers dry ground a little quicker on
   // foot (character-stats.js). Land travel only — never boats or wading.
   if (!water && typeof charAgiSpeedMul === "function") dur /= charAgiSpeedMul();
-  sfxStep(nx, ny, water, !!player.sailing);
+  // no footstep audio for a ghost-ticked split body (gameplay/split.js)
+  if (!(typeof Split !== "undefined" && Split.isGhost())) sfxStep(nx, ny, water, !!player.sailing);
   player.moving = { fx: player.x, fy: player.y, tx: nx, ty: ny, t: 0, dur, deck: deckNext };
   if (nx !== player.x) player.facing = nx > player.x ? 1 : -1;
   const d8 = dir8From(nx - player.x, ny - player.y); if (d8) player.dir8 = d8;

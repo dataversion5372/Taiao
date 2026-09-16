@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Ropemaking =====
+// ===== Taiao — Ropemaking =====
 // Twisting spun bast twine (hemp/jute/sisal/… from Spinning) into cordage:
 // cord → rope → cable → hawser, plus tarred marine rope and ship's rigging, and
 // a wide range of finished rope goods (nets — including the Fishing tools —

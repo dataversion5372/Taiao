@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — sound effects =====
+// ===== Taiao — sound effects =====
 // All sounds are CC0 (public domain): Kenney.nl audio packs (RPG Audio,
 // Impact Sounds, Interface Sounds, Digital Audio, Music Jingles) plus two
 // OpenGameArt CC0 packs (water splash/slime by rubberduck, eating crunches
@@ -26,10 +26,21 @@ const SFX = (() => {
     book: 3, click: 3, error: 2, craft: 2, anvil: 2,
     levelup: 2, quest: 0, portal: 2, attune: 0,
   };
-  const VOLS = [1, 0.55, 0.28, 0];             // master volume steps (🔊🔉🔈🔇)
-  const ICONS = ["🔊", "🔉", "🔈", "🔇"];
-  let volIdx = parseInt(localStorage.getItem("emberfallSfxVol") || "1", 10);
-  if (!(volIdx >= 0 && volIdx < VOLS.length)) volIdx = 1;
+  // Two master sliders (help panel): GAME sounds (every SFX here) and NATURE
+  // sounds (birdsong.js + ambience.js read natureVol). Stored 0..1; migrates
+  // the old 4-step "emberfallSfxVol" the first time (its index mapped to the
+  // old step volumes below).
+  const LEGACY_STEPS = [1, 0.55, 0.28, 0];
+  function loadVol(key) {
+    let v = NaN;
+    try { v = parseFloat(localStorage.getItem(key)); } catch (e) {}
+    if (v >= 0 && v <= 1) return v;
+    let old = 1;
+    try { old = parseInt(localStorage.getItem("emberfallSfxVol") || "1", 10); } catch (e) {}
+    return LEGACY_STEPS[(old >= 0 && old < 4) ? old : 1];
+  }
+  let gameVol = loadVol("emberfallGameVol");
+  let natureVol = loadVol("emberfallNatureVol");
 
   const pools = {};   // file -> [HTMLAudioElement] (reused when not playing)
   const lastAt = {};  // name -> last play time (throttle rapid repeats)
@@ -46,7 +57,7 @@ const SFX = (() => {
   }
 
   function play(name, vol = 1, rate = 1) {
-    const master = VOLS[volIdx];
+    const master = gameVol;
     if (master <= 0) return;
     const n = SOUNDS[name];
     if (n === undefined) return;
@@ -56,7 +67,9 @@ const SFX = (() => {
     const file = name + (n ? Math.floor(Math.random() * n) : "") + ".ogg";
     const a = grab(file);
     if (!a) return;
-    a.volume = Math.min(1, vol * master);
+    // softened: a >1 power curve eases the mid-level clanks and clicks down
+    // while full-scale sounds stay put — the whole game sits back in the mix
+    a.volume = Math.pow(Math.min(1, vol * master), 1.25);
     a.playbackRate = rate * (0.92 + Math.random() * 0.16);
     a.currentTime = 0;
     // rejected before the first user gesture (autoplay policy) — just stay quiet
@@ -92,38 +105,99 @@ const SFX = (() => {
     else play("craft", 0.35);
   }
 
-  // ---------- volume button + UI clicks ----------
+  // ---------- nature bus (WebAudio) ----------
+  // The nature layer (birdsong.js, ambience.js) routes its <audio> elements
+  // through a shared WebAudio graph for a soft, layered, 3-D mix: per-voice
+  // stereo PAN (where the bird is relative to the camera), a distance
+  // LOW-PASS (far birds sound duller, like real air), and a gentle glue
+  // compressor on the bus so overlapping voices settle into one ambience
+  // instead of stacking up. Safe to use since the game went HTTP-only
+  // (WebAudio can't tap file:// media). If anything here fails, callers fall
+  // back to plain element volume.
+  let _actx = null, _natureBus = null;
+  function natureCtx() {
+    if (_actx) return _actx;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      _actx = new AC();
+      const comp = _actx.createDynamicsCompressor();
+      comp.threshold.value = -24; comp.knee.value = 30; comp.ratio.value = 3;
+      comp.attack.value = 0.01; comp.release.value = 0.4;
+      comp.connect(_actx.destination);
+      _natureBus = comp;
+    } catch (e) { _actx = null; }
+    return _actx;
+  }
+  const _chains = new Map(); // element -> {ctx, pan, lp, gain}
+  function natureChain(el) {
+    const ctx = natureCtx();
+    if (!ctx) return null;
+    let ch = _chains.get(el);
+    if (ch) return ch;
+    try {
+      const src = ctx.createMediaElementSource(el);
+      const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass"; lp.frequency.value = 16000; lp.Q.value = 0.4;
+      const gain = ctx.createGain(); gain.gain.value = 0;
+      let head = src;
+      if (pan) { head.connect(pan); head = pan; }
+      head.connect(lp); lp.connect(gain); gain.connect(_natureBus);
+      el.volume = 1; // levels live in the gain node from here on
+      ch = { ctx, pan, lp, gain };
+      _chains.set(el, ch);
+    } catch (e) { return null; }
+    return ch;
+  }
+  // click-free control: pan/filter/level all glide over ~80 ms
+  function natureSet(ch, level, panv, lpHz) {
+    const t = ch.ctx.currentTime;
+    ch.gain.gain.setTargetAtTime(Math.max(0, level), t, 0.08);
+    if (ch.pan != null && panv != null) ch.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, panv)), t, 0.12);
+    if (lpHz != null) ch.lp.frequency.setTargetAtTime(Math.max(200, lpHz), t, 0.12);
+  }
+  function natureResume() {
+    if (_actx && _actx.state === "suspended") _actx.resume().catch(() => {});
+  }
+
+  // ---------- UI clicks + volume sliders ----------
+  function bindVol(id, key, get, set) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = String(Math.round(get() * 100));
+    el.addEventListener("input", () => {
+      const v = Math.min(1, Math.max(0, el.value / 100));
+      set(v);
+      try { localStorage.setItem(key, String(v)); } catch (e) {}
+    });
+  }
   function initUi() {
-    const anchor = document.getElementById("soapbtn");
-    if (anchor && anchor.parentNode) {
-      const b = document.createElement("button");
-      b.id = "sfxbtn";
-      b.title = "Sound effects volume";
-      b.textContent = ICONS[volIdx];
-      b.addEventListener("click", () => {
-        volIdx = (volIdx + 1) % VOLS.length;
-        localStorage.setItem("emberfallSfxVol", String(volIdx));
-        b.textContent = ICONS[volIdx];
-        play("click", 0.6);
-      });
-      anchor.parentNode.insertBefore(b, anchor.nextSibling);
-    }
+    // the browser keeps AudioContexts suspended until a user gesture — wake
+    // the nature bus on the first click/keypress so the ambience fades in
+    document.addEventListener("click", natureResume, true);
+    document.addEventListener("keydown", natureResume, true);
     // soft tick on any UI button; page-flip for the journal/bestiary tomes
     document.addEventListener("click", (e) => {
       const btn = e.target.closest && e.target.closest("button");
-      if (!btn || btn.id === "sfxbtn") return;
+      if (!btn) return;
       if (btn.id === "questbtn" || btn.id === "bestiarybtn") play("book", 0.6);
       else play("click", 0.35);
     });
+    bindVol("gamevol", "emberfallGameVol", () => gameVol, v => { gameVol = v; });
+    bindVol("naturevol", "emberfallNatureVol", () => natureVol, v => { natureVol = v; });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initUi);
   else initUi();
 
-  return { play, step, gather, craft };
+  return { play, step, gather, craft,
+    natureChain, natureSet,
+    gameVol: () => gameVol, natureVol: () => natureVol };
 })();
 
 // terse global helpers, matching the codebase's bare-function call style
 function sfx(name, vol, rate) { SFX.play(name, vol, rate); }
+function sfxNatureVol() { return SFX.natureVol(); } // birdsong.js / ambience.js master
 function sfxStep(x, y, water, sailing) { SFX.step(x, y, water, sailing); }
 function sfxGather(skill) { SFX.gather(skill); }
 function sfxCraft(skill) { SFX.craft(skill); }

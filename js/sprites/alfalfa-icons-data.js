@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - alfalfa crop growth-stage + harvest sprites =====
+// ===== Taiao - alfalfa crop growth-stage + harvest sprites =====
 // 5-frame sheet on the "al" sheet: 0-3 = Seedling/Growing/Mature/Ready plant
 // billboards (foot-anchored), 4 = the cut alfalfa bundle (harvest item icon).
 // Wires CROPS.alfalfa.sprStages (deferred, since husbandry-animals.js registers
@@ -8,7 +8,7 @@
   if (typeof ASSET_DATA === "undefined") { try { window.ASSET_DATA = {}; } catch (e) { return; } }
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("al")) SHEET_KEYS.push("al");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["al"] = 128;
-  ASSET_DATA["al"] = "assets/sheets/5ba848b414fabc80.webp";
+  ASSET_DATA["al"] = "assets/sheets/al-alfalfa-icons.5ba848b4.webp";
   if (typeof SPR === "undefined") return;
   const rect = (i) => ["al", 0, 0, { sx: i * 128, sy: 0, sw: 128, sh: 128 }];
   for (let s = 0; s < 4; s++) SPR["s_farm_cerealiculture_alfalfa_" + s] = rect(s);

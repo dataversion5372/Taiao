@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — New Zealand fish inventory icons (raw + cooked) =====
+// ===== Taiao — New Zealand fish inventory icons (raw + cooked) =====
 // Fishing levels 1-24 (content.js indices 0-23) are NZ catches; their icons used
 // hue-tinted monster-sheet cells (FISH_SPRS). Two 8x3 64px sheets give each its
 // own art: "fr" = the RAW catch, "fk" = the COOKED dish. Cell index i (row-major)
@@ -9,8 +9,8 @@
 "use strict";
 (function () {
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["fr"] = "assets/sheets/8712bbac3faf8543.webp";
-  ASSET_DATA["fk"] = "assets/sheets/e7cb83846173a8d4.webp";
+  ASSET_DATA["fr"] = "assets/sheet-src/fr-fish-icons.webp";
+  ASSET_DATA["fk"] = "assets/sheet-src/fk-fish-icons.webp";
   if (typeof SHEET_KEYS !== "undefined") { if (!SHEET_KEYS.includes("fr")) SHEET_KEYS.push("fr"); if (!SHEET_KEYS.includes("fk")) SHEET_KEYS.push("fk"); }
   if (typeof SHEET_TILE !== "undefined") { SHEET_TILE["fr"] = 64; SHEET_TILE["fk"] = 64; }
   if (typeof SPR === "undefined") return;

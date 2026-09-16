@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — generic production engine =====
+// ===== Taiao — generic production engine =====
 // Data-driven manufacturing shared by EVERY production profession. No skill is
 // special-cased here: a profession is just data (a skill id + recipes tagged
 // with that skill). This engine handles multi-output recipes, by-products,
@@ -298,6 +298,15 @@ let _toolHintShown = false;
 // collect the finished goods when you return to the station. Generic — malting,
 // brewing, seasoning, cheese ageing etc. are all just recipes with passive:true.
 function passiveTime(recipe) { return recipe.time || (recipe.tick || 2000) * 4; }
+// Jobs at one station type run in SERIES (user req 2026-09-15): a fresh
+// firing waits its turn behind whatever that station is already running —
+// this is when the queue's last job clears.
+function jobQueueEndAt(stationType) {
+  let end = Date.now();
+  for (const j of (player.jobs || []))
+    if ((j.station || null) === (stationType || null)) end = Math.max(end, j.doneAt);
+  return end;
+}
 function startJob(recipe, station, qty) {
   qty = Math.max(1, qty | 0);
   if (skillLvl(recipe.skill) < recipe.req) { log(`You need ${recipe.skill} level ${recipe.req} for that.`, "warn"); return false; }
@@ -305,11 +314,13 @@ function startJob(recipe, station, qty) {
   const meta = readInputMeta(recipe);
   for (const [id, q] of recipeInputs(recipe)) removeItemFam(id, q * qty);
   const dur = passiveTime(recipe) * qty;
+  const t0 = jobQueueEndAt(station ? station.type : null);
   player.jobs.push({
     recipeId: recipe.id, station: station ? station.type : null, qty,
-    startedAt: Date.now(), doneAt: Date.now() + dur, inQ: meta.avgQ, inRefs: meta.refs,
+    startedAt: t0, doneAt: t0 + dur, inQ: meta.avgQ, inRefs: meta.refs,
   });
-  log(`You set ${recipe.name.toLowerCase()} going (x${qty}). Ready in ~${Math.ceil(dur / 1000)}s — come back for it.`, "sys");
+  const queued = t0 > Date.now() + 500;
+  log(`You set ${recipe.name.toLowerCase()} going (x${qty}).${queued ? " It waits its turn behind the current job." : ""} Ready in ~${Math.ceil((t0 + dur - Date.now()) / 1000)}s — come back for it.`, "sys");
   uiDirty = true;
   return true;
 }
@@ -416,7 +427,7 @@ function validateEconomy() {
     return null;
   }
   for (const id in produced) { const d = chainDepth(id, []); if (d > 8) report.longChains.push(`${id} (${d} stages)`); }
-  console.log("%c Emberfall economy report", "font-weight:bold");
+  console.log("%c Taiao economy report", "font-weight:bold");
   console.log("Missing sources (needed but nothing makes/gathers them):", report.missingSources);
   console.log("Dead outputs (made but never used):", report.deadOutputs);
   console.log("Isolated skills (only interact with themselves):", report.isolatedSkills);

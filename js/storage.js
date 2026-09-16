@@ -1,10 +1,15 @@
-// ===== Isle of Emberfall — localStorage save/load/reset and new-player setup =====
+// ===== Taiao — localStorage save/load/reset and new-player setup =====
 "use strict";
 
 // ---------- save / load ----------
+// Cheat mode keeps a save file of its own: SAVE_KEY is picked by CHEAT_MODE
+// (persisted flag, main/assets.js) at load, and the option+C toggle reloads
+// the page — so within any one page lifetime every save/load path here works
+// against exactly one mode's file, and the two characters never mix.
 // Callers (5):
 //  storage.js:20,44,66,117,132
-const SAVE_KEY = "emberfall_save_v2";
+const NORMAL_SAVE_KEY = "emberfall_save_v2";
+const SAVE_KEY = CHEAT_MODE ? "emberfall_save_cheat_v1" : NORMAL_SAVE_KEY;
 // Callers (2):
 //  storage.js:80,100
 const OLD_KEY = "emberfall_save_v1";
@@ -145,6 +150,10 @@ function buildSaveData() {
     // opened bank accounts: network id -> 1 (main-branch signup, ui.js)
     bankAccounts: player.bankAccounts || {},
     x: player.x, y: player.y, hp: player.hp, level: player.level | 0,
+    // split selves (gameplay/split.js): the OTHER bodies — position + each
+    // one's own xp. Motion/action/queues are session-only, like player.act.
+    num: player.num || 1,
+    bodies: (typeof Split !== "undefined" ? (player.bodies || []).map(Split.serializeBody) : []),
     seen: [...seenChunks],
     // production economy: recipe-family mastery, passive jobs, provenance registry
     mastery: player.mastery, jobs: player.jobs,
@@ -157,6 +166,8 @@ function buildSaveData() {
     unlocked: player.unlocked || {}, // opened door/gate locks: canonical "x,y" -> 1 (gameplay/locks.js)
     quests: player.quests || {},   // quest progress (gameplay/quests.js): active/done/flags/revealed
     stink: player.stink && player.stink.fl ? player.stink : { fl: {} }, // stink metre (gameplay/stink.js)
+    respawn: player.respawn || null, // chosen respawn city fountain {x,y,name}; null = Newhaven
+    tutorial: player.tutorial || null, // Tūhura Isle progress (gameplay/tutorial.js): seen/given/welcomed/graduated
     // player-placed furniture & vessels (gameplay/placing.js)
     // persist only permanent placed objects (furniture/vessels); temporary
     // set-down decorations (entry.expireAt) are transient and not saved
@@ -175,6 +186,9 @@ function buildSaveData() {
 //  gameplay/world.js:35 main.js:30 storage.js:115,150
 function saveGame() {
   if (resetting || !gameReady) return;
+  // mid-ghost-tick the global player holds an INACTIVE split body's fields —
+  // defer to the end of Split.tick() so the save reads the true active body
+  if (typeof Split !== "undefined" && Split.deferSave()) return;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(buildSaveData())); } catch (e) {}
   // flush every loaded chunk's live node state (planted crops, depleted/respawning
   // nodes) to IDB so a refresh keeps them even before the chunk is evicted.
@@ -191,7 +205,7 @@ function exportSave() {
   const a = document.createElement("a");
   const date = new Date().toISOString().slice(0, 10);
   a.href = url;
-  a.download = `emberfall-save-${date}.json`;
+  a.download = `taiao-save-${date}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -203,7 +217,7 @@ function exportSave() {
 function importSaveFromText(text) {
   let d;
   try { d = JSON.parse(text); } catch (e) { alert("That file isn't a valid save (bad JSON)."); return; }
-  if (!d || typeof d !== "object" || !d.skills || !d.inv) { alert("That file doesn't look like an Isle of Emberfall save."); return; }
+  if (!d || typeof d !== "object" || !d.skills || !d.inv) { alert("That file doesn't look like an Taiao save."); return; }
   if (!confirm("Load this save? Your current in-browser character will be overwritten.")) return;
   resetting = true; // prevent beforeunload autosave from clobbering the imported data before reload
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch (e) { alert("Couldn't write the save to browser storage: " + e.message); resetting = false; return; }
@@ -231,7 +245,15 @@ function freshSkills() {
 //  main.js:5
 function loadGame() {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    let raw = localStorage.getItem(SAVE_KEY);
+    // first-ever boot INTO cheat mode: seed its save from the normal-mode
+    // character (a divergent copy — the real save is never touched again),
+    // so flipping the cheat switch continues from where you stand instead of
+    // waking a stranger in Newhaven
+    if (!raw && CHEAT_MODE) {
+      raw = localStorage.getItem(NORMAL_SAVE_KEY);
+      if (raw) try { localStorage.setItem(SAVE_KEY, raw); } catch (e) {}
+    }
     if (raw) {
       const d = JSON.parse(raw);
       // swap any legacy Carpentry boat id (inventory, bank, or placed-on-water)
@@ -258,10 +280,19 @@ function loadGame() {
       player.skills = { ...freshSkills(), ...d.skills };
       // MIGRATION: the split-parent skills were removed — carry their old XP into
       // a successor so returning players keep their levels, then drop the orphans.
-      for (const [old, succ] of [["Mining", "Ore-mining"], ["Farming", "Cerealiculture"], ["Textiles", "Weaving"], ["Crafting", "Leatherworking"], ["Accuracy", "Melee"], ["Butchering", "Tanning"]]) {
+      for (const [old, succ] of [["Mining", "Ore-mining"], ["Textiles", "Weaving"], ["Crafting", "Leatherworking"], ["Accuracy", "Melee"], ["Butchering", "Tanning"]]) {
         const xp = d.skills && d.skills[old];
         if (xp && !player.skills[succ]) player.skills[succ] = xp;
         delete player.skills[old];
+      }
+      // AGRICULTURE RE-MERGED (2026-09-15): the five -culture skills fold back into
+      // ONE Farming skill (they're crop categories now, not skills) — sum their XP
+      // into Farming (legacy pre-split Farming XP already carried over via the
+      // spread above), then drop the orphans.
+      for (const c of ["Cerealiculture", "Olericulture", "Pomiculture", "Herbiculture", "Fibriculture"]) {
+        const xp = d.skills && d.skills[c];
+        if (xp) player.skills.Farming = (player.skills.Farming || 0) + xp;
+        delete player.skills[c];
       }
       // Smithing was SPLIT into Weaponsmithing + Armoursmithing — both inherit
       // its old XP so a returning smith keeps their level in each new trade.
@@ -284,6 +315,10 @@ function loadGame() {
       player.unlocked = (d.unlocked && typeof d.unlocked === "object") ? d.unlocked : {};
       player.quests = (d.quests && typeof d.quests === "object") ? d.quests : {};
       player.stink = (d.stink && d.stink.fl && typeof d.stink.fl === "object") ? d.stink : { fl: {} };
+      player.respawn = (d.respawn && typeof d.respawn.x === "number" && typeof d.respawn.y === "number") ? d.respawn : null;
+      // Tūhura Isle tutorial progress; pre-tutorial saves (null) are veterans
+      // and never get re-schooled — the isle simply sits on their map
+      player.tutorial = (d.tutorial && typeof d.tutorial === "object") ? d.tutorial : null;
       player.reputation = d.reputation | 0;
       player.contractsDone = Array.isArray(d.contractsDone) ? d.contractsDone : [];
       player.portals = (d.portals && typeof d.portals === "object") ? d.portals : {};
@@ -348,12 +383,23 @@ function loadGame() {
       player.outfit = d.outfit || "Idle";
       player.x = d.x; player.y = d.y; player.hp = d.hp;
       player.level = d.level | 0;
+      // split selves (gameplay/split.js): revive stored bodies with fresh
+      // motion state; drop any malformed record rather than crash the boot
+      player.num = d.num || 1;
+      player.bodies = (typeof Split !== "undefined" && Array.isArray(d.bodies))
+        ? d.bodies.slice(0, Split.MAX_BODIES - 1)
+            .filter(b => b && Number.isFinite(b.x) && Number.isFinite(b.y) && b.skills)
+            .map(Split.reviveBody)
+        : [];
+      player.queue = [];
       for (const k of d.seen || []) seenChunks.add(k);
       // saves from the finite-island era: coordinates don't map to the new
       // infinite world — keep progress, respawn in town
       return { pos: !!d.inf };
     }
-    const old = localStorage.getItem(OLD_KEY);
+    // the one-shot v1 migration below REMOVES the old key — never let a fresh
+    // cheat-mode boot consume it, it belongs to the normal-mode character
+    const old = CHEAT_MODE ? null : localStorage.getItem(OLD_KEY);
     if (old) {
       const d = JSON.parse(old);
       const s = freshSkills();
@@ -425,9 +471,14 @@ function starterInv() {
 // Callers (4):
 //  storage.js:7,139,142,145
 function doReset(resetMap, resetChar) {
+  // a split player (gameplay/split.js) must start over as ONE self — merge the
+  // echoes back first (xp conserved) so the saved state, and the reborn spark of
+  // light on Tūhura, is a single body, never several.
+  if (typeof Split !== "undefined" && Split.mergeAll) Split.mergeAll();
   saveGame();
   resetting = true;
   const d = JSON.parse(localStorage.getItem(SAVE_KEY));
+  d.bodies = []; d.num = 1; d.queue = []; // defensive: no residual echoes survive a reset
   if (resetMap) {
     d.seen = [];
   }
@@ -440,13 +491,29 @@ function doReset(resetMap, resetChar) {
     d.bankAccounts = {}; // a fresh character signs up at a main branch again
     d.hp = 10;
     d.style = "melee";
+    d.stink = { fl: {} }; // fresh face, no reek (stink metre, gameplay/stink.js)
     d.mastery = {}; d.jobs = []; d.prov = {}; d.provSeq = 1;
     d.kills = {};
     d.reputation = 0; d.contractsDone = [];
+    d.respawn = null; // fresh characters wake in Newhaven again
+    d.tutorial = null; // …and a reset character does the isle over (below)
   }
-  // either way you wake up in the starting village
-  d.x = world.playerStart.x;
-  d.y = world.playerStart.y;
+  // a RESET CHARACTER (either mode) wakes on Tūhura Isle for the tutorial
+  // like any other fresh face (gameplay/tutorial.js); a map-only reset keeps
+  // the character and returns to Newhaven as its ? tab label promises
+  if (resetChar && typeof Tutorial !== "undefined") {
+    d.x = Tutorial.START.x;
+    d.y = Tutorial.START.y;
+    d.respawn = { x: d.x, y: d.y, name: "Tūhura Isle" };
+    d.tutorial = { seen: {}, given: {}, welcomed: 0, graduated: 0 };
+    d.inv = new Array(48).fill(null); // bare pockets — the keepers provide
+    // wash ashore as an UNFORMED SPARK again — no body until the Guide's lesson
+    // (render3d draws the orb while Tutorial.active() && player.character==null)
+    d.character = null; d.outfit = "Idle";
+  } else {
+    d.x = world.playerStart.x;
+    d.y = world.playerStart.y;
+  }
   localStorage.setItem(SAVE_KEY, JSON.stringify(d));
   location.reload();
 }
@@ -470,9 +537,13 @@ window.addEventListener("beforeunload", saveGame);
 // ---------- init ----------
 // Callers (2):
 //  main.js:9 storage.js:107
-function newPlayer() {
+function newPlayer(bare) {
   player.skills = freshSkills();
   player.hp = 10;
+  player.bodies = []; player.queue = []; player.num = 1; // split selves reset
+  // Tūhura Isle characters wash ashore with EMPTY pockets — every tool is a
+  // gift from the keeper who teaches it (gameplay/tutorial.js rewards)
+  if (bare) return;
   addItem("coins", 40);
   addItem("flatbread", 3);
   addItem("axe_iron", 1);

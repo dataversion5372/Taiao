@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — the STINK system =====
+// ===== Taiao — the STINK system =====
 // Every scrap of skill work adds to your stink metre, and higher-tier work
 // reeks exponentially more. Different work leaves a different FLAVOUR of stink
 // (Husbandry = manure, farming = dirt, Fishing = fish, melee = blood & guts,
@@ -42,48 +42,61 @@ var STINK_SKILL_FLAVOUR = {
 
 // ---- soap flavour PROFILES ----
 // Every soap has its own ratio of scrubbing strength across the 7 flavours (a
-// weight per flavour, multiplied by the soap's power). No two are the same, so
-// each bar in the Soaps menu has a unique shape. Order matches STINK_ORDER:
+// weight per flavour, multiplied by the soap's power). SPECIALISTS are heavily
+// weighted: a soap pours 2-3x strength into its 1-2 thematic flavours and
+// scrubs weakly (0.3-0.8) off-theme, so picking the right soap for your stink
+// matters. The generalists (castile, marseille, luxury, royal, master) stay
+// flat as the no-thought option — a matched specialist always out-scrubs them
+// on its home flavour. Each row sums to roughly what it did before this
+// sharpening, so a soap's TOTAL power per wash (and its price-worth) is
+// unchanged — only the shape moved. Order matches STINK_ORDER:
 //                 [manure, dirt, fish, blood, smoke, fumes, sweat]
 var STINK_PROFILES = {
-  lye_soap:       [1.2, 1.3, 0.8, 0.9, 1.0, 0.9, 1.2],
-  tallow_soap:    [1.1, 1.1, 0.9, 1.0, 1.0, 0.8, 1.3],
-  laundry_soap:   [1.4, 1.5, 0.7, 0.6, 0.9, 0.8, 1.2],
-  bath_soap:      [0.9, 0.8, 0.9, 1.1, 1.0, 0.9, 1.5],
-  oatmeal_soap:   [1.3, 1.4, 0.6, 0.7, 0.8, 0.7, 1.2],
-  castile_soap:   [1.0, 1.0, 1.0, 1.1, 0.9, 0.9, 1.1],
-  rose_soap:      [1.2, 0.7, 0.6, 1.0, 0.7, 0.6, 1.5],
-  lavender_soap:  [0.9, 0.7, 0.6, 1.2, 0.8, 0.7, 1.6],
-  honey_soap:     [0.8, 0.8, 0.7, 1.1, 0.9, 0.7, 1.5],
-  milk_soap:      [0.7, 0.7, 0.8, 1.3, 0.8, 0.8, 1.4],
-  charcoal_soap:  [0.8, 1.1, 0.6, 0.7, 1.6, 1.5, 0.7],
-  clay_soap:      [1.6, 1.6, 0.6, 0.6, 0.7, 0.7, 0.8],
-  green_soap:     [1.4, 1.5, 0.7, 0.7, 0.8, 0.9, 0.9],
-  black_soap:     [0.9, 1.0, 0.7, 0.8, 1.4, 1.3, 1.0],
-  marseille_soap: [1.2, 1.2, 1.0, 1.0, 1.1, 1.0, 1.1],
-  perfumed_soap:  [1.3, 0.8, 1.2, 0.9, 0.7, 0.6, 1.4],
-  glycerin_soap:  [0.7, 0.8, 0.9, 1.3, 0.9, 0.9, 1.3],
-  medicinal_soap: [0.7, 0.7, 0.8, 1.6, 0.9, 1.1, 1.3],
-  saddle_soap:    [0.9, 1.2, 0.7, 1.3, 0.7, 0.7, 1.2],
-  scouring_soap:  [1.1, 1.4, 0.7, 0.7, 1.3, 1.4, 0.8],
-  cream_soap:     [0.8, 0.8, 0.8, 1.2, 0.9, 0.8, 1.4],
-  honeycomb_soap: [0.9, 0.9, 0.7, 1.0, 0.9, 0.7, 1.5],
-  floral_soap:    [1.3, 0.7, 1.1, 0.9, 0.7, 0.6, 1.4],
-  luxury_soap:    [1.1, 1.0, 1.0, 1.1, 1.0, 1.0, 1.2],
-  salt_soap:      [0.8, 0.8, 1.6, 0.9, 0.8, 0.9, 1.1],
-  ember_soap:     [0.8, 0.9, 0.7, 0.9, 1.6, 1.5, 0.8],
-  moon_soap:      [0.9, 0.9, 1.0, 1.2, 1.1, 1.0, 1.0],
-  royal_soap:     [1.2, 1.1, 1.1, 1.2, 1.1, 1.1, 1.2],
-  ambergris_soap: [1.0, 0.8, 1.4, 1.0, 0.8, 0.8, 1.3],
-  master_soap:    [1.35, 1.3, 1.25, 1.3, 1.2, 1.25, 1.35],
-  fishers_soap:   [0.7, 0.7, 1.7, 0.8, 0.7, 0.7, 0.9],
+  lye_soap:       [1.7, 1.8, 0.5, 0.7, 0.8, 0.7, 1.1],   // harsh everyday: grime
+  tallow_soap:    [0.9, 1.0, 0.7, 0.9, 0.9, 0.7, 2.1],   // plain body bar: sweat
+  laundry_soap:   [2.1, 2.5, 0.4, 0.4, 0.5, 0.4, 0.8],   // washboard: dirt & manure
+  bath_soap:      [0.6, 0.6, 0.6, 0.9, 0.7, 0.6, 3.1],   // the sweat specialist
+  oatmeal_soap:   [2.0, 2.2, 0.4, 0.5, 0.5, 0.4, 0.7],   // gritty scrub: field grime
+  castile_soap:   [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],   // the flat baseline
+  rose_soap:      [1.0, 0.5, 0.4, 0.8, 0.5, 0.4, 2.7],   // perfume over sweat
+  lavender_soap:  [0.5, 0.4, 0.4, 2.0, 0.6, 0.5, 2.1],   // calming: blood & sweat
+  honey_soap:     [0.6, 0.6, 0.5, 1.0, 0.9, 0.5, 2.4],   // soothing: sweat
+  milk_soap:      [0.6, 0.5, 0.9, 2.4, 0.5, 0.5, 1.1],   // gentle on gore: blood
+  charcoal_soap:  [0.5, 0.8, 0.4, 0.4, 2.4, 2.0, 0.5],   // absorbs smoke & fumes
+  clay_soap:      [2.5, 2.4, 0.3, 0.3, 0.4, 0.4, 0.3],   // the grime specialist
+  green_soap:     [1.8, 2.6, 0.4, 0.4, 0.5, 0.6, 0.6],   // soft potash: dirt
+  black_soap:     [0.6, 0.8, 0.4, 0.6, 2.6, 1.6, 0.5],   // hearth ash: smoke
+  marseille_soap: [1.1, 1.1, 1.0, 1.1, 1.1, 1.1, 1.1],   // sturdy generalist
+  perfumed_soap:  [1.0, 0.5, 2.1, 0.6, 0.4, 0.4, 1.9],   // masks fish & sweat
+  glycerin_soap:  [0.4, 0.5, 0.6, 2.7, 0.6, 0.7, 1.3],   // clear & clinical: blood
+  medicinal_soap: [0.4, 0.4, 0.5, 2.9, 0.6, 1.6, 0.7],   // antiseptic: blood & fumes
+  saddle_soap:    [1.9, 1.2, 0.4, 1.9, 0.4, 0.4, 0.5],   // stable work: manure & blood
+  scouring_soap:  [0.7, 1.5, 0.4, 0.4, 1.8, 2.1, 0.5],   // workshop: fumes & smoke
+  cream_soap:     [0.5, 0.5, 0.5, 1.7, 0.6, 0.5, 2.4],   // rich lather: sweat & blood
+  honeycomb_soap: [0.7, 0.6, 0.5, 0.8, 1.4, 0.5, 2.1],   // beeswax: sweat & smoke
+  floral_soap:    [1.9, 0.5, 1.8, 0.5, 0.4, 0.4, 1.2],   // bouquet over the foulest reeks
+  luxury_soap:    [1.1, 1.0, 1.1, 1.0, 1.1, 1.0, 1.1],   // fine generalist
+  salt_soap:      [0.5, 0.5, 3.0, 0.7, 0.5, 0.6, 1.1],   // sea salt: fish
+  ember_soap:     [0.5, 0.6, 0.4, 0.5, 2.7, 2.0, 0.5],   // the smoke & fumes specialist
+  moon_soap:      [0.6, 0.5, 0.8, 2.2, 1.7, 0.7, 0.6],   // mystic: blood & smoke
+  royal_soap:     [1.2, 1.1, 1.1, 1.2, 1.1, 1.1, 1.2],   // premium generalist
+  ambergris_soap: [0.6, 0.5, 3.2, 0.7, 0.5, 0.5, 1.6],   // whale-perfume: fish
+  master_soap:    [1.3, 1.3, 1.25, 1.3, 1.25, 1.3, 1.3], // the top generalist
+  fishers_soap:   [0.3, 0.3, 3.2, 0.4, 0.3, 0.3, 0.7],   // the fish specialist
 };
-// deterministic unique-ish profile for any soap not in the table above
+// deterministic unique-ish profile for any soap not in the table above —
+// same sharpened shape as the hand-tuned rows: a weak 0.4-0.8 base with one
+// hash-picked specialty flavour at 2.2-3.0 and a secondary at 1.1-1.6
 function genSoapProfile(id) {
   var h = 2166136261;
   for (var i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = (h * 16777619) >>> 0; }
   var out = [];
-  for (var f = 0; f < 7; f++) { h = (h * 1103515245 + 12345) >>> 0; out.push(+(0.6 + (h % 1000) / 1000).toFixed(2)); }
+  for (var f = 0; f < 7; f++) { h = (h * 1103515245 + 12345) >>> 0; out.push(+(0.4 + (h % 400) / 1000).toFixed(2)); }
+  h = (h * 1103515245 + 12345) >>> 0; var spec = h % 7;
+  h = (h * 1103515245 + 12345) >>> 0; var sec = (spec + 1 + (h % 6)) % 7;
+  out[spec] = +(2.2 + (h % 800) / 1000).toFixed(2);
+  h = (h * 1103515245 + 12345) >>> 0;
+  out[sec] = +(1.1 + (h % 500) / 1000).toFixed(2);
   return out;
 }
 function soapProfile(soap) { return (soap && soap.profile) || null; }
@@ -165,7 +178,7 @@ function washWithSoap(i) {
   var def = ITEMS[s.id]; if (!def || !def.soap) return;
   if (!nearWater()) { log("You need to be in a body of water to wash — find a lake, river or the sea, then use the soap.", "warn"); return; }
   var soap = def.soap, st = stinkState(), before = stinkTotal();
-  if (before <= 0) { log("You're already clean.", "sys"); return; }
+  if (before <= 0) { log("You're already clean.", "sys"); if (typeof Tutorial !== "undefined" && Tutorial.onWash) Tutorial.onWash(); return; }
   for (var k in st.fl) {
     // each flavour is scrubbed by this soap's own per-flavour strength (profile)
     st.fl[k] = Math.max(0, st.fl[k] - soapStrength(soap, k));
@@ -174,6 +187,7 @@ function washWithSoap(i) {
   s.qty -= 1; if (s.qty <= 0) player.inv[i] = null;
   var removed = before - stinkTotal();
   log("You wade in and lather up with " + def.name.toLowerCase() + ". You scrub off " + removed + " stink.", "sys");
+  if (typeof Tutorial !== "undefined" && Tutorial.onWash) Tutorial.onWash(); // isle stage task
   uiDirty = true;
 }
 
@@ -223,7 +237,7 @@ function soapStrength(soap, flavour) {
 }
 function soapExamine(def) {
   return def.name + " — a bar of soap; stand in a body of water and use it to wash off stink. "
-    + "Press Left-Shift+S to compare soaps.";
+    + "Press P to compare soaps.";
 }
 
 (function () {
@@ -258,7 +272,7 @@ function soapExamine(def) {
 })();
 
 // ============================================================================
-// SOAPS MENU (Left-Shift+S) — every soap with a bar broken into per-flavour
+// SOAPS MENU (P) — every soap with a bar broken into per-flavour
 // strength numbers, so you can see at a glance which soap fights which stink.
 // ============================================================================
 var STINK_ORDER = ["manure", "dirt", "fish", "blood", "smoke", "fumes", "sweat"];

@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — monster drops = exclusive skill reagents =====
+// ===== Taiao — monster drops = exclusive skill reagents =====
 // Monsters are deliberately NOT a redundant source of gatherable/farmable
 // intermediates (ore, logs, herbs, gems, grain, fibre…). Instead each monster
 // drops only COINS + one of its theme's DROP-EXCLUSIVE REAGENTS — materials
@@ -97,6 +97,9 @@
   // create the drop-exclusive reagent items (hue-tinted placeholder icons)
   let hs = 200;
   const mkReagent = (id, name, base, value) => {
+    // global id set — the bank's "Monster reagents" category filters on it
+    if (typeof window !== "undefined")
+      (window.REAGENT_IDS || (window.REAGENT_IDS = new Set())).add(id);
     if (ITEMS[id]) return;
     let icon = base;
     if (typeof defineIcon === "function" && typeof SPR !== "undefined" && SPR[base]) { defineIcon("ir_" + id, base, hs++); icon = "ir_" + id; }
@@ -202,6 +205,14 @@
       .map(d => (ITEMS[d.id].equip && !ITEMS[d.id].stack)
         ? Object.assign({}, d, { ch: Math.min(d.ch != null ? d.ch : 0.1, 0.04) }) : d);
     def.drops = [...dropTable(theme, def.lvl), ...keep];
+    // humanoids (bandits, cultists, guards…) drop TIER-APPROPRIATE arrows: an
+    // arrow whose metal tier scales with the fighter's level (iron at the low
+    // end → stormsteel for the toughest), so ammo loot keeps pace with the foe.
+    if (theme === "h" && typeof window !== "undefined" && window.WEAPON_ARROW_IDS && window.WEAPON_ARROW_IDS.length) {
+      const A = window.WEAPON_ARROW_IDS;
+      const idx = Math.max(0, Math.min(A.length - 1, Math.floor((def.lvl || 1) / 2)));
+      def.drops.push({ id: A[idx], min: 3, max: 10, ch: 0.15 });
+    }
     if (!def.butcher && (theme === "d" || theme === "q")) {
       const hi = dragonSeaHide(def.name, theme);
       if (hi && ITEMS[hi]) def.butcher = { hide: 1 + Math.floor((def.lvl || 0) / 20), hideItem: hi };
@@ -232,6 +243,38 @@
         if (!(reagent in r.in)) { r.in[reagent] = 1; injected++; }
       }
     }
+  }
+
+  // ---- 6× SMELTING BATCH (user req): every smelting recipe yields 6 bars and
+  // takes 6 ingredients. Runs AFTER the flux injection above so the flux is in
+  // r.in. The FLUX (forge_ember/blaze_core) stays at 1 and the ORES fill the
+  // rest (so bars-per-ore stays ~1:1, matching the design examples): pure ore
+  // ×6; bronze 2:1→4:2; 1:1 two-ore alloys with a flux→3:2 ore + 1 flux; the
+  // one three-ore alloy (nickel silver) gets an explicit 2:1:2:1. XP scales
+  // with the batch so xp-per-bar is unchanged. Idempotent enough for one run.
+  const SMELT_FLUX = new Set(["forge_ember", "blaze_core"]);
+  for (const cat in RECIPES) for (const r of RECIPES[cat]) {
+    if (!r || r.skill !== "Smelting" || !r.in) continue;
+    const oldQty = r.qty || 1;
+    if (r.out === "nickel_silver_bar") {
+      r.in = { copper_ore: 2, ore_3: 1, ore_6: 2, forge_ember: 1 };   // 2 copper + 1 zinc + 2 nickel + 1 flux
+    } else {
+      const fluxKeys = Object.keys(r.in).filter(k => SMELT_FLUX.has(k));
+      const oreKeys = Object.keys(r.in).filter(k => !SMELT_FLUX.has(k));
+      for (const k of fluxKeys) r.in[k] = 1;
+      const target = 6 - fluxKeys.length;                              // ores fill 6 minus the flux
+      const oreS = oreKeys.reduce((a, k) => a + r.in[k], 0);
+      if (oreS > 0 && target % oreS === 0) {
+        const f = target / oreS;                                       // preserves the ore ratio (bronze 2:1→4:2)
+        for (const k of oreKeys) r.in[k] *= f;
+      } else {                                                         // uneven (e.g. 5 across two ores → 3:2)
+        const base = Math.floor(target / oreKeys.length);
+        const rem = target - base * oreKeys.length;
+        oreKeys.forEach((k, i) => { r.in[k] = base + (i < rem ? 1 : 0); });
+      }
+    }
+    r.qty = 6;
+    if (r.xp) r.xp = Math.round(r.xp * 6 / oldQty);
   }
 
   if (typeof window !== "undefined") { window.__bestiaryDropsApplied = done; window.__reagentInjected = injected; window.__reagentGatedSkills = gatedSkills; }

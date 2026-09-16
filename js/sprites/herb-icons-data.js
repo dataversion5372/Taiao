@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Herbiculture harvested-herb inventory icons =====
+// ===== Taiao — Herbiculture harvested-herb inventory icons =====
 // The 32 herbs (content.js HERB_NAMES/HERBS -> ids herb, herb_1 .. herb_31) —
 // the harvested products Herbiculture grows and Potionmaking brews — all shared
 // hue-tinted recolours of one base i_herb sprite, so they were indistinguishable.
@@ -9,7 +9,7 @@
 "use strict";
 (function () {
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["hb"] = "assets/sheets/8819ce042fabd462.webp";
+  ASSET_DATA["hb"] = "assets/sheet-src/hb-herb-icons.webp";
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("hb")) SHEET_KEYS.push("hb");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["hb"] = 64;
   if (typeof SPR === "undefined") return;

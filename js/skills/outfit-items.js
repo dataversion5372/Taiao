@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — outfit items (icon upgrade + new wardrobe/gear) =====
+// ===== Taiao — outfit items (icon upgrade + new wardrobe/gear) =====
 // Wires the 114 icons on the "oi" sheet (js/sprites/outfit-item-icons-data.js) —
 // the catalogue in docs/player-character-outfit-items.txt — into the game:
 //   • REPOINT: ~34 items that already exist (garments.js cloth wardrobe, etc.)

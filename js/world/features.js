@@ -504,7 +504,11 @@ function createWorldFeatures(ctx) {
   const _warmedCells = new Set();
   function _roadWarm(mx, my, pad, emit) {
     const ccx = Math.floor(mx / VCELL), ccy = Math.floor(my / VCELL);
-    // walk outward ring by ring so the cells nearest the player finish first
+    // pass 1 — enumerate the village cells this warm will actually compute
+    // (villageNode is a cheap probe), outward ring by ring so the cells
+    // nearest the player finish first. Knowing the count up front lets each
+    // emit carry (done, total): the boot loading bar's real road progress.
+    const todo = [];
     for (let r = 0; r <= pad; r++)
       for (let cy = ccy - r; cy <= ccy + r; cy++)
         for (let cx = ccx - r; cx <= ccx + r; cx++) {
@@ -513,8 +517,11 @@ function createWorldFeatures(ctx) {
           if (_warmedCells.has(key)) continue;
           _warmedCells.add(key);
           if (!villageNode(cx, cy)) continue; // no village -> cheap everywhere
-          emit(key, settlementRoads(cx, cy));
+          todo.push([cx, cy, key]);
         }
+    // pass 2 — the expensive part (road selection + city-link A* per cell)
+    for (let i = 0; i < todo.length; i++)
+      emit(todo[i][2], settlementRoads(todo[i][0], todo[i][1]), i + 1, todo.length);
   }
   function _roadCellInject(key, out) {
     if (!roadCache.has(key)) roadCache.set(key, out);
@@ -842,7 +849,7 @@ function createWorldFeatures(ctx) {
     "ropewalk", "sail_loft", "shipyard", "charcoal_clamp", "lime_kiln", "masons_yard",
     "pottery_kiln", "glass_furnace", "assay_furnace", "drawbench", "jewelers_bench",
     "leather_bench", "cobblers_bench", "saddlers_bench", "toolsmith", "locksmith_bench",
-    "paper_mill", "bindery", "chandlery", "soap_works"];
+    "paper_mill", "bindery", "chandlery", "soap_works", "curing_shed"];
   const CITY_STATIONS = [...CITY_ESSENTIALS, ...CITY_ARTISANS]; // full list (guides/audits)
   const villageCache = new Map();
   // Nameless settlement probe: centre / kind / radius only. This is the
@@ -860,7 +867,8 @@ function createWorldFeatures(ctx) {
       const y = vcy * VCELL + 34 + Math.floor(rand2(vcx, vcy, S ^ 0x5333) * (VCELL - 68));
       const e = elevation(x, y), t = temperature(x, y), wf = weirdField(x, y);
       let kind = null, R = 0;
-      if (e >= 0.51 && e <= 0.70 && t >= 0.28 && wf > 0.28 && wf < 0.72) {
+      // Tūhura Isle (terrain.js) is hand-built — no procedural settlements
+      if (e >= 0.51 && e <= 0.70 && t >= 0.28 && wf > 0.28 && wf < 0.72 && !tutIsleAtMap(x, y)) {
         const civ = Math.max(0, civField(x, y) - 0.40);
         const r0 = rand2(vcx, vcy, S ^ 0x5111);
         if (r0 < civ * 0.7) kind = "city";
@@ -955,9 +963,14 @@ function createWorldFeatures(ctx) {
   }
   // pass 1: settlements, scanned in cell reading order. Newhaven (the fixed
   // origin city) is skipped — its name is not drawn from any pool.
-  function worldSettlePass(wx, wy) {
-    const reg = worldReg(wx, wy);
-    if (reg.vNames) return reg;
+  // GENERATOR CORE: yields [rowsDone, rowsTotal] once per cell row so the
+  // async boot driver (genWorldNamesAsync) can paint a real progress bar
+  // through the multi-second pass; the sync wrappers just drain it. Names are
+  // a pure function of (world, seed) and each run allocates its own local
+  // map/namer, so a sync pass overtaking a half-finished async one computes
+  // the identical result — last publish wins harmlessly.
+  function* _settleSteps(wx, wy, reg) {
+    if (reg.vNames) return;
     const m = new Map(); // filled locally, published at the end (re-entrancy)
     reg.used = new Set();
     reg.namer0 = worldBucketNamer(wx, wy, "", reg.used); // bucket "" continues in the POI pass
@@ -966,7 +979,7 @@ function createWorldFeatures(ctx) {
     const c0x = Math.floor((mx0 - VCELL) / VCELL), c1x = Math.floor((mx0 + WORLD_M + VCELL) / VCELL);
     const c0y = Math.floor((my0 - VCELL) / VCELL), c1y = Math.floor((my0 + WORLD_M + VCELL) / VCELL);
     let k = 0;
-    for (let cy = c0y; cy <= c1y; cy++)
+    for (let cy = c0y; cy <= c1y; cy++) {
       for (let cx = c0x; cx <= c1x; cx++) {
         if (cx === 0 && cy === 0) continue;
         const s2 = villageSeat(cx, cy);
@@ -974,8 +987,16 @@ function createWorldFeatures(ctx) {
         m.set(cx + "," + cy, namer());
         k++;
       }
-    reg.vNames = m;
-    reg.vCount = k;
+      yield [cy - c0y + 1, c1y - c0y + 1];
+    }
+    // publish only if a concurrent sync pass didn't get there first (the
+    // async boot run yields to rAF, and a map-label lookup mid-yield can
+    // drain the sync wrapper) — results are identical either way
+    if (!reg.vNames) { reg.vNames = m; reg.vCount = k; }
+  }
+  function worldSettlePass(wx, wy) {
+    const reg = worldReg(wx, wy);
+    for (const _ of _settleSteps(wx, wy, reg)) { /* drain synchronously */ }
     return reg;
   }
   // pass 2: registry-named POIs, continuing bucket "" AFTER the settlements
@@ -984,15 +1005,16 @@ function createWorldFeatures(ctx) {
   // demotion (roadNear) swaps between two flavour types and must not force
   // road generation across a whole world here.
   const POI_FLAVOUR = new Set(["guild", "inn", "shack", "campsite", "hermitage", "shipwreck", "fairyring"]);
-  function worldPoiPass(wx, wy) {
-    const reg = worldSettlePass(wx, wy);
-    if (reg.pNames) return reg;
+  // generator core, same contract as _settleSteps (caller ensures the settle
+  // pass ran first — namer0/used continue into bucket "")
+  function* _poiSteps(wx, wy, reg) {
+    if (reg.pNames) return;
     const m = new Map(); // filled locally, published at the end (re-entrancy)
     const buckets = new Map([["", reg.namer0]]); // continue after the settlements
     const mx0 = wx * WORLD_M - WORLD_M / 2, my0 = wy * WORLD_M - WORLD_M / 2;
     const p0x = Math.floor((mx0 - PCELL) / PCELL), p1x = Math.floor((mx0 + WORLD_M + PCELL) / PCELL);
     const p0y = Math.floor((my0 - PCELL) / PCELL), p1y = Math.floor((my0 + WORLD_M + PCELL) / PCELL);
-    for (let py2 = p0y; py2 <= p1y; py2++)
+    for (let py2 = p0y; py2 <= p1y; py2++) {
       for (let px2 = p0x; px2 <= p1x; px2++) {
         const s2 = poiSeat(px2, py2);
         if (!s2 || POI_FLAVOUR.has(s2.rawType)) continue;
@@ -1002,9 +1024,43 @@ function createWorldFeatures(ctx) {
         if (!nb) { nb = worldBucketNamer(wx, wy, bucket, reg.used); buckets.set(bucket, nb); }
         m.set(px2 + "," + py2, nb());
       }
-    reg.pNames = m;
-    _wnPersist(wx, wy, reg); // freshly computed — remember it for future boots
+      yield [py2 - p0y + 1, p1y - p0y + 1];
+    }
+    if (!reg.pNames) { // see _settleSteps' publish guard
+      reg.pNames = m;
+      _wnPersist(wx, wy, reg); // freshly computed — remember it for future boots
+    }
+  }
+  function worldPoiPass(wx, wy) {
+    const reg = worldSettlePass(wx, wy);
+    for (const _ of _poiSteps(wx, wy, reg)) { /* drain synchronously */ }
     return reg;
+  }
+  // Async boot warm-up for the world holding MAP point (mx,my): the same two
+  // passes, but yielding to the compositor every ~40ms with a real progress
+  // fraction — the loading bar's "Naming the world…" stage. tick() gets
+  // 0..0.5 through settlements, 0.5..1 through POIs. Instant no-op when the
+  // registry is already computed/hydrated (every warm boot).
+  async function genWorldNamesAsync(mx, my, tick) {
+    const [wx, wy] = worldOfMap(mx, my);
+    const reg = worldReg(wx, wy);
+    // _bootYield (main/state.js): paints when visible, hidden-tab-safe
+    const paint = typeof _bootYield === "function" ? _bootYield
+      : () => new Promise(r => setTimeout(r, 0));
+    let last = performance.now();
+    for (const [row, rows] of _settleSteps(wx, wy, reg))
+      if (performance.now() - last > 40) {
+        if (tick) tick(0.5 * (row / rows));
+        await paint();
+        last = performance.now();
+      }
+    for (const [row, rows] of _poiSteps(wx, wy, reg))
+      if (performance.now() - last > 40) {
+        if (tick) tick(0.5 + 0.5 * (row / rows));
+        await paint();
+        last = performance.now();
+      }
+    if (tick) tick(1);
   }
   // ---- registry persistence (IndexedDB) ------------------------------------
   // A freshly computed world registry is written to IDB and restored on
@@ -1012,10 +1068,25 @@ function createWorldFeatures(ctx) {
   // ~8s full-world POI pass is paid once per world EVER, not per session.
   // Map.html reads the same store and shows the exact in-game names instead
   // of recomputing with its (drifted) terrain copy. Pure deterministic data.
-  const _WN_DB = 'ioe-worldnames-v1';
+  // AUTO-VERSIONED alongside the chunk/map caches (2026-09-16): village and
+  // POI names anchor to features/terrain output, so a world-gen change must
+  // re-key the registry too (a ~8s regen per visited world, only after a
+  // REAL generation change). Read lazily so workers — which importScripts
+  // this file and receive the signature via their init message — agree with
+  // the main thread on the store name.
+  const _wnDbName = () =>
+    'ioe-worldnames-' + (typeof WORLDGEN_SIG !== 'undefined' ? WORLDGEN_SIG : 'dev');
+  try {
+    if (typeof indexedDB !== 'undefined' && indexedDB.databases)
+      indexedDB.databases().then(dbs => {
+        for (const d of dbs || [])
+          if (d && d.name && d.name.startsWith('ioe-worldnames-') && d.name !== _wnDbName())
+            try { indexedDB.deleteDatabase(d.name); } catch (e) { /* best effort */ }
+      }).catch(() => { /* enumeration unsupported */ });
+  } catch (e) { /* best effort */ }
   function _wnOpen() {
     return new Promise((res, rej) => {
-      const r = indexedDB.open(_WN_DB, 1);
+      const r = indexedDB.open(_wnDbName(), 1);
       r.onupgradeneeded = e => e.target.result.createObjectStore('w');
       r.onsuccess = () => res(r.result);
       r.onerror = () => rej(r.error);
@@ -1623,6 +1694,7 @@ function createWorldFeatures(ctx) {
       const x = pgx * PORTAL_CELL + 10 + Math.floor(rand2(pgx * 7 + i, pgy, S ^ 0x7a01) * (PORTAL_CELL - 20));
       const y = pgy * PORTAL_CELL + 10 + Math.floor(rand2(pgx, pgy * 7 + i, S ^ 0x7a02) * (PORTAL_CELL - 20));
       if (elevation(x, y) < LAND_E || riverNearPt(x, y, 2)) continue;
+      if (tutIsleAtMap(x, y)) continue; // the isle stamps its own portal (chunks.js)
       if (villageClearMapAt(x, y)) c = { x, y, pri: rand2(pgx, pgy, S ^ 0x7a03) };
     }
     portalCandCache.set(key, c);
@@ -1667,7 +1739,8 @@ function createWorldFeatures(ctx) {
       const y = pcy * PCELL + 5 + Math.floor(rand2(pcx, pcy, S ^ 0x9102) * (PCELL - 10));
       const e = elevation(x, y);
       if (rand2(pcx, pcy, S ^ 0x9103) < 0.30 + civField(x, y) * 0.30 &&
-          e >= LAND_E && !riverNearPt(x, y, 2) && villageClearMapAt(x, y)) {
+          e >= LAND_E && !riverNearPt(x, y, 2) && villageClearMapAt(x, y) &&
+          !tutIsleAtMap(x, y)) { // the tutorial isle is hand-built (terrain.js)
         const b = biomeAtTile(x, y);
         const pick = rand2(pcx, pcy, S ^ 0x9104);
         const pick2 = rand2(pcx, pcy, S ^ 0x9109);
@@ -1748,7 +1821,8 @@ function createWorldFeatures(ctx) {
     let icon = null;
     const x = icx * ICELL + 8 + Math.floor(rand2(icx, icy, S ^ 0x1c02) * (ICELL - 16));
     const y = icy * ICELL + 8 + Math.floor(rand2(icx, icy, S ^ 0x1c03) * (ICELL - 16));
-    if (rand2(icx, icy, S ^ 0x1c01) < 0.2 + civField(x, y) * 0.6) {
+    // no wilderness clusters/camps on the hand-built tutorial isle (terrain.js)
+    if (!tutIsleAtMap(x, y) && rand2(icx, icy, S ^ 0x1c01) < 0.2 + civField(x, y) * 0.6) {
       const b = biomeAtTile(x, y);
       const pick = rand2(icx, icy, S ^ 0x1c04);
       let type = null;
@@ -1880,7 +1954,14 @@ function createWorldFeatures(ctx) {
 
   function biomeGround(b, x, y) {
     const acol = BIOME_ATLAS_COL[b] ?? 0;
-    const av = atlasVariantAt(x, y);
+    // WATER biomes (Deep 0 / Sea 1 / Reef 21) get ONE fixed variant each:
+    // the per-tile atlasVariantAt roll dithered open water across clashing
+    // blue arts (render3d's bg_* fallback tints) and every sea/river read as
+    // a checkerboard instead of a surface. Land keeps the roll — its variant
+    // arts are same-design tints and the dither reads as organic texture.
+    // (Literals, not WATER_BIOME_IDS — this also runs in the road worker,
+    // which never loads biome-tiles.js.)
+    const av = b === 0 ? 1 : b === 1 ? 0 : b === 21 ? 2 : atlasVariantAt(x, y);
     return `at_${b}_${av}_${acol}`;
   }
   // [treeDensity, treeSprOverride, rockDensity, decor: [sprite, density, blocked]]
@@ -2106,6 +2187,20 @@ function createWorldFeatures(ctx) {
         }
         if (!inTown) out.push({ x: mx, y: my, type: "bank" });
       }
+    // Tūhura Isle: the tutorial's stamped bank chests + the arrival pier.
+    // The stamps live in gameplay/tutorial.js in GAME tiles — halve into map
+    // coords. typeof-guarded: tutorial.js evaluates after this file in the
+    // bundle, but icon queries only run at draw time.
+    if (typeof TUT_CONTENT !== "undefined" && typeof TUT_ISLE !== "undefined") {
+      const B = TUT_ISLE.bbox;
+      if (B.x1 >= tx0 && B.x0 <= tx1 && B.y1 >= ty0 && B.y0 <= ty1) {
+        for (const st of TUT_CONTENT.stamps)
+          if (st.node === "bank") out.push({ x: st.x / 2, y: st.y / 2, type: "bank" });
+        // pier icon mid-deck along pod 14's outward radial (k=22 game tiles)
+        const hp = TUT_ISLE.pods[14], ha = hp.ang * Math.PI / 180;
+        out.push({ x: hp.mx + Math.cos(ha) * 11, y: hp.my + Math.sin(ha) * 11, type: "pier" });
+      }
+    }
     const c0x=Math.floor(tx0/ICELL), c1x=Math.floor(tx1/ICELL);
     const c0y=Math.floor(ty0/ICELL), c1y=Math.floor(ty1/ICELL);
     for (let cy2=c0y; cy2<=c1y; cy2++)
@@ -2117,7 +2212,7 @@ function createWorldFeatures(ctx) {
     DEEP_E, GRID8, ROAD_W, gridRoute, shapePath, polyBBox, waterBody, riverTrace,
     lakeFill, lakeOutflows, riversNear, roadsNear, nearPoly, riverNearPt, riverSourceAt,
     riverAtPt, solidDoorX, riverDoors, riverFlowAt, _roadWarm, _roadCellInject,
-    roadNearPt, riverNear, roadNear, bankNetId, bankNetAt, bankNetInfo, roadNetId, mainBranchFor, _roadNetTrace, _edgeSeaSpans, worldOf, _worldNameDump, preloadWorldNames, macroPixels, genName, villageInfo, villagesNear,
+    roadNearPt, riverNear, roadNear, bankNetId, bankNetAt, bankNetInfo, roadNetId, mainBranchFor, _roadNetTrace, _edgeSeaSpans, worldOf, _worldNameDump, preloadWorldNames, genWorldNamesAsync, macroPixels, genName, villageInfo, villagesNear,
     poiInfo, wildIcon, atlasVariantAt, personalityAt, biomeGround, BIOME_VEG,
     GRASS_LIKE_B, FOREST_LIKE_B, DESERT_LIKE_B, ROCK_LIKE_B, SWAMP_LIKE_B,
     WATER_LIKE_B, localTierCap, rollTier, villageForMap, villagesNearForMap,

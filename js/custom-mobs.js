@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — custom mob sprites & bestiary expansion =====
+// ===== Taiao — custom mob sprites & bestiary expansion =====
 // 18 new regular mobs + 33 unique bosses using hand-crafted pixel art sprites.
 // Loaded after content.js (so MONSTERS/BIOME_MOB_NAMES exist) and before world.js
 // (so resolveBiomeMobs picks up the extended spawn lists).
@@ -137,10 +137,10 @@ const CM_MOBS = [
   ["deep_shade",    "Deep Shade",     32, 103, 11, 26, 2100, true,  0.85,
     [_coinDrop(14,48), { id:"air_rune",min:2,max:5,ch:0.25 }], "cms_deep_shade", 30000, 395],
   ["bone_crawler",  "Bone Crawler",   36, 115, 13, 29, 2100, true,  0.8,
-    [_coinDrop(16,55), { id:"arrows",min:8,max:18,ch:0.35 }], "cms_bone_crawler", 32000, 450],
+    [_coinDrop(16,55), { id:"arrow_iron",min:8,max:18,ch:0.35 }], "cms_bone_crawler", 32000, 450],
   // ── High range (lvl 45–95) ──
   ["shadow_pirate", "Shadow Pirate",  45, 143, 16, 36, 1900, true,  0.95,
-    [_coinDrop(22,75), { id:"iron_ore",min:1,max:3,ch:0.25 }, { id:"arrows",min:6,max:15,ch:0.25 }], "cms_shadow_pirate", 36000, 570],
+    [_coinDrop(22,75), { id:"iron_ore",min:1,max:3,ch:0.25 }, { id:"arrow_iron",min:6,max:15,ch:0.25 }], "cms_shadow_pirate", 36000, 570],
   ["ember_skull",   "Ember Skull",    55, 174, 19, 44, 2000, true,  0.75,
     [_coinDrop(30,95), { id:"fire_rune",min:4,max:10,ch:0.45 }, { id:"action_rune",min:2,max:5,ch:0.25 }], "cms_ember_skull", 42000, 705],
   ["blazesprite",   "Blazesprite",    70, 221, 25, 56, 1900, true,  0.7,
@@ -223,7 +223,7 @@ const CM_BOSSES = [
   ["fire_drake",       "Fire Drake",       280, 2.9, "d", "cmb_fire_drake",
     [{ id:"gold_sword",min:1,max:1,ch:0.2 }, { id:"gem_amulet",min:1,max:1,ch:0.2 }]],
   ["bone_wyrm",        "Bone Wyrm",        285, 2.9, "u", "cmb_bone_wyrm",
-    [{ id:"arrows",min:25,max:50,ch:0.8 }, { id:"gem_amulet",min:1,max:1,ch:0.22 }]],
+    [{ id:"arrow_iron",min:25,max:50,ch:0.8 }, { id:"gem_amulet",min:1,max:1,ch:0.22 }]],
   ["demon_eye",        "Demon Eye",        290, 2.8, "m", "cmb_demon_eye",
     [{ id:"gem",min:5,max:10,ch:0.7 }, { id:"gem_amulet",min:1,max:1,ch:0.25 }]],
 

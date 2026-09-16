@@ -1,12 +1,25 @@
-// ===== Isle of Emberfall — farming =====
+// ===== Taiao — farming =====
 "use strict";
+
+// Crops follow the wild-resource batch model (user request 2026-09-15): planting
+// costs 5 seeds, a mature plot yields 5-10 crops, each harvested crop has a 0.6
+// chance to also drop a seed back, and crops grow CROP_GROW_MULT× longer to match
+// the bigger harvest. cropGrowMs is the SINGLE source of a crop's true grow time —
+// the maturity checks here AND render3d's growth-stage art both read it, so the
+// on-screen stages stay in sync with when the crop is actually harvestable.
+const CROP_GROW_MULT = 3;
+const CROP_SEED_COST = 5;              // seeds to plant one plot
+const CROP_YIELD = [5, 10];            // harvest count per mature plot
+const CROP_SEED_RETURN = 0.6;          // chance PER harvested crop to also drop a seed
+const CROP_HARVEST_TICK = 1200;        // ms per crop — harvested ONE at a time, like a tree/rock
+function cropGrowMs(crop) { return ((crop && crop.time) || 0) * CROP_GROW_MULT; }
 
 // Callers (1):
 //  gameplay/pathing.js:73
 function useFarmPlot(node) {
   if (node.crop) {
     const crop = CROPS[node.crop.kind];
-    const mature = now >= node.crop.plantedAt + crop.time;
+    const mature = now >= node.crop.plantedAt + cropGrowMs(crop);
     // Pomiculture fruit tree: pick fruit when ripe, then chop the bare tree for logs
     if (crop.tree) {
       if (!mature) { log("The fruit tree is still growing...", "sys"); return; }
@@ -45,7 +58,7 @@ function useFarmPlot(node) {
 function tickTill(act) {
   const node = act.node;
   node.tilled = true;
-  if (node.skill) addXp(node.skill, 6);
+  addXp("Farming", 6);   // tilling trains the single Farming skill (node.skill is the field's crop CATEGORY, not a skill)
   if (world.persistAt) world.persistAt(node.x, node.y);
   log("You till the soil — it's ready for seeds.");
   player.act = null;
@@ -55,15 +68,17 @@ function tickTill(act) {
 //  main/ui.js:277
 function plantCrop(node, kind) {
   const crop = CROPS[kind];
-  const sk = crop.skill || "Farming";
-  // each field is dedicated to ONE agriculture skill; only its seeds take here
-  if (node.skill && crop.skill && crop.skill !== node.skill) {
+  const sk = crop.skill || "Farming";   // one Farming skill trains ALL crops now
+  // each field grows ONE CATEGORY of crop (its soil type, node.skill); the five
+  // categories (Cerealiculture/Olericulture/… — no longer separate skills, just
+  // crop groups) still restrict which seeds take in which soil.
+  if (node.skill && crop.cat && crop.cat !== node.skill) {
     log(`Only ${node.skill} crops grow in this field.`, "warn"); return;
   }
   if (node.tilled === false) { log("Till the soil with a hoe first.", "warn"); return; }
   if (skillLvl(sk) < crop.req) { log(`You need ${sk} level ${crop.req} for that.`, "warn"); return; }
-  if (countItem(crop.seed) < 1) { log("You don't have the seeds.", "warn"); return; }
-  removeItem(crop.seed, 1);
+  if (countItem(crop.seed) < CROP_SEED_COST) { log(`You need ${CROP_SEED_COST} ${ITEMS[crop.seed].name.toLowerCase()} to sow this plot.`, "warn"); return; }
+  removeItem(crop.seed, CROP_SEED_COST);
   node.crop = { kind, plantedAt: now };
   addXp(sk, crop.plantXp);
   if (world.persistAt) world.persistAt(node.x, node.y); // survive a refresh right after planting
@@ -76,23 +91,29 @@ function tickHarvest(act) {
   const node = act.node;
   if (!node.crop) { player.act = null; return; }
   const crop = CROPS[node.crop.kind];
-  if (now < node.crop.plantedAt + crop.time) { player.act = null; return; }
-  const qty = crop.yield[0] + Math.floor(Math.random() * (crop.yield[1] - crop.yield[0] + 1));
-  if (!addItem(crop.item, qty)) { log("Your inventory is full.", "warn"); player.act = null; return; }
+  if (now < node.crop.plantedAt + cropGrowMs(crop)) { player.act = null; return; }
+  // A mature plot yields 5-10 crops harvested ONE AT A TIME — like felling a tree
+  // or mining a rock. Roll the batch on the first pull, then take one per tick.
+  if (node.crop.left == null)
+    node.crop.left = CROP_YIELD[0] + Math.floor(Math.random() * (CROP_YIELD[1] - CROP_YIELD[0] + 1));
+  if (!addItem(crop.item, 1)) { log("Your inventory is full.", "warn"); player.act = null; return; }
   addXp(crop.skill || "Farming", crop.xp);
-  // self-seeding: a harvest returns a seed or two so farming is sustainable
-  addItem(crop.seed, 1 + (Math.random() < 0.5 ? 1 : 0));
-  if (crop.tree) {
-    // fruit tree keeps standing (now bare); pick removes the fruit only. Record
-    // when it was picked so it can be re-fruited with a watering can after the
-    // standard tiered respawn time (waterFruitTree below).
-    node.crop.picked = true;
-    node.crop.pickedAt = now;
-    log(`You pick the ${crop.name} — ${ITEMS[crop.item].name} x${qty}. The tree stands bare; water it later to regrow the fruit.`);
-  } else {
-    log(`You harvest: ${ITEMS[crop.item].name} x${qty}.`);
-    node.crop = null;
+  if (typeof Tutorial !== "undefined" && Tutorial.onHarvest) Tutorial.onHarvest(node.crop.kind, crop.item, 1);
+  if (Math.random() < CROP_SEED_RETURN) addItem(crop.seed, 1); // per-crop self-seeding
+  node.crop.left -= 1;
+  log(`You harvest: ${ITEMS[crop.item].name}.`);
+  if (node.crop.left > 0) {                       // more crops on the plot — keep going
+    if (world.persistAt) world.persistAt(node.x, node.y);
+    act.nextAt = now + CROP_HARVEST_TICK;
+    return;
   }
+  // plot exhausted
+  if (crop.tree) {
+    // fruit tree keeps standing (now bare); re-fruit it with a watering can later
+    // (waterFruitTree). left cleared so a regrown tree rolls a fresh batch.
+    node.crop.picked = true; node.crop.pickedAt = now; node.crop.left = null;
+    log("The tree stands bare — water it later to regrow the fruit.");
+  } else node.crop = null;
   if (world.persistAt) world.persistAt(node.x, node.y); // persist the harvested/bare state
   player.act = null;
 }

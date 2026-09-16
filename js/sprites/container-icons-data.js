@@ -1,9 +1,9 @@
-// ===== Isle of Emberfall - bucket/pail item icons (generated) =====
+// ===== Taiao - bucket/pail item icons (generated) =====
 // Real art for the two dairy-container items, repointed over the tinted
 // placeholder sprites set in js/skills/husbandry-animals.js. Loads after
 // item-icons-data.js so this wins. Sheet key "bp".
 "use strict";
-const CONTAINER_ICON_SHEET = "assets/sheets/69423342dfe9c974.webp";
+const CONTAINER_ICON_SHEET = "assets/sheet-src/bp-container-icons.webp";
 const CONTAINER_ICON_MAP = {"bucket":[0,0,64,64],"pail":[64,0,64,64]};
 (function(){
   if (typeof ASSET_DATA !== "undefined") ASSET_DATA.bp = CONTAINER_ICON_SHEET;

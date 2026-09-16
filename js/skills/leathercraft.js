@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Leatherworking · Cordwaining · Saddlery =====
+// ===== Taiao — Leatherworking · Cordwaining · Saddlery =====
 // Deepens the hide branch downstream of Tanning.
 //
 //   Husbandry hides → Tanning → leather ─┬─ Leatherworking → belts, bags, armour

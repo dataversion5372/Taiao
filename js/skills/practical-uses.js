@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — practical uses for the "paper" & "glass" trades =====
+// ===== Taiao — practical uses for the "paper" & "glass" trades =====
 // Gives more crafted goods a real job, the way soap (stink), candles (light) and
 // food (well-fed) do:
 //   • Bookbinding — READ a book to study: a burst of skill XP (consumed). Themed
@@ -14,7 +14,7 @@ var BOOK_SKILL = {
   scroll: "Magic", codex: "Magic", tome: "Magic", grimoire: "Magic", spellbook: "Magic",
   missal: "Magic", psalter: "Magic", bible: "Magic", jeweled_bible: "Magic",
   illuminated_manuscript: "Magic", master_grand_tome: "Magic",
-  herbal: "Herbiculture", almanac: "Cerealiculture", bestiary: "Foraging",
+  herbal: "Farming", almanac: "Farming", bestiary: "Foraging",
 };
 
 function lowestTrainableSkill() {

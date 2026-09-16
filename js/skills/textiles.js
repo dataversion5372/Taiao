@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Textiles chain (Phase 3) =====
+// ===== Taiao — Textiles chain (Phase 3) =====
 // Splits the old one-step Textiles skill into a real production chain of
 // recognisable trades:
 //

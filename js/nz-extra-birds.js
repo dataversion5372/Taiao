@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — NZ bird species (additive content) =====
+// ===== Taiao — NZ bird species (additive content) =====
 // Adds 25 native/extinct NZ birds as new monsters alongside the existing
 // fantasy bestiary (nothing removed). Three moa are renamed per request
 // (Kuraiti/Kurauta/Kuranui) and drop a new "raw moa" carcass item; Kuihi Nui
@@ -39,6 +39,9 @@ for (const [nm, sc] of Object.entries({
   "Kuranui": 2.8,
 })) SIZE[nm] = sc;
 
+// Flying species never self-aggro and never fight back (gameplay/birdflight.js
+// flushes them off instead) — the aggro column is false for every flier; the
+// flightless weka keeps its cheeky charge.
 const NZ_EXTRA_BIRDS = [
   ["kiwi", "Kiwi", 4, false, null, 0],
   ["titipounamu", "Titipounamu", 1, false, null, 0],
@@ -47,7 +50,7 @@ const NZ_EXTRA_BIRDS = [
   ["kotata", "Kōtātā", 3, false, null, 0],
   ["tui", "Tūī", 4, false, null, 0],
   ["kaka", "Kākā", 5, false, null, 0],
-  ["kea", "Kea", 6, true, null, 0],
+  ["kea", "Kea", 6, false, null, 0],
   ["ruru", "Ruru", 4, false, null, 0],
   ["koreke", "Koreke", 2, false, null, 0],
   ["weka", "Weka", 6, true, "raw_meat", 2],
@@ -58,14 +61,19 @@ const NZ_EXTRA_BIRDS = [
   ["kakapo", "Kākāpō", 8, false, null, 0],
   ["takapu", "Tākapu", 6, false, null, 0],
   ["huia", "Huia", 5, false, null, 0],
-  ["karearea", "Kārearea", 7, true, null, 0],
-  ["hakawai", "Hakawai", 14, true, null, 0],
-  ["pouakai", "Pouākai", 22, true, null, 0],
+  ["karearea", "Kārearea", 7, false, null, 0],
+  ["hakawai", "Hakawai", 14, false, null, 0],
+  ["pouakai", "Pouākai", 22, false, null, 0],
   ["kuihinui", "Tarepo", 8, false, null, 0],
   ["moaiti", "Kuraiti", 8, false, "raw_moa", 4],
   ["moauta", "Kurauta", 11, false, "raw_moa", 5],
   ["moanui", "Kuranui", 16, false, "raw_moa", 8],
 ];
+
+// Every native bird kind, fliers and flightless alike — read by the tutorial's
+// slay-birds goal (tutorial.js onKill) and the never-fight-back rules
+// (gameplay/birdflight.js).
+const NZ_BIRD_KINDS = new Set(NZ_EXTRA_BIRDS.map(b => b[0]));
 
 // killMonster()'s auto butcher-drop reads b.item (falling back to "raw_meat" if
 // unset) so moa yield "raw_moa" on death instead of the generic meat item.
@@ -102,6 +110,19 @@ const NZ_BIRD_BIOME_ADDS = {
   MOOR:   ["kea", "karearea"],
   STEPPE: ["kea", "karearea", "koreke"],
   CANYON: ["karearea", "kea"],
+  // wider spread so the fliers turn up across most of the world's biomes
+  JUNGLE: ["tui", "kereru", "kaka", "piwakawaka", "tieke"],
+  BAMBOO: ["tui", "piwakawaka", "kereru"],
+  CHERRY: ["tui", "piwakawaka", "kereru", "ruru"],
+  TAIGA:  ["kea", "karearea", "ruru"],
+  TUNDRA: ["kea", "karearea"],
+  GLACIER:["kea"],
+  SAVANNA:["karearea", "koreke"],
+  BADLANDS:["karearea"],
+  DESERT: ["karearea"],
+  OASIS:  ["pukeko", "putangitangi"],
+  MUSHROOM:["ruru", "piwakawaka"],
+  DREAM:  ["tui", "piwakawaka"],
 };
 for (const [bname, keys] of Object.entries(NZ_BIRD_BIOME_ADDS)) {
   if (!BIOME_MOB_NAMES[bname]) BIOME_MOB_NAMES[bname] = [];

@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - Pomiculture fruit inventory-icon sheet (32 fruits) =====
+// ===== Taiao - Pomiculture fruit inventory-icon sheet (32 fruits) =====
 // Slices a hand-made 8x4 fruit spritesheet into per-fruit icons on the "fi" sheet
 // and repoints every Pomiculture crop's harvest item icon (index i -> cell i,
 // matching the FRUIT order in js/skills/agriculture.js). The fruit-tree canopy
@@ -8,7 +8,7 @@
   if (typeof ASSET_DATA === "undefined") { try { window.ASSET_DATA = {}; } catch (e) { return; } }
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("fi")) SHEET_KEYS.push("fi");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["fi"] = 64;
-  ASSET_DATA["fi"] = "assets/sheets/1634e9dd1480cd72.webp";
+  ASSET_DATA["fi"] = "assets/sheet-src/fi-fruit-icons.webp";
   if (typeof SPR === "undefined" || typeof CROPS === "undefined") return;
   for (let i = 0; i < 32; i++) {
     const col = i % 8, row = (i / 8) | 0;

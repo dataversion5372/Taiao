@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — objects sheet as an icon source =====
+// ===== Taiao — objects sheet as an icon source =====
 // Registers the packed 8-directional world-object sheet (objects-data.js)
 // as icon sheet "ob", so furniture/placeable items can use their in-game
 // object's south frame as their inventory icon (SPR "fo_*" rects created in

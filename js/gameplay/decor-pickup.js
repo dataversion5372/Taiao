@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — picking up decoration objects =====
+// ===== Taiao — picking up decoration objects =====
 // Any decorative world object (barrels, statues, crates, urns, benches,
 // furniture, civic props…) can be picked up. It drops an item version of
 // itself into the inventory and its billboard vanishes, respawning after

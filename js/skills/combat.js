@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — combat skills =====
+// ===== Taiao — combat skills =====
 "use strict";
 
 // Callers (1):
@@ -123,7 +123,10 @@ function arrowFlight(tx, ty, targetH = 0.7) {
   }
   return { h0, h1, peak, hitT: 1 };
 }
-function clearShot(mon) { return arrowFlight(mon.x, mon.y).hitT >= 1; }
+function clearShot(mon) {
+  // a flying bird is aimed at its altitude, not the ground under it
+  return arrowFlight(mon.x, mon.y, 0.7 + (typeof birdAirY === "function" ? birdAirY(mon) : 0)).hitT >= 1;
+}
 // Where the monster will be when an arrow loosed now lands: replay its chase
 // stepper (monStepToward's preference order and speeds, honouring
 // mobPassable) for the flight's duration. A monster that isn't chasing is
@@ -131,6 +134,13 @@ function clearShot(mon) { return arrowFlight(mon.x, mon.y).hitT >= 1; }
 // Callers (1):
 //  skills/combat.js (playerAttack)
 function predictMonPos(mon, flightMs) {
+  // a bird on the wing flies a smooth continuous line, not tile steps: lead
+  // it along its current air velocity (birdflight.js keeps vx/vy in tiles/s)
+  if (mon.flight && mon.flight.mode === "air") {
+    const t = flightMs / 1000;
+    return { x: Math.round(mon.flight.fx + (mon.flight.vx || 0) * t),
+             y: Math.round(mon.flight.fy + (mon.flight.vy || 0) * t) };
+  }
   // a wanderer mid-step is led to where the stroll is taking it
   if (!mon.target || !mon.alive)
     return mon.moving ? { x: mon.moving.tx, y: mon.moving.ty } : { x: mon.x, y: mon.y };
@@ -296,15 +306,18 @@ function castOnce(mon, w, subs, verbs, mods, pot, durMult) {
   if (!mon || !mon.alive) return;
   const pierce = subs.some(s2 => s2.k === "spirit");
   const expose = mon.fx && now < mon.fx.exposeUntil ? 0.12 : 0;
+  const mb = (ITEMS[w].magicPower || 0) + amuletBonus();
+  // Spirit pierces armour: the target defends as if its def were 0
   const chance = mods.some(m2 => m2.k === "astral") ? 1 :
-    Math.min(0.95, Math.max(0.3, 0.72 + (eff("Magic") - (pierce ? 0 : monDef(mon))) * 0.03 + expose));
-  let mh = 2 + Math.floor(eff("Magic") / 4) + (ITEMS[w].magicPower || 0) + Math.round(pot) + amuletBonus();
+    Math.min(0.99, hitChance(combatRoll(eff("Magic"), mb),
+      pierce ? combatRoll(0, 0) : monDefRoll(mon)) + expose);
+  let mh = maxHitFor(eff("Magic"), mb) + Math.round(pot);
   if (has("strike")) mh = Math.round(mh * (1 + 0.3 * verbs.filter(v => v.k === "strike").length));
   if (has("bind")) mh = Math.round(mh * 0.8);
   if (has("ward")) mh = Math.round(mh * 0.5);
   if (has("void")) mh = Math.round(mh * 0.7);
   let dmg = Math.random() < chance ? Math.floor(Math.random() * (mh + 1)) : 0;
-  if (has("death")) dmg = Math.round(dmg * (1 + Math.max(0, 1 - mon.hp / MONSTERS[mon.kind].hp)));
+  if (has("death")) dmg = Math.round(dmg * (1 + Math.max(0, 1 - mon.hp / monMaxHp(mon.kind))));
   const landed = dmg > 0 || chance === 1;
   if (landed) {
     const fx = monFx(mon);
@@ -357,6 +370,7 @@ function applyRider(mon, fx, k, dmg, durMult) {
 function dealSpellDamage(mon, dmg) {
   if (monInvuln(mon)) { addSplat(mon, 0); return; } // sealed in Stasis
   if (mon.fx && now < mon.fx.brittleUntil) dmg = Math.round(dmg * 1.25);
+  dmg = Math.min(dmg, Math.max(0, mon.hp)); // fatal blow shows what was left, not overkill
   mon.hp -= dmg;
   mon.target = player;
   mon.hitAt = now;
@@ -501,13 +515,34 @@ function monBanish(mon) {
   mon.target = null;
 }
 // the monster's defence after any active sunder (earth aspect) — used by
-// EVERY combat style, so a mage shredding armour helps the whole fight
-// Callers (3): playerAttack (melee/archery/magic chance + archery soak)
+// EVERY combat style, so a mage shredding armour helps the whole fight.
+// Authored def values live on the OLD 1-99 stat scale (def ≈ 0.8×oldLvl, up
+// to ~76) while player skills cap at MAX_LEVEL (32) — compare them raw and
+// every monster past mid-tier pins the hit-chance clamp's floor, so a level
+// 13 and a level 32 fighter land blows at the same rate. Scale def onto the
+// player's ladder here, at the one choke point all three styles share.
+// Callers: monDefRoll (the defence roll every style's accuracy opposes)
 function monDef(mon) {
-  const base = MONSTERS[mon.kind].def;
+  const base = Math.round(MONSTERS[mon.kind].def * LEVEL_SCALE);
   const fx = mon.fx;
   return Math.max(0, base - (fx && now < fx.sunderUntil ? fx.sunderAmt : 0));
 }
+// ---------- RuneScape-style combat rolls, rescaled to the 32 ladder ----------
+// RS: effective level = lvl+8; attack/defence roll = effLvl*(bonus+64);
+// max hit = floor(0.5 + effStr*(strBonus+64)/640); hit chance =
+// atk>def ? 1-(def+2)/(2*(atk+1)) : atk/(2*(def+1)). Rescaled ×32/99:
+// the +8 effective-level bump → +3; the 64 equipment pivot → 16 (Taiao
+// gear bonuses run 0..~30 where RS's run 0..~120); the 640 max-hit divisor
+// → 40, tuned so a maxed fighter's ~35 max hit suits monster hp (which stays
+// authored on the old 1-99 stat scale). Melee is this game's Attack: it
+// drives the roll to LAND a blow; Strength drives the max hit. Archery and
+// Magic each play both roles for their own style, as in RS.
+function combatRoll(lvl, bonus) { return (lvl + 3) * (bonus + 16); }
+function monDefRoll(mon) { return combatRoll(monDef(mon), 0); }
+function hitChance(atk, def) {
+  return atk > def ? 1 - (def + 2) / (2 * (atk + 1)) : atk / (2 * (def + 1));
+}
+function maxHitFor(lvl, bonus) { return Math.max(1, Math.floor(0.5 + combatRoll(lvl, bonus) / 40)); }
 function monFx(mon) { return mon.fx || (mon.fx = {}); }
 // shove the monster directly away from the player, stopping at anything it
 // couldn't legally walk through (its own passability rules)
@@ -535,9 +570,12 @@ function playerAttack(mon) {
   // offhand dagger ready the attack drops the bow/wand for the blade this
   // swing (a mage without one weaves on regardless — Gale Slams answer
   // crowding their own way)
+  // a bird on the wing (or up a roof/canopy) is beyond any blade — only a
+  // shot can reach it, so the crowded-archer sidearm switch stays holstered
+  const airborne = typeof birdAirborne === "function" && birdAirborne(mon);
   let offhand = null;
-  if (style !== "melee" && dist <= 1 && (offhand = offhandWeapon())) style = "melee";
-  let atkSkill, maxHit, chance, atkMs;
+  if (style !== "melee" && dist <= 1 && !airborne && (offhand = offhandWeapon())) style = "melee";
+  let maxHit, chance, atkMs;
   if (style === "archery") {
     const w = player.equip.weapon;
     const bp = w ? (ITEMS[w].bowPower || 0) : 0;
@@ -562,8 +600,7 @@ function playerAttack(mon) {
     // Inside the bow's sweet spot (half its range) a shot flies flat and
     // hard; past it the arc steepens and the arrow sheds speed, so both the
     // chance to hit and the damage bleed off toward maximum reach. The
-    // monster's toughness (def) works on both ends too: harder to land a
-    // telling hit, and its hide shaves the top off what gets through.
+    // monster's toughness (def) opposes the bow's roll RS-style (monDefRoll).
     // Leading a MOVING target is its own skill: an extra penalty that
     // Archery level trains away (~25% at level 1, gone by the high 20s).
     const range = ITEMS[w].range || 8;
@@ -571,10 +608,14 @@ function playerAttack(mon) {
     const far = Math.max(0, aimDist - sweet);
     const leading = aim.x !== mon.x || aim.y !== mon.y;
     const leadPen = leading ? Math.max(0, 0.25 - eff("Archery") * 0.008) : 0;
-    chance = Math.min(0.95, Math.max(0.15, 0.72 + (eff("Archery") - monDef(mon)) * 0.03 - far * 0.05 - leadPen
+    // RS ranged split: the bow is the accuracy bonus, the arrow the ranged-
+    // strength bonus (it rides the max hit, with the bow's power on top)
+    chance = Math.min(0.99, Math.max(0.05,
+      hitChance(combatRoll(eff("Archery"), bp + amuletBonus()), monDefRoll(mon))
+      - far * 0.05 - leadPen
       + (mon.fx && now < mon.fx.exposeUntil ? 0.12 : 0))); // Light-exposed
-    maxHit = 1 + Math.floor(eff("Archery") / 4) + bp + ITEMS[arrow].arrowPower + amuletBonus();
-    maxHit = Math.max(1, Math.round(maxHit * (1 - 0.45 * far / Math.max(1, range - sweet))) - Math.floor(monDef(mon) / 6));
+    maxHit = maxHitFor(eff("Archery"), bp + ITEMS[arrow].arrowPower + amuletBonus());
+    maxHit = Math.max(1, Math.round(maxHit * (1 - 0.45 * far / Math.max(1, range - sweet))));
     const hit = Math.random() < chance;
     const dmg = hit ? Math.floor(Math.random() * (maxHit + 1)) : 0;
     // A successful shot flies to the predicted tile (body height); a failed
@@ -588,7 +629,8 @@ function playerAttack(mon) {
         land = { x: mon.x + sc[0], y: mon.y + sc[1] };
       }
     }
-    const fl = arrowFlight(land.x, land.y, hit ? 0.7 : 0.15);
+    const fl = arrowFlight(land.x, land.y,
+      hit ? 0.7 + (typeof birdAirY === "function" ? birdAirY(mon) : 0) : 0.15);
     flight = 100 + Math.max(1, Math.max(Math.abs(land.x - player.x), Math.abs(land.y - player.y))) * 35;
     // damage, aggro, XP and the kill all resolve when the arrow LANDS
     // (tickArrows) — an arc into a wall (hitT < 1) hurts nothing
@@ -636,25 +678,36 @@ function playerAttack(mon) {
     uiDirty = true;
     return;
   } else {
-    atkSkill = "Melee";
+    if (airborne) {
+      log(`The ${def.name} is on the wing — only an arrow can reach it.`, "warn");
+      player.act = null;
+      return;
+    }
     // the offhand dagger strikes when an archer is crowded; otherwise the
     // main-hand weapon (or bare fists) as always
     const wid = offhand || player.equip.weapon;
     const wp = wid ? (ITEMS[wid].power || 0) : 0;
-    maxHit = 2 + Math.floor(eff("Strength") / 4) + wp + amuletBonus();
+    // RS split: Melee (this game's Attack) rolls to land the blow against
+    // the monster's defence roll; Strength alone sets how hard it can land
+    chance = hitChance(combatRoll(eff("Melee"), wp + amuletBonus()), monDefRoll(mon));
+    maxHit = maxHitFor(eff("Strength"), wp + amuletBonus());
+    // the weapon sets the swing cadence (geartiers atkTick: light blades
+    // fast, heavy iron slow); bare fists and un-ticked relics swing at 1500
+    atkMs = (wid && ITEMS[wid].atkTick) || 1500;
   }
-  // melee and magic resolve instantly (archery returned above — its damage
-  // lands with the arrow, in tickArrows)
-  player.nextAtkAt = now + (style === "melee" ? 1500 : 1700);
+  // melee resolves instantly (archery and magic returned above — an arrow's
+  // damage lands with the arrow, in tickArrows)
+  player.nextAtkAt = now + atkMs;
   player.lungeT = now;
   player.lungeDir = [Math.sign(mon.x - player.x), Math.sign(mon.y - player.y)];
   player.facing = mon.px >= player.px ? 1 : -1;
   // Light-exposed targets are easier to hit truly; Bone-brittled take more
   const xpo = mon.fx && now < mon.fx.exposeUntil ? 0.12 : 0;
-  if (chance === undefined) chance = Math.min(0.95, Math.max(0.3, 0.72 + (eff(atkSkill) - monDef(mon)) * 0.03 + xpo));
+  chance = Math.min(0.99, chance + xpo);
   let dmg = Math.random() < chance ? Math.floor(Math.random() * (maxHit + 1)) : 0;
   if (dmg > 0 && mon.fx && now < mon.fx.brittleUntil) dmg = Math.round(dmg * 1.25);
   if (monInvuln(mon)) dmg = 0; // sealed in Stasis
+  dmg = Math.min(dmg, Math.max(0, mon.hp)); // fatal blow shows what was left, not overkill
   breakVanish();
   mon.hp -= dmg;
   mon.target = player;
@@ -687,17 +740,20 @@ function tickArrows() {
     const mon = p.mon;
     if (!mon || !mon.alive) continue; // target died to an earlier arrow
     const near = Math.max(Math.abs(p.lx - mon.x), Math.abs(p.ly - mon.y)) <= 4;
-    // A calm monster is only alerted by a hit or a close near-miss — but one
-    // already in the chase KNOWS it's under fire: any arrow aimed at it
-    // refreshes the pursuit, even one thudding down well behind its charge
-    // (fast chargers outran the 4-tile near-miss radius during long flights,
-    // let the 8s leash lapse mid-run, and gave up halfway to the archer).
-    if (p.dmg > 0 || near || mon.target === player) { mon.target = player; mon.hitAt = now; }
+    // A flying bird must NOT be scared off by a MISS: birdflight.js flushes any
+    // flier that holds a target, so a near-miss used to send the bird flapping
+    // away even though the arrow landed in the dirt beside it (the reported bug).
+    // Only a real HIT sets a flier's target now. Ground monsters keep the old
+    // behaviour: a calm one is alerted by a hit or a close near-miss, and one
+    // already in the chase (mon.target === player) stays alerted by any arrow.
+    const flier = typeof birdCfg === "function" && !!birdCfg(mon);
+    if (p.dmg > 0 || (!flier && (near || mon.target === player))) { mon.target = player; mon.hitAt = now; }
     if (p.dmg <= 0) sfx("arrowmiss", 0.45);
     if (p.dmg > 0 && monInvuln(mon)) { addSplat(mon, 0); sfx("arrowmiss", 0.45); continue; } // arrows shatter on Stasis
     if (p.dmg > 0) {
       let ad = p.dmg;
       if (mon.fx && now < mon.fx.brittleUntil) ad = Math.round(ad * 1.25); // Bone-brittled
+      ad = Math.min(ad, Math.max(0, mon.hp)); // fatal arrow shows what was left, not overkill
       mon.hp -= ad;
       addSplat(mon, ad);
       sfx("arrowhit", 0.6);
@@ -742,6 +798,7 @@ function killMonster(mon) {
   if (!player.kills) player.kills = {};
   player.kills[mon.kind] = (player.kills[mon.kind] || 0) + 1;
   if (typeof Quests !== "undefined") Quests.onKill(mon.kind);   // quest slay objectives
+  if (typeof Tutorial !== "undefined" && Tutorial.onKill) Tutorial.onKill(mon.kind); // isle stage task
   // Monsters respawn on the same level-based curve as resource nodes
   // (data.js respawnFor): lvl1 ~7s … lvl32 5min, keyed on the monster's
   // combat level. Falls back to the def's own respawn if the curve or level
@@ -776,19 +833,27 @@ function killMonster(mon) {
 // Callers (1):
 //  gameplay/monsters.js:33
 function monsterAttack(mon) {
+  if (player.dying) return; // no beating the corpse during the death linger
   const def = MONSTERS[mon.kind];
   const mfx = mon.fx;
   // Law forbids the blow; Petrify freezes it mid-swing
   if (mfx && (now < mfx.pacifyUntil || now < mfx.stunUntil)) { mon.nextAtkAt = now + 700; return; }
   mon.nextAtkAt = now + def.atkTick;
   mon.lungeT = now;
-  let chance = Math.max(0.12, 0.55 - blockTotal() - eff("Defence") * 0.005);
+  // RS-style contest: the monster's (scaled) level is its Attack; the
+  // player's defence roll is Defence level × armour, RS-fashion. The armour
+  // block fraction (0..~0.8 across every worn piece + shield) maps onto the
+  // equipment-pivot scale ×64: a full set of your own tier (~0.4 block)
+  // roughly triples the naked roll, a top plate-and-tower loadout (~0.8 →
+  // +51 vs the 16 pivot) quintuples it — the same way rune-through-godwars
+  // gear scales defence rolls in RS. Armour works ONLY through this roll
+  // (you get hit LESS, not softer): the old flat soak existed to keep plate
+  // relevant past the old dodge floor, which no longer exists. The monster's
+  // max hit is compressed to the 32 ladder (monMaxHit) like its hp/def.
+  let chance = Math.max(0.05, hitChance(combatRoll(def.lvl, 0),
+    combatRoll(eff("Defence"), Math.round(blockTotal() * 64))));
   if (mfx && now < mfx.blindUntil) chance *= 0.4; // veiled eyes swing wide
-  let dmg = Math.random() < chance ? Math.floor(Math.random() * (def.maxHit + 1)) : 0;
-  // heavier armour also blunts the hits that DO land — a flat soak scaling
-  // with total block, so high-tier plate keeps mattering after the dodge
-  // chance bottoms out at its 0.12 floor (full top-tier set soaks ~2)
-  if (dmg > 0) dmg = Math.max(0, dmg - Math.round(blockTotal() * 4));
+  let dmg = Math.random() < chance ? Math.floor(Math.random() * (monMaxHit(mon.kind) + 1)) : 0;
   // an active Ward (magic verb) soaks the hit before flesh does
   if (dmg > 0 && player.ward && now < player.ward.until && player.ward.hp > 0) {
     const ab = Math.min(dmg, player.ward.hp);
@@ -798,6 +863,7 @@ function monsterAttack(mon) {
   // per-character toughness (character-stats.js): stouter/armoured races soak a
   // fraction of the damage that gets through armour and wards.
   if (dmg > 0 && typeof charToughness === "function") dmg = Math.max(0, Math.round(dmg * (1 - charToughness())));
+  dmg = Math.min(dmg, Math.max(0, player.hp)); // fatal blow shows the HP you had left, not overkill
   player.hp -= dmg;
   addSplat(player, dmg);
   sfx(dmg > 0 ? "hurt" : "swing", dmg > 0 ? 0.7 : 0.3);
@@ -809,22 +875,80 @@ function monsterAttack(mon) {
   if (player.hp <= 0) playerDie(def.name);
 }
 
-// Callers (2):
-//  skills/combat.js:105 skills/thieving.js:38
+// How long the corpse (and the killing blow's hitsplat, which fades over
+// 900ms) stays on screen before the respawn teleport to town.
+const DEATH_LINGER = 1200;
+
+// Callers (3):
+//  skills/combat.js:843 gameplay/movement.js:52,78
+// Two-phase death: this freezes the player at 0 HP so the killing blow is
+// actually seen landing; tickPlayerDying (stepPlayer) does the respawn after
+// DEATH_LINGER ms.
 function playerDie(by) {
+  if (player.dying) return; // already down — don't restart the linger
+  // split selves (gameplay/split.js): the ACTIVE body's death collapses the
+  // whole split — every echo dies with it, and the one who wakes carries the
+  // recombined xp. (A ghost's own death is absorbed by Split.tick instead.)
+  if (typeof Split !== "undefined") Split.onDeath();
+  player.dying = { at: now, by };
+  player.hp = 0;
   sfx("die", 0.8);
   log(`Oh dear, you were slain by the ${by}!`, "warn");
-  log("You wake up back in town.", "sys");
-  player.hp = maxHp();
   cancelAction();
   player.path = [];
   player.forced = null;
   player.sailing = null;
-  for (const m of monsters) if (m.target === player) { m.target = null; m.hp = MONSTERS[m.kind].hp; }
-  const s = world.playerStart;
+  player.moving = null;
+  for (const m of monsters) if (m.target === player) { m.target = null; m.hp = monMaxHp(m.kind); }
+  uiDirty = true;
+}
+
+// Callers (1):
+//  gameplay/movement.js (stepPlayer, every frame while player.dying)
+function tickPlayerDying() {
+  if (now - player.dying.at < DEATH_LINGER) return;
+  player.dying = null;
+  player.hp = maxHp();
+  player.act = null; // drop anything clicked mid-linger
+  player.path = [];
+  player.goal = null;
+  const s = respawnTile();
+  log(player.respawn ? `You wake up by the fountain in ${player.respawn.name}.` : "You wake up back in town.", "sys");
   player.x = s.x; player.y = s.y; player.px = PX(s.x); player.py = PX(s.y);
   player.moving = null;
   uiDirty = true;
+}
+
+// Where death sends the player: the chosen respawn city's fountain (nearest
+// open tile beside it — the fountain tile itself is blocked decor), or
+// Newhaven's playerStart when none is set. Forces the chunk in first so
+// passable() reads real collision, not void.
+function respawnTile() {
+  const r = player.respawn;
+  if (!r || typeof r.x !== "number") return world.playerStart;
+  world.getChunk(Math.floor(r.x / world.CHUNK), Math.floor(r.y / world.CHUNK));
+  for (let d = 1; d <= 4; d++)
+    for (let dy = -d; dy <= d; dy++)
+      for (let dx = -d; dx <= d; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== d) continue; // ring only
+        if (passable(r.x + dx, r.y + dy)) return { x: r.x + dx, y: r.y + dy };
+      }
+  return world.playerStart; // fountain somehow walled in — fall back safe
+}
+
+// Right-click "Set respawn point" on a city plaza fountain (input.js decor
+// menu). The fountain sits at the walled city's exact centre, so the nearest
+// walled village names the city.
+function setRespawnAt(x, y) {
+  let best = null, bd = Infinity;
+  for (const v of (world.walledVillagesNear ? world.walledVillagesNear(x, y, 40) : [])) {
+    const d = (v.x - x) * (v.x - x) + (v.y - y) * (v.y - y);
+    if (d < bd) { bd = d; best = v; }
+  }
+  const name = (best && best.name) || "this city";
+  player.respawn = { x, y, name };
+  log(`Respawn point set — when slain, you'll wake by the fountain in ${name}.`, "sys");
+  saveGame();
 }
 
 // Callers (1):
@@ -839,6 +963,15 @@ function tickCombat(act) {
   const style = combatStyle();
   const range = styleRange();
   const dist = Math.max(Math.abs(mon.x - player.x), Math.abs(mon.y - player.y));
+  // a flying bird can't be chased down on foot: don't march under it forever
+  if (style === "melee" && typeof birdAirborne === "function" && birdAirborne(mon)) {
+    if (!player._airLogAt || now - player._airLogAt > 3000) {
+      log(`The ${MONSTERS[mon.kind].name} is on the wing — you'll need a bow to bring it down.`, "warn");
+      player._airLogAt = now;
+    }
+    player.act = null;
+    return;
+  }
   // Shift+WASD combat footwork (movement.js) suspends the auto-pathing:
   // while the player is stepping manually, hold fire out of range or without
   // a clear arc instead of marching them back toward the target.

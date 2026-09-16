@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Charcoaling · Limeburning · Masonry =====
+// ===== Taiao — Charcoaling · Limeburning · Masonry =====
 // The stone-and-fuel branch of the economy, and the biggest consumer of Mining.
 //
 //   Woodcutting/Sawing → Charcoaling → charcoal (+ wood tar, wood ash)
@@ -64,7 +64,9 @@
     RECIPES.charcoaling.push({
       id: "char_" + log, out: "charcoal", qty: 2, name: "Char " + (ITEMS[log] ? ITEMS[log].name.toLowerCase() : "wood"),
       skill: "Charcoaling", req, xp: 18 + req * 3, in: { [log]: 3 }, passive: true, time: 12000 + i * 400, tick: 12000 + i * 400,
-      byproducts: [{ id: i % 2 ? "wood_ash" : "wood_tar", qty: 1, chance: 0.7 }],
+      // parity matters: tier 1 ("logs", i=0) MUST land on wood_ash — it's the
+      // only log on Tūhura Isle, and the Soapmaker's lye lesson needs ash
+      byproducts: [{ id: i % 2 ? "wood_tar" : "wood_ash", qty: 1, chance: 0.7 }],
       family: "charcoal", stations: ["charcoal_clamp", "campfire", "furnace"],
     });
   }

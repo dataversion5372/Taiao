@@ -1,9 +1,9 @@
 ---
 name: verify
-description: Build/launch/drive recipe for verifying Emberfall (this repo's browser RPG) headlessly
+description: Build/launch/drive recipe for verifying Taiao (this repo's browser RPG) headlessly
 ---
 
-# Verifying Emberfall changes
+# Verifying Taiao changes
 
 Static browser game, no build step. Serve the repo and drive it in headless
 Firefox (no Chrome on this machine) with puppeteer-core over WebDriver BiDi.

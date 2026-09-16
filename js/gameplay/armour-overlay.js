@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — in-world armour overlay (landmark-fitted) =====
+// ===== Taiao — in-world armour overlay (landmark-fitted) =====
 // Equipped metal armour drawn ON the player's 8-direction character billboard,
 // TAILORED to that character and TINTED to the armour's metal tier.
 //

@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — woodcraft: every log & rākau → a tiered product =====
+// ===== Taiao — woodcraft: every log & rākau → a tiered product =====
 // Each of the tree logs and every native rākau is now an intermediate crafting
 // ingredient for a TIERED finished item in another skill, so higher-tier wood
 // maps to higher-tier gear (before this, only plain `logs`/oak fed other skills —

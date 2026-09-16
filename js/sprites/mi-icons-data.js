@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - Mixed item icon sheet (16 icons) =====
+// ===== Taiao - Mixed item icon sheet (16 icons) =====
 // cider, sparkling wine, honey, beeswax, raw/burnt meat, burnt fish, rune essence,
 // planks, oar, leather armour, master leather cuirass, and the 4 flowers. Slices a
 // hand-made 4x4 sheet into the "mx" sheet and repoints each ITEM icon to a fresh
@@ -11,7 +11,7 @@
   if (typeof ASSET_DATA === "undefined") { try { window.ASSET_DATA = {}; } catch (e) { return; } }
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("mx")) SHEET_KEYS.push("mx");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["mx"] = 64;
-  ASSET_DATA["mx"] = "assets/sheets/6a373b45bc2b0a76.webp";
+  ASSET_DATA["mx"] = "assets/sheet-src/mx-mi-icons.webp";
   if (typeof SPR === "undefined") return;
     SPR["mx_cider"] = ["mx", 0, 0, { sx: 0, sy: 0, sw: 64, sh: 64 }];
     if (typeof ITEMS !== "undefined" && ITEMS["cider"]) ITEMS["cider"].icon = "mx_cider";

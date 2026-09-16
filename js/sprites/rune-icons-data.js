@@ -1,10 +1,10 @@
-// ===== Isle of Emberfall - generated rune-icon sheet (auto-generated) =====
+// ===== Taiao - generated rune-icon sheet (auto-generated) =====
 // Built by tools/build_rune_icons.py from the AI-generated 8x4 rune sheet.
 // 32 cells in rune LADDER order (content.js RUNE_NAMES), 64px cells, sheet
 // key "ru". Loaded after data.js/content.js so these SPR entries override
 // the legacy hue-shifted i_rune* icons.
 "use strict";
-const RUNE_ICON_SHEET = "assets/sheets/59bdeb1389dafe32.webp";
+const RUNE_ICON_SHEET = "assets/sheet-src/ru-rune-icons.webp";
 (function() {
   if (typeof ASSET_DATA !== "undefined") ASSET_DATA.ru = RUNE_ICON_SHEET;
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("ru")) SHEET_KEYS.push("ru");

@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — tiered arrow & arrowhead inventory icons (auto-generated) =====
+// ===== Taiao — tiered arrow & arrowhead inventory icons (auto-generated) =====
 // Sourced from assets/assorted sprites/arrows.png (16 weapons/tools-roster
 // metals x 2 items: Arrow, Arrowhead), a native transparent RGBA PNG (no
 // flood-fill needed, unlike the earlier black-background reference sheets).
@@ -18,8 +18,8 @@
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
   if (typeof SHEET_KEYS !== "undefined") { if (!SHEET_KEYS.includes("aw")) SHEET_KEYS.push("aw"); if (!SHEET_KEYS.includes("ah")) SHEET_KEYS.push("ah"); }
   if (typeof SHEET_TILE !== "undefined") { SHEET_TILE["aw"] = 176; SHEET_TILE["ah"] = 152; }
-  ASSET_DATA["aw"] = "assets/sheets/a941b5e6afcf7194.webp";
-  ASSET_DATA["ah"] = "assets/sheets/dc156919c02ba23f.webp";
+  ASSET_DATA["aw"] = "assets/sheets/aw-arrow-icons.a941b5e6.webp";
+  ASSET_DATA["ah"] = "assets/sheets/ah-arrow-icons.dc156919.webp";
   var shortBar = function(barId) { return barId.replace(/^bar_/, "m").replace(/_bar$/, ""); };
   var AW = {"iron_bar": {"sx": 0, "sy": 0, "sw": 176, "sh": 176}, "bar_7": {"sx": 176, "sy": 0, "sw": 176, "sh": 176}, "tool_steel_bar": {"sx": 352, "sy": 0, "sw": 176, "sh": 176}, "bar_10": {"sx": 528, "sy": 0, "sw": 176, "sh": 176}, "ferrotitanium_bar": {"sx": 0, "sy": 176, "sw": 176, "sh": 176}, "bar_14": {"sx": 176, "sy": 176, "sw": 176, "sh": 176}, "bar_15": {"sx": 352, "sy": 176, "sw": 176, "sh": 176}, "bar_16": {"sx": 528, "sy": 176, "sw": 176, "sh": 176}, "damasteel_bar": {"sx": 0, "sy": 352, "sw": 176, "sh": 176}, "bar_17": {"sx": 176, "sy": 352, "sw": 176, "sh": 176}, "bar_18": {"sx": 352, "sy": 352, "sw": 176, "sh": 176}, "dragonsteel_bar": {"sx": 528, "sy": 352, "sw": 176, "sh": 176}, "bar_19": {"sx": 0, "sy": 528, "sw": 176, "sh": 176}, "bar_21": {"sx": 176, "sy": 528, "sw": 176, "sh": 176}, "bar_23": {"sx": 352, "sy": 528, "sw": 176, "sh": 176}, "bar_24": {"sx": 528, "sy": 528, "sw": 176, "sh": 176}};
   var AH = {"iron_bar": {"sx": 0, "sy": 0, "sw": 152, "sh": 152}, "bar_7": {"sx": 152, "sy": 0, "sw": 152, "sh": 152}, "tool_steel_bar": {"sx": 304, "sy": 0, "sw": 152, "sh": 152}, "bar_10": {"sx": 456, "sy": 0, "sw": 152, "sh": 152}, "ferrotitanium_bar": {"sx": 0, "sy": 152, "sw": 152, "sh": 152}, "bar_14": {"sx": 152, "sy": 152, "sw": 152, "sh": 152}, "bar_15": {"sx": 304, "sy": 152, "sw": 152, "sh": 152}, "bar_16": {"sx": 456, "sy": 152, "sw": 152, "sh": 152}, "damasteel_bar": {"sx": 0, "sy": 304, "sw": 152, "sh": 152}, "bar_17": {"sx": 152, "sy": 304, "sw": 152, "sh": 152}, "bar_18": {"sx": 304, "sy": 304, "sw": 152, "sh": 152}, "dragonsteel_bar": {"sx": 456, "sy": 304, "sw": 152, "sh": 152}, "bar_19": {"sx": 0, "sy": 456, "sw": 152, "sh": 152}, "bar_21": {"sx": 152, "sy": 456, "sw": 152, "sh": 152}, "bar_23": {"sx": 304, "sy": 456, "sw": 152, "sh": 152}, "bar_24": {"sx": 456, "sy": 456, "sw": 152, "sh": 152}};

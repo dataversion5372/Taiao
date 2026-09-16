@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — content-arrow icon repoint =====
+// ===== Taiao — content-arrow icon repoint =====
 // The simple 32-tier arrows from content.js (`arrows`, `arrows_1`..`arrows_31`)
 // shipped with a placeholder "bundle of arrows" icon (tinted i_arrows) that did
 // not match the fletched-arrow / arrowhead art used by the geartiers ammo. Point

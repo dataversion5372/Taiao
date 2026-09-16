@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Firemaking & station heat =====
+// ===== Taiao — Firemaking & station heat =====
 // Firemaking is now the FUEL skill for every heat trade. Each heat station
 // (furnace, kiln, cauldron, campfire…) needs a PILOT FIRE burning under it; the
 // fire carries a HEAT value (0..HEAT_MAX) that decays over wall-clock time. You
@@ -74,6 +74,11 @@ function heatKey(node) {
 // fire stoked to the required heat stays usable for a good while, not an instant.
 const HEAT_HOLD = 0.6;
 function stationHeatNow(node) {
+  // Tūhura fuel rules (user req 2026-09-16): EVERY isle fire burns real fuel,
+  // the Smith's furnace included — his always-roaring exemption is gone. He
+  // now gifts an iron dagger ("my old belt knife") and a flint alongside the
+  // pickaxe, so a fresh hand can strike the spark and stoke the furnace with
+  // their own logs before their first blade is ever forged.
   const rec = stationHeat.get(heatKey(node));
   if (!rec) return 0;
   const t = (now - rec.stokedAt) / rec.burnMs;
@@ -130,6 +135,9 @@ function bestLogIndex(targetHeat) {
 // least one flint; whether the spark catches rides on your Firemaking level.
 const BLADED_RE = /dagger|sword|scimitar|dao|khopesh|kilij|shamshir|katana|tanto|kris|kukri|wakizashi|battleaxe|halberd|spear|glaive|machete|knife|sabre|saber|rapier|falchion|cutlass|cleaver|blade/i;
 function hasBladedWeapon() {
+  // a working KNIFE in the pack strikes sparks too (tool:"knife" — the
+  // Smith's tutorial gift): no weapon needs wielding to light a fire
+  if (typeof hasTool === "function" && hasTool("knife")) return true;
   const w = player.equip && player.equip.weapon; if (!w) return false;
   const id = w.id || w; const def = id && ITEMS[id]; if (!def) return false;
   if (def.bowPower || def.magicPower) return false;              // ranged/magic weapons aren't blades
@@ -138,7 +146,7 @@ function hasBladedWeapon() {
 function sparkChance() { return Math.min(0.95, 0.32 + eff("Firemaking") * 0.021); }
 // try to strike a spark; logs the outcome. what: "fire" | "candle". Returns bool.
 function strikeToLight(what) {
-  if (!hasBladedWeapon()) { log("You need a bladed weapon wielded to strike a spark.", "warn"); return false; }
+  if (!hasBladedWeapon()) { log("You need a knife in your pack (or a bladed weapon wielded) to strike a spark.", "warn"); return false; }
   if ((typeof countItem === "function" ? countItem("flint") : 0) < 1) { log("You need a piece of flint to strike your blade against.", "warn"); return false; }
   if (Math.random() >= sparkChance()) {
     log("You strike your blade against the flint, but the spark fizzles out.", "warn");
@@ -166,6 +174,8 @@ function stokeFire(node, invIndex, alreadySparked) {
   s.qty -= 1;
   if (s.qty <= 0) player.inv[invIndex] = null;
   addXp("Firemaking", Math.round(30 * (1 + Math.min(MAX_LEVEL - 1, f.tier) * 0.55) * (f.premium ? 1.4 : 1)));
+  // the Smith's stage counts the first furnace lit (gameplay/tutorial.js)
+  if (typeof Tutorial !== "undefined" && Tutorial.onStoke) Tutorial.onStoke(node);
   const capped = !f.premium && logHeat(f.tier) > firemakingCap();
   log(`You stoke the fire with ${ITEMS[s.id].name}. Heat: ${stationHeatNow(node)}°`
     + (f.premium ? " — charcoal burns hot and long." : capped ? " — your Firemaking limits how hot it gets." : ""),

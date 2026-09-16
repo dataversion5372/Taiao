@@ -244,7 +244,6 @@ const METALS = METAL_NAMES.map((name, i) => {
   const ore = i === 0 ? "copper_ore" : i === 2 ? "iron_ore" : i === 8 ? "gold_ore" : "ore_" + i;
   const bar = i === 0 ? "bronze_bar" : i === 2 ? "iron_bar" : i === 8 ? "gold_bar" : "bar_" + i;
   const rock = i === 0 ? "copper" : i === 2 ? "iron" : i === 8 ? "goldrock" : "rockM" + i;
-  const arrows = i === 0 ? "arrows" : "arrows_" + i;
   const lname = name.toLowerCase();
   if (!ITEMS[ore]) {
     SPR["i_ore" + i] = ["i", i % 16, 4 + (i >> 4)];   // items32 rows 4-5, tier by column
@@ -263,14 +262,10 @@ const METALS = METAL_NAMES.map((name, i) => {
       deadSpr: "rock_dead", gemCh: 0.03 + i * 0.002,
     };
   }
-  if (!ITEMS[arrows]) {
-    defineIcon("i_arr" + i, "i_arrows", i);
-    ITEMS[arrows] = { name: name + " arrows", icon: "i_arr" + i, stack: true, value: tierVal(i), arrowPower: 1 + Math.round(i * 0.55), equip: "quiver" };
-    RECIPES.fletching.push({ out: arrows, qty: 15, name: "Make " + lname + " arrows", skill: "Fletching", req: i + 1, xp: tierXp(i, 50), in: { arrow_shafts: 15, [bar]: 1 }, tick: 1600 });
-  } else {
-    ITEMS.arrows.arrowPower = 1;
-  }
-  return { name, ore, bar, rock, arrows, req: i + 1 };
+  // (the simple one-step 32-tier `arrows`/`arrows_i` ladder was REMOVED — arrows
+  // are now ONLY the two-step arrowhead+shafts+feathers chain in geartiers.js,
+  // floored at iron. See that file's ARROWHEADS & ARROWS block.)
+  return { name, ore, bar, rock, req: i + 1 };
 });
 
 // ---------- 32 crops (food + fibers) ----------
@@ -566,8 +561,8 @@ function creatureDrops(lvl, theme) {
     drops.push({ id: "gem", min: 1, max: 3, ch: 0.4 });
     drops.push({ id: METALS[Math.min(31, Math.floor(lvl / 3))].bar, min: 1, max: 2, ch: 0.3 });
   }
-  if (theme[0] === "h")
-    drops.push({ id: METALS[Math.min(31, Math.floor(lvl / 4))].arrows, min: 3, max: 10, ch: 0.15 });
+  // (humanoid arrow drops are added TIER-APPROPRIATELY in bestiary-drops.js,
+  // which runs after geartiers defines the arrow ladder — see WEAPON_ARROW_IDS)
   if (theme[0] === "m" && lvl > 20)
     drops.push({ id: HERBS[Math.min(31, Math.floor(lvl / 3))].id, min: 1, max: 2, ch: 0.2 });
   return drops;
@@ -885,6 +880,7 @@ SPR.wall_tower      = ["t", 26, 12];  // same stone; rendered 3× taller in rend
 SPR.floor_wood    = ["t", 1, 26];
 SPR.floor_stone   = ["ta", 3, 1];  // grey cobblestone paving from terrain_a
 SPR.floor_stone2  = ["ta", 3, 2];  // flat grey stone variant
+SPR.floor_interior = ["ta", 3, 2, { filter: "sepia(0.6) saturate(1.25) brightness(1.04)" }]; // warm sandstone flags — stone-building interiors (distinct from street paving)
 SPR.city_fountain = ["t", 22, 0, { filter: "hue-rotate(193deg) saturate(2.5) brightness(1.1)" }]; // blue-tinted barrel = fountain basin
 SPR.city_bench    = ["t", 20, 2, { filter: "sepia(0.8) brightness(0.62)" }]; // dark worn bench
 SPR.city_planter  = ["t", 22, 0, { filter: "hue-rotate(-58deg) saturate(1.8) brightness(0.80)" }]; // green planter box

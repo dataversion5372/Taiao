@@ -128,8 +128,9 @@ const R3D = (() => {
       c2.rotate(extra.rot * Math.PI / 180);
       c2.translate(-(dx + CSZ / 2), -(dy + CSZ / 2));
     }
-    const sx = extra && extra.sx != null ? extra.sx : c * (SHEET_NOPAD.has(sheet) ? st : st + 1);
-    const sy = extra && extra.sy != null ? extra.sy : r * (SHEET_NOPAD.has(sheet) ? st : st + 1);
+    const off = SHEET_OFFSET[sheet];
+    const sx = (extra && extra.sx != null ? extra.sx : c * (SHEET_NOPAD.has(sheet) ? st : st + 1)) + (off ? off.ox : 0);
+    const sy = (extra && extra.sy != null ? extra.sy : r * (SHEET_NOPAD.has(sheet) ? st : st + 1)) + (off ? off.oy : 0);
     const sw = extra && extra.sw ? extra.sw : st;
     const sh = extra && extra.sh ? extra.sh : st;
     if (SHEET_NOPAD.has(sheet)) {
@@ -156,7 +157,12 @@ const R3D = (() => {
     c2.restore();
   }
 
-  function buildAtlas() {
+  // Atlas bake, split three ways so the BOOT can run it in painted slices
+  // with a real progress fraction (buildAtlasAsync — the loading bar's
+  // "Baking the sprite atlas…" stage) while the classic synchronous
+  // buildAtlas() drains the same parts as a fallback. One drawing code path.
+  const ATLAS_COLS = 62; // 62*33 = 2046 cells <= 2048px row budget
+  function _planAtlas() {
     // Embedded data URIs should keep the canvas origin-clean. This guard remains
     // for bad or stale asset data and skips at_* keys if taint is detected.
     let atlasOk = false;
@@ -184,16 +190,19 @@ const R3D = (() => {
       }
     }
     const all = [...keys, ...Object.keys(composites), ...RIPPLE_FRAMES, "tilled_soil"];
-    const cols = 62, rows = Math.ceil(all.length / cols); // 62*33 = 2046 <= 2048
+    const rows = Math.ceil(all.length / ATLAS_COLS);
     const canvas = document.createElement("canvas");
     canvas.width = 2048;
     canvas.height = Math.pow(2, Math.ceil(Math.log2(rows * CELL)));
     const c2 = canvas.getContext("2d");
     c2.imageSmoothingEnabled = false;
-    const cells = {};
-    all.forEach((key, i) => {
-      const cx = (i % cols) * CELL, cy = Math.floor(i / cols) * CELL;
-      cells[key] = { cx, cy };
+    return { all, composites, canvas, c2, cells: {} };
+  }
+  function _drawAtlasCell(P, key, i) {
+    const { composites, c2, cells } = P;
+    const cx = (i % ATLAS_COLS) * CELL, cy = Math.floor(i / ATLAS_COLS) * CELL;
+    cells[key] = { cx, cy };
+    {
       if (composites[key]) {
         for (const layer of composites[key]) drawSprTo(c2, layer, cx, cy);
       } else if (RIPPLE_FRAMES.includes(key)) {
@@ -235,16 +244,44 @@ const R3D = (() => {
       } else {
         drawSprTo(c2, key, cx, cy);
       }
-    });
-    const tex = new THREE.CanvasTexture(canvas);
+    }
+  }
+  function _finishAtlas(P) {
+    const tex = new THREE.CanvasTexture(P.canvas);
     tex.magFilter = THREE.NearestFilter;
     tex.minFilter = THREE.NearestFilter;
     tex.generateMipmaps = false;
-    atlas = { canvas, tex, cells };
+    atlas = { canvas: P.canvas, tex, cells: P.cells };
     sharedMat = new THREE.MeshBasicMaterial({
       map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide,
     });
     snowPatchUp(sharedMat);   // terrain/decks frost under snow cover (aSnow attr)
+  }
+  function buildAtlas() {
+    const P = _planAtlas();
+    P.all.forEach((key, i) => _drawAtlasCell(P, key, i));
+    _finishAtlas(P);
+  }
+  // boot path: same bake, sliced ~60ms at a time with a paint (and a real
+  // completed-cells fraction to `tick`) between slices, so the loading bar
+  // moves through the multi-hundred-ms atlas stage instead of freezing.
+  // (Slices much finer than this spend more time waiting on vsync than
+  // drawing — under CPU contention each paint can cost a whole slow frame.)
+  async function buildAtlasAsync(tick) {
+    if (atlas) { if (tick) tick(1); return true; }
+    const P = _planAtlas();
+    let last = performance.now();
+    for (let i = 0; i < P.all.length; i++) {
+      _drawAtlasCell(P, P.all[i], i);
+      if (performance.now() - last > 60) {
+        if (tick) tick(i / P.all.length);
+        await _bootYield(); // hidden-tab-safe paint (main/state.js)
+        last = performance.now();
+      }
+    }
+    _finishAtlas(P);
+    if (tick) tick(1);
+    return true;
   }
 
   function setUV(geom, key) {
@@ -281,9 +318,20 @@ const R3D = (() => {
     if (roadWorker === false) return;
     if (roadWorker === null) {
       if (typeof Worker === "undefined" || !world._roadCellInject || !world._workerInit) { roadWorker = false; return; }
-      try {
+      // adopt the worker the boot already started (main.js init spawns it
+      // first thing so the spawn region's roads crunch during the loading
+      // bar) — same init, same seed; spawning a second would double the work
+      if (typeof _bootRoadWorker !== "undefined" && _bootRoadWorker && _bootRoadWorker.w && !_bootRoadWorker.failed) {
+        roadWorker = _bootRoadWorker.w;
+        roadWorker.onmessage = e => { if (e.data && e.data.key) world._roadCellInject(e.data.key, e.data.out); };
+        roadWorker.onerror = err => {
+          console.warn("road worker unavailable:", err.message || err);
+          try { roadWorker.terminate(); } catch (e2) { /* already dead */ }
+          roadWorker = false;
+        };
+      } else try {
         roadWorker = new Worker("js/world/roadworker.js");
-        roadWorker.onmessage = e => world._roadCellInject(e.data.key, e.data.out);
+        roadWorker.onmessage = e => { if (e.data && e.data.key) world._roadCellInject(e.data.key, e.data.out); };
         roadWorker.onerror = err => {
           console.warn("road worker unavailable:", err.message || err);
           try { roadWorker.terminate(); } catch (e2) { /* already dead */ }
@@ -301,6 +349,46 @@ const R3D = (() => {
       roadWorker.postMessage({ type: "warm", mx: player.x / 2, my: player.y / 2, pad: 16 });
     }
   }
+  // ---- chunk terrain-field warm worker ----
+  // The noise passes of a chunk data build (eroded elevation + biome grids)
+  // are a 17-50ms main-thread stall per fresh chunk while walking. This
+  // worker pre-computes them (shared erosion.js computeChunkFields — same
+  // code, same seed, identical output) for every not-yet-generated chunk in
+  // the mesh pipeline's reach plus one ring, and injects the grids
+  // (world._fieldInject); the synchronous build then only pays for feature
+  // stamping. Falls back silently where workers are unavailable.
+  let chunkWorker = null;
+  const fieldReq = new Set(); // chunk keys already sent to the worker
+  function syncChunkWorker(pcx, pcy, R) {
+    if (chunkWorker === false) return;
+    if (chunkWorker === null) {
+      if (typeof Worker === "undefined" || !world._fieldInject || !world._workerInit) { chunkWorker = false; return; }
+      try {
+        chunkWorker = new Worker("js/world/chunkworker.js");
+        chunkWorker.onmessage = e => world._fieldInject(e.data.key, e.data);
+        chunkWorker.onerror = err => {
+          console.warn("chunk worker unavailable:", err.message || err);
+          try { chunkWorker.terminate(); } catch (e2) { /* already dead */ }
+          chunkWorker = false;
+        };
+        chunkWorker.postMessage({ type: "init", ...world._workerInit });
+      } catch (e) { chunkWorker = false; return; }
+    }
+    // request the missing chunks of the pipeline's neighbourhood, a small
+    // batch per frame; fieldReq stops re-sends (and is forgotten wholesale
+    // now and then so a pruned-and-revisited region can warm again)
+    if (fieldReq.size > 4000) fieldReq.clear();
+    const want = [];
+    scan: for (let cy = pcy - R - 1; cy <= pcy + R + 1; cy++)
+      for (let cx = pcx - R - 1; cx <= pcx + R + 1; cx++) {
+        const k = cx + "," + cy;
+        if (fieldReq.has(k) || (world.chunks && world.chunks.has(k))) continue;
+        fieldReq.add(k);
+        want.push({ cx, cy });
+        if (want.length >= 12) break scan;
+      }
+    if (want.length) chunkWorker.postMessage({ type: "fields", chunks: want });
+  }
   let sea = null;
 
   function buildChunkMesh(cx, cy) {
@@ -315,7 +403,11 @@ const R3D = (() => {
       if (!cell && key.startsWith("at_")) {
         // atlas.png not usable in WebGL (file:// taint); fall back to biomes.png with regional personality
         const parts = key.split("_");
-        const pers = world.personalityAt(x, z);
+        // water at_* keys carry a deliberate variant (fixed per biome / per
+        // isle water body — see biomeGround): honour it, or the personality
+        // roll re-dithers open water into a checkerboard of clashing blues
+        const water = parts[1] === "0" || parts[1] === "1" || parts[1] === "21";
+        const pers = water ? +parts[2] : world.personalityAt(x, z);
         cell = atlas.cells[`bg_${parts[1]}_${pers}`];
       }
       if (!cell) return;
@@ -342,6 +434,12 @@ const R3D = (() => {
           (typeof gk === "string" && gk.startsWith("floor") && insideB(bx + x, by + z)) ? 0 : 1);
         const d = ch.decor[z * CS + x];
         if (d && FLAT_DECOR.has(d)) quad(bx + x, by + z, d, gy + 0.015);
+        // flood margin: the risen river spilling over a low bank tile — a
+        // water sheet at the flooded surface, drawn over the unmoved ground
+        if (floodLvl > 0 && !isWaterKey(gk)) {
+          const fs = floodSurfAt(bx + x, by + z, gy);
+          if (fs) quad(bx + x, by + z, fs.key, fs.y + 0.01);
+        }
         // bridge deck: one flat stone slab across the whole crossing (bank
         // top to bank top). It lives in the ground mesh so clicks land on it.
         // (piers inside a building footprint carry the building's own slab —
@@ -371,8 +469,11 @@ const R3D = (() => {
         // resolve the tile art the same way quad() does (at_* biome-atlas keys
         // fall back to the bg_* terrain tiles); cliffs reuse the tile's own art
         let key2 = ch.ground[z * CS + x];
-        if (!atlas.cells[key2] && key2.startsWith("at_"))
-          key2 = `bg_${key2.split("_")[1]}_${world.personalityAt(wx2, wz2)}`;
+        if (!atlas.cells[key2] && key2.startsWith("at_")) {
+          const p2 = key2.split("_");
+          const w2 = p2[1] === "0" || p2[1] === "1" || p2[1] === "21";
+          key2 = `bg_${p2[1]}_${w2 ? +p2[2] : world.personalityAt(wx2, wz2)}`;
+        }
         if (!atlas.cells[key2]) key2 = "dirt";
         const nb = [
           [wx2, wz2 + 1, wx2, wz2 + 1, wx2 + 1, wz2 + 1, SH_S],
@@ -478,7 +579,29 @@ const R3D = (() => {
         // decor with a matching packed object renders as a dynamic 8-directional
         // billboard (placed per-frame by syncDecor) rather than a baked flat sprite.
         const ov = objForKey(dk);
-        if (ov) { decorObjs.push({ wx: bx + x + 0.5, wz: by + z + 0.5, idx: ov.idx, scale: ov.scale }); continue; }
+        if (ov) {
+          const e = { wx: bx + x + 0.5, wz: by + z + 0.5, idx: ov.idx, scale: ov.scale };
+          // fences/gates rotate with the camera (syncDecor). Two pieces:
+          // · fr — the sheet cell holding the object's true SOUTH view. The
+          //   fence/gate sheets are mis-rotated (user-confirmed: fence
+          //   south = the cell one step back, i.e. cell 7; gate south =
+          //   two steps back, cell 6; verified headlessly — those are the
+          //   straight-on front panels).
+          // · fdir — the world direction the panel FACES, from the run
+          //   direction (auto-detected from neighbouring fence tiles): an
+          //   E–W run faces south (0), a N–S run faces east (2), so from
+          //   a side-on camera a run shows panels and along the run it
+          //   shows receding posts.
+          if (dk === "fence_wood" || dk === "gate_wood") {
+            e.fr = dk === "fence_wood" ? 7 : 6;
+            const isF = (xx, yy) => { const dd = world.getDecor(xx, yy); return dd === "fence_wood" || dd === "gate_wood"; };
+            const wx0 = bx + x, wz0 = by + z;
+            const ns = isF(wx0, wz0 - 1) || isF(wx0, wz0 + 1);
+            const ew = isF(wx0 - 1, wz0) || isF(wx0 + 1, wz0);
+            e.fdir = (ns && !ew) ? 2 : 0;
+          }
+          decorObjs.push(e); continue;
+        }
         const isPine = dk === "tree_pine";
         const m = new THREE.Mesh(geomFor(d), sharedMat);
         if (isPine) {
@@ -564,6 +687,7 @@ const R3D = (() => {
     const pcx = Math.floor(player.x / CS), pcy = Math.floor(player.y / CS);
     const R = chunkRadius(); // loaded neighborhood grows with zoom-out so the
                              // world fills the screen to the edges (no void)
+    syncChunkWorker(pcx, pcy, R); // pre-compute missing chunks' terrain fields off-thread
     const want = new Set();
     const missing = [];
     for (let cy = pcy - R; cy <= pcy + R; cy++)
@@ -586,10 +710,20 @@ const R3D = (() => {
     // Chunks under/beside the player still build immediately (boot,
     // teleports — a hole there is visible).
     missing.sort((a, b) => a.d - b.d);
-    let built = 0, worked = false;
+    let built = 0, worked = false, _imm = 0;
     for (const m of missing) {
-      if (m.d > 1 && (built || worked)) break;
-      if (m.d > 1) {
+      // "immediate" (mesh this frame, past the budget): chunks under/beside
+      // the player whose DATA is already in memory — hydrated or generated,
+      // the mesh is the cheap half, and a hole there is visible. The player's
+      // own chunk always builds now; its d=1 ring builds at most two per call
+      // (the rest land within 2-3 frames — invisible), so a boot/teleport
+      // blocks ~150ms instead of meshing all nine at once. A d<=1 chunk with
+      // NO data takes the staged pipeline like the outer ring instead: paying
+      // up to 9 synchronous data gens froze a first-ever boot for ~16s.
+      const immediate = m.d <= 1 && world.chunks && world.chunks.has(m.key) &&
+        (m.d === 0 || _imm++ < 2);
+      if (!immediate && (built || worked)) break;
+      if (!immediate) {
         // stage 1: data neighbourhood
         if (world.chunks) {
           let need = null;
@@ -807,17 +941,29 @@ const R3D = (() => {
   const waterLevelCache = new Map(); // "x,y" -> surface y
   // ---- river flood (weather.js floodNow) ----
   // floodLvl is the QUANTIZED flood bucket the world is currently baked at:
-  // carved water (rivers/ponds, waterBit 2/3) rides up to +0.35 above its
-  // resting surface, banks re-terrace to the higher line, and the affected
-  // chunk meshes rebuild a couple per frame when the bucket moves (see the
-  // frame() hook). The open sea never rises.
+  // carved water (rivers/ponds, waterBit 2/3) rides up to +FLOOD_AMP above
+  // its resting surface — each 0.25 bucket is exactly one half-block terrain
+  // step, so a rare MAXIMUM flood crests 4 full steps above the resting line.
+  // The BANKS DO NOT MOVE (bankStep terraces from the resting level) —
+  // instead the risen sheet spills over any bank tile that now sits below
+  // the surface (floodSurfAt), so a big flood visibly WIDENS the river
+  // across its drowned terraces while the water stays one even level.
+  // Affected chunk meshes rebuild a couple per frame when the bucket moves
+  // (see the frame() hook). The open sea never rises. (NOTE: weather.js has
+  // an unrelated FLOOD_RISE — that one is the lag-kernel TIME constant.)
+  const FLOOD_AMP = 4 * STEP_H; // full-flood rise: 4 terrain steps
   let floodLvl = 0;
   const _floodRebuild = [];
   function waterLevelAt(wx, wy) {
     const v = waterLevelBase(wx, wy);
     if (floodLvl > 0) {
       const b = waterBit(wx, wy);
-      if (b === 2 || b === 3) return v + floodLvl * 0.35;
+      // only RIVERS flood: rain feeds a catchment, not a puddle. Standing
+      // carved patches (city pools, springs, erosion-basin ponds) hold their
+      // level — riverFlowAt is non-null across a river's stamped width
+      // (centreline radius + 2 map units) and null everywhere else.
+      if ((b === 2 || b === 3) && world.riverFlowAt && world.riverFlowAt(wx, wy))
+        return v + floodLvl * FLOOD_AMP;
     }
     return v;
   }
@@ -964,7 +1110,10 @@ const R3D = (() => {
       for (let dx = -BANK_R; dx <= BANK_R; dx++) {
         const wb2 = (dx || dy) ? waterBit(wx + dx, wy + dy) : 0;
         if (wb2 === 2 || wb2 === 3) {
-          const wY = waterLevelAt(wx + dx, wy + dy);
+          // resting level, NOT the flood-risen one: terrain must not move
+          // when the river swells — the flood spills over the fixed banks
+          // (floodSurfAt) instead of lifting them
+          const wY = waterLevelBase(wx + dx, wy + dy);
           if (wY >= raw - STEP_H) continue; // already at bank level
           const d = Math.max(Math.abs(dx), Math.abs(dy));
           const v2 = wY + (raw - wY) * d / (BANK_R + 1);
@@ -973,6 +1122,45 @@ const R3D = (() => {
       }
     // quantize back onto half-block tiers, staying above the water surface
     return best === raw ? raw : Math.ceil(best / STEP_H - 1e-4) * STEP_H;
+  }
+  // Flood spill: during a flood the risen sheet overtops low bank tiles. A
+  // LAND tile floods when a carved-water tile within FLOOD_R has its risen
+  // surface above the tile's own tier; returns {y, key} for the spill sheet
+  // (art borrowed from the source water tile) or null. Terrain is untouched —
+  // this only drives extra water quads in the chunk ground mesh, so the
+  // flooded margin reads as shallow standing water over the fixed bank (and
+  // anyone walking it stands ankle-deep under the sheet for free). Paved
+  // floors, decks and building interiors stay dry. The scan radius bounds
+  // how far the sheet can spread from the channel — a 4-step maximum flood
+  // drowns whole terraced aprons, so it reaches well past bankStep's ramp.
+  const FLOOD_R = 9;
+  function floodSurfAt(wx, wy, gy) {
+    if (floodLvl <= 0) return null;
+    const g0 = world.getGround(wx, wy);
+    if (typeof g0 === "string" && g0.startsWith("floor")) return null;
+    if (insideB(wx, wy)) return null;
+    // same fast gate as bankStep: no carved water in reach, no spill
+    const CS = world.CHUNK;
+    const cx0 = Math.floor((wx - FLOOD_R) / CS), cx1 = Math.floor((wx + FLOOD_R) / CS);
+    const cy0 = Math.floor((wy - FLOOD_R) / CS), cy1 = Math.floor((wy + FLOOD_R) / CS);
+    let near = false;
+    for (let cy = cy0; cy <= cy1 && !near; cy++)
+      for (let cx = cx0; cx <= cx1; cx++)
+        if (waterBitsFor(cx, cy).cw) { near = true; break; }
+    if (!near) return null;
+    let best = null, bkey = null;
+    for (let dy = -FLOOD_R; dy <= FLOOD_R; dy++)
+      for (let dx = -FLOOD_R; dx <= FLOOD_R; dx++) {
+        if (!dx && !dy) continue;
+        const b2 = waterBit(wx + dx, wy + dy);
+        if (b2 !== 2 && b2 !== 3) continue;
+        const s = waterLevelAt(wx + dx, wy + dy);
+        if (s > gy + 0.02 && (best === null || s > best)) {
+          best = s;
+          bkey = world.getGround(wx + dx, wy + dy);
+        }
+      }
+    return best === null ? null : { y: best, key: bkey };
   }
   // Deck altitude for a bridge tile: ONE flat level for the whole crossing —
   // the highest raw tier over the connected bridge component (water span AND
@@ -1178,16 +1366,30 @@ const R3D = (() => {
       return bridgeDeckY(tx, tz) + FLOOR_T;
     return null;
   }
+  // memoized: liftAt runs per entity per frame (and twice more per shadow in
+  // place()), and its deckAt/getGround probes walk the chunk map — uncached,
+  // they were the render path that forced evicted chunks to REGENERATE for
+  // far-away entities. Inputs are static per seed except the river-flood
+  // level, so the frame() flood hook clears this alongside groundYCache.
+  const liftCache = new Map();
   function liftAt(wx, wz) {
     const tx = Math.floor(wx), tz = Math.floor(wz);
+    const k = tx + "," + tz;
+    let v = liftCache.get(k);
+    if (v !== undefined) return v;
     // two-level tiles: entities over WATER can only be standing on the deck;
     // on the land strip underneath they walk the bank (the player's own
     // deck/under choice is applied in playerLiftY, not here)
     const d = deckAt(tx, tz);
-    if (d != null && world.isWater(tx, tz)) return d;
-    const g = world.getGround(tx, tz);
-    const gy = groundY(tx, tz);
-    return g === "floor_wood" || g === "floor_stone" ? gy + FLOOR_T : gy;
+    if (d != null && world.isWater(tx, tz)) v = d;
+    else {
+      const g = world.getGround(tx, tz);
+      const gy = groundY(tx, tz);
+      v = g === "floor_wood" || g === "floor_stone" ? gy + FLOOR_T : gy;
+    }
+    if (liftCache.size > 200000) liftCache.clear();
+    liftCache.set(k, v);
+    return v;
   }
   // ground lift for overlay projections given interpolated pixel coordinates
   function liftPx(px, py) {
@@ -1339,18 +1541,34 @@ const R3D = (() => {
       const [sdx, sdz] = sunDir();
       // ground the shadow on the terrain/water under the feet (not the boat
       // deck or an upper storey), and tilt it to drape over terrain steps
-      const under = liftAt(wx, wz);
-      const feetY = Math.abs(baseY - under) < 1.2 ? under : baseY;
+      let ax = wx, az = wz;
+      let under = liftAt(wx, wz);
+      if (m.userData.airShadow && baseY - under > 0.15) {
+        // a flyer's shadow is cast down the sun ray onto the terrain: it
+        // slides away from the sun as the bird climbs, by the same
+        // horizontal-run-per-unit-height (sunState.len) every standing
+        // shadow in the world uses. Iterate because the ground height at
+        // the landing point feeds back into the offset on slopes.
+        for (let i = 0; i < 3; i++) {
+          const off = Math.max(0, baseY - under) * sunState.len;
+          ax = wx + sdx * off; az = wz + sdz * off;
+          const ng = liftAt(ax, az);
+          const done = Math.abs(ng - under) < 0.05;
+          under = ng;
+          if (done) break;
+        }
+      }
+      const feetY = (m.userData.airShadow || Math.abs(baseY - under) < 1.2) ? under : baseY;
       let tipY = feetY, tilt = 0;
       if (feetY === under) {
-        tipY = liftAt(wx + sdx * len, wz + sdz * len);
+        tipY = liftAt(ax + sdx * len, az + sdz * len);
         if (Math.abs(tipY - feetY) > 2) tipY = feetY; // ignore canyon drops
         tilt = Math.atan2(tipY - feetY, len);
       }
       sh.quaternion.copy(_sunQuat);
       if (tilt) sh.quaternion.multiply(_qShTilt.setFromAxisAngle(_axisX, tilt));
       const mid = (len / 2) * Math.cos(tilt);
-      sh.position.set(wx + sdx * mid, (feetY + tipY) / 2 + 0.03, wz + sdz * mid);
+      sh.position.set(ax + sdx * mid, (feetY + tipY) / 2 + 0.03, az + sdz * mid);
       sh.scale.set(flip ? -scale : scale, len, 1);
       sh.visible = m.visible && !flat;
     }
@@ -1360,6 +1578,7 @@ const R3D = (() => {
   // ---------- playable character sheet (data-URI texture, 8-dir frames) ----------
   let charTex = null, charMat = null, charImg = null, charW = 0, charH = 0, charMesh = null;
   let armourMesh = null;   // equipped metal armour, tailored + tinted, over the player
+  let orbMesh = null;      // the unformed spark: pre-character-selection Tūhura form
   let _playerBB = null;    // billboard drawn for the player this frame — drawOverlay's head anchor
   const _vHead = new THREE.Vector3();
   const CHAR_SCALE = 1.85;
@@ -1747,26 +1966,27 @@ const R3D = (() => {
                            // mortal species, so it's the single largest tree in the world
 
   });
-  // ---- Per-hull vessel scale (2026-09-08) ----
-  // The whole fleet previously rendered at one flat 1.25 — a man-o'-war the
-  // size of a coracle. Scale now tracks the Shipwrighting hull tier
-  // (ITEMS[id].boat 1..32): 1.15 + tier*0.065, so dinghies stay rowboat-sized
-  // and tall ships tower like trees (max ~3.2, inside the billboard's crisp
-  // range). Keys are the OBJ_MAP hulls; where several tiers share one sprite
-  // (sloop+cutter → ship_cutter) the key takes its top tier's scale. The same
-  // tier curve drives boatClearance() (state.js) — how much air a hull needs
-  // to pass under a bridge deck — so looks and rules agree.
-  Object.assign(OBJ_SCALE, {
-    raft: 1.22, raft_logs: 1.28, canoe: 1.35, boat_coracle: 1.41,
-    raft_planks: 1.48, skiff: 1.54, rowboat: 1.61, boat_dinghy: 1.67,
-    boat_dory: 1.74, boat_catboat: 1.8, ship_smack: 1.87, boat_barge: 2.0,
-    ship_cutter: 2.06, sailboat: 2.19, ship_longship: 2.32, ship_junk: 2.39,
-    ship_caravel: 2.45, ship_schooner: 2.52, ship_carrack: 2.58,
-    ship_brig: 2.65, ship_brigantine: 2.71, ship_galley: 2.78,
-    ship_barque: 2.84, ship_galleon: 2.91, ship: 2.97, ship_frigate: 3.04,
-    ship_clipper: 3.1, ship_dhow: 3.17, ship_manofwar: 3.23,
-  });
+  // ---- Per-hull vessel scale: REAL ship lengths (2026-09-11) ----
+  // Hull billboards are sized in TILES from the Shipwrighting hull tier
+  // (ITEMS[id].boat 1..32): length = the tier itself, clamped [2, 32] — a
+  // raft spans a couple of tiles, a man-o'-war a full 32. Derived at first
+  // use from ITEMS (shipwrighting.js sets .boat, furniture.js sets .place),
+  // so new hulls pick up their size automatically; where several tiers share
+  // one sprite (sloop+cutter → ship_cutter) the key takes its TOP tier via
+  // max(). boatClearance() (state.js) has its own modest tier curve — bridge
+  // rules are unchanged by the visual size.
+  let _hullScaled = false;
+  function ensureHullScales() {
+    if (_hullScaled || typeof ITEMS === "undefined") return;
+    _hullScaled = true;
+    for (const id in ITEMS) {
+      const d = ITEMS[id];
+      if (d && d.boat && d.place)
+        OBJ_SCALE[d.place] = Math.max(OBJ_SCALE[d.place] || 0, Math.min(32, Math.max(2, d.boat)));
+    }
+  }
   function objScaleFor(key) {
+    ensureHullScales();
     if (OBJ_SCALE[key] != null) return OBJ_SCALE[key];
     // NZ species carry their real-scale size in NZ_TREE_SCALE (used both by the
     // tree billboards and the small-plant decorations placed by key "nz_*")
@@ -1848,6 +2068,25 @@ const R3D = (() => {
     return m;
   }
 
+  // Boot preload (main.js awaits this before the loading overlay drops): force
+  // the CHARACTER and OBJECT art sheets to decode BEFORE the first frame paints.
+  // Otherwise the opening frames fall back to LEGACY art — getObjMesh returns
+  // null while !objW, so every tree/rock/station/decor draws its flat atlas
+  // sprite, and the player billboard is blank while !charW — and then visibly
+  // pop to the real art a beat later once the webp finishes loading. Resolves on
+  // load OR error (a bad sheet must never wedge boot) and instantly if already
+  // decoded (warm boot / SW cache).
+  function preloadArt() {
+    ensureCharTex();
+    ensureObjTex();
+    const wait = im => new Promise(res => {
+      if (!im || (im.complete && im.naturalWidth > 0)) return res();
+      im.addEventListener("load", () => res(), { once: true });
+      im.addEventListener("error", () => res(), { once: true });
+    });
+    return Promise.all([wait(charImg), wait(objImg)]).then(() => {});
+  }
+
   // ---------- init ----------
   // Returns false if WebGL is unavailable or canvas data is blocked.
   function init() {
@@ -1861,6 +2100,7 @@ const R3D = (() => {
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     scene = new THREE.Scene();
+    if (typeof window !== "undefined") window._R3DScene = scene; // headless-test hook
     scene.background = new THREE.Color(SKY);
     scene.fog = new THREE.Fog(SKY, 28, 52);
     camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
@@ -1879,7 +2119,7 @@ const R3D = (() => {
     shadowGeom = new THREE.PlaneGeometry(0.9, 0.6);
 
     try {
-      buildAtlas();
+      if (!atlas) buildAtlas(); // boot pre-bakes it via buildAtlasAsync (main.js)
     } catch (e) {
       console.warn("Atlas build failed:", e.message);
       return false;
@@ -1892,6 +2132,7 @@ const R3D = (() => {
         registerPlaceholder("spr:" + k, n, "structural billboard — tinted placeholder sprite");
     initSea();
     syncChunks();
+    try { performance.mark("ef:firstChunks"); } catch (e) { /* boot beacon */ }
     resize();
     camPos.set(WX(player.px), 9, WX(player.py) + 7);
     ready = true;
@@ -1928,6 +2169,7 @@ const R3D = (() => {
     return { x: (_v.x + 1) / 2 * overlayCssW, y: (1 - _v.y) / 2 * overlayCssH, behind: _v.z > 1 };
   }
   const raycaster = new THREE.Raycaster();
+  const _pkP = new THREE.Vector3(), _pkC = new THREE.Vector3(); // pickTile bird-pick temps
   function pickTile(e) {
     const r = renderer.domElement.getBoundingClientRect();
     const nx = ((e.clientX - r.left) / r.width) * 2 - 1;
@@ -1935,6 +2177,23 @@ const R3D = (() => {
     raycaster.setFromCamera({ x: nx, y: ny }, camera);
     const o = raycaster.ray.origin, d = raycaster.ray.direction;
     if (Math.abs(d.y) < 1e-6) return { x: -1, y: -1 };
+    // flying/roosting birds hang above the terrain — the ground ray passes
+    // underneath them, so pick them first by ray proximity to the billboard
+    // centre; a hit maps to the bird's ground-projected tile, which is what
+    // targetsAt() matches monsters by
+    if (typeof monsters !== "undefined") {
+      let bird = null, bt = Infinity;
+      for (const mm of monsters) {
+        if (!mm.alive || mm.flyAbs == null) continue;
+        const sc = (MONSTERS[mm.kind].scale || 1) * (mm.giant ? 1.5 : 1);
+        _pkP.set(WX(mm.px), mm.flyAbs + sc * 0.5, WX(mm.py));
+        const t = _pkC.copy(_pkP).sub(o).dot(d);
+        if (t <= 0 || t >= bt) continue;
+        _pkC.copy(d).multiplyScalar(t).add(o);
+        if (_pkC.distanceTo(_pkP) <= Math.max(0.45, sc * 0.55)) { bt = t; bird = mm; }
+      }
+      if (bird) return { x: bird.x, y: bird.y };
+    }
     const lv = player.level | 0;
     if (lv > 0) {
       // upstairs: clicks land on the floor plane the player is standing on
@@ -2021,7 +2280,7 @@ const R3D = (() => {
       else if (n.farm) {
         if (n.crop) {
           const crop = CROPS[n.crop.kind];
-          const p = (now - n.crop.plantedAt) / crop.time;
+          const p = (now - n.crop.plantedAt) / (typeof cropGrowMs === "function" ? cropGrowMs(crop) : crop.time);
           if (crop.tree) {
             // Pomiculture: a barren fruit tree that grows from a sapling; the
             // crop's own fruit is hung on the canopy once ripe, and vanishes
@@ -2107,12 +2366,25 @@ const R3D = (() => {
       if (!ov) continue;
       const lv = p.level | 0;
       if (!levelVisible(p.x, p.y, lv)) continue;   // upstairs furniture hidden from other floors
-      const om = getObjMesh("pl" + i, ov.idx);
-      if (!om) continue;
       const riddenNow = p === rid;
+      // vessels have a HEADING: show the 8-dir frame for it (live player.dir8
+      // while ridden, the stored p.dir when parked) rotated by the orbiting
+      // camera — the same (wi - camDir) convention the sailing hull uses.
+      // Furniture keeps the default camera-facing south frame.
+      let ff, wi = 0;
+      if (d.ride) {
+        wi = riddenNow ? Math.max(0, DIR8.indexOf(player.dir8 || "south")) : (p.dir | 0);
+        ff = (wi - camDir + 8) & 7;
+      }
+      const om = getObjMesh("pl" + i, ov.idx, ff);
+      if (!om) continue;
+      // the shadow shows the side the SUN sees of the headed hull
+      if (ff != null) om.userData.shadowGeom = objGeomFor(ov.idx * 8 + ((wi - sunState.oct + 8) & 7));
       const rx = riddenNow ? player.px / (TILE * SCALE) + 0.5 : p.x + 0.5;
       const ry = riddenNow ? player.py / (TILE * SCALE) + 0.5 : p.y + 0.5;
-      place(om, rx, ry, 1, ov.scale, false, false, liftAt(p.x, p.y) + lv * STOREY_H);
+      // hulls sit IN the water with a little draft, not perched on it
+      place(om, rx, ry, 1, ov.scale, false, false,
+        liftAt(p.x, p.y) + lv * STOREY_H - (d.ride ? 0.15 : 0));
     }
   }
 
@@ -2145,7 +2417,14 @@ const R3D = (() => {
           const until = pickedDecor.get(pk);
           if (until != null) { if (now < until) continue; pickedDecor.delete(pk); }
         }
-        const om = getObjMesh("dc" + o.wx + "_" + o.wz, o.idx, 0); // south sprite only
+        // decor pins the south sprite — except fences/gates, which rotate
+        // with the camera: screen facing = (fdir - camDir) like monsters/
+        // hulls, then fr re-anchors it onto the mis-rotated sheet (fr is
+        // the cell holding the true south view — see buildChunkMesh).
+        const ff = o.fr !== undefined
+          ? (o.fr + (((o.fdir || 0) - camDir + 8) & 7)) & 7
+          : 0;
+        const om = getObjMesh("dc" + o.wx + "_" + o.wz, o.idx, ff);
         if (om) place(om, o.wx, o.wz, 1, o.scale, false, false, liftAt(o.wx, o.wz));
       }
     }
@@ -2518,7 +2797,10 @@ const R3D = (() => {
     const x1 = x0 + w, z1 = z0 + h; // outer bounds (walls sit ON the perimeter tiles)
     const frontKey = stone ? "wall_stone" : "wall_wood";
     const sideKey = stone ? "wall_stone_side" : "wall_wood_side";
-    const floorKey = stone ? "floor_stone" : "floor_wood";
+    // interior slab uses the warm sandstone variant, NOT floor_stone — city
+    // streets are paved floor_stone, so an identical interior read as bare
+    // pavement inside stone buildings
+    const floorKey = stone ? "floor_interior" : "floor_wood";
     const topCol = stone ? 0x767a82 : 0x63482e;
     const group = new THREE.Group();
     const rec = { group, geoms: [], storeyGroups: [], slabs: [], roofGroup: null, doors: [], b, m,
@@ -3388,7 +3670,7 @@ const R3D = (() => {
     "Well met, traveller.", "Fine day on the isle, isn't it?",
     "Mind how you go out there.", "New face around here?",
     "The roads have been quiet lately.", "Safe travels, friend.",
-    "Emberfall's a big place — easy to get lost.", "Trouble's always brewing somewhere.",
+    "Taiao's a big place — easy to get lost.", "Trouble's always brewing somewhere.",
   ];
   const MIX_QUEST_LINES = [
     "You there — I could use some help.", "A word, adventurer? There's work to be done.",
@@ -3889,10 +4171,15 @@ const R3D = (() => {
 
   function syncEntities() {
     syncMixNpcs();
-    // monsters
+    const _vr = viewRadius();
+    // monsters — dead or beyond the view radius render nothing, and their
+    // mesh is left unmarked so sweep() reclaims it (the scene must not carry
+    // a billboard per monster ever activated; that grew without bound and
+    // every place() probed the far monster's chunk, pinning it in memory)
     monsters.forEach((mon, i) => {
-      const id = "mob" + i;
-      if (!mon.alive) { const e = meshes.get(id); if (e) { e.visible = false; e.userData.seen = true; if (e.userData.shadow) e.userData.shadow.visible = false; } return; }
+      if (!mon.alive || mon.dormant) return; // dormant: a nocturnal bird sleeping out the day
+      if (Math.abs(mon.x - player.x) > _vr || Math.abs(mon.y - player.y) > _vr) return;
+      const id = "mob" + (mon.uid || i);
       const def = MONSTERS[mon.kind];
       let dispDir = mon.dir8 || "south";
       if (def.dirSpr && camDir) {
@@ -3920,7 +4207,11 @@ const R3D = (() => {
       // sit swimY below the surface: half-out on a surface cruise (the water
       // plane clips the body — shark-fin style), gone entirely on a deep dive
       const sink = mon.canSwim ? (mon.swimY || 0) : 0;
-      if (mon.canSwim) bob = Math.sin(now / 420 + i) * 0.05;
+      if (mon.canSwim) bob = Math.sin(now / 420 + (mon.uid || i)) * 0.05;
+      // flying birds (gameplay/birdflight.js) render at their absolute feet
+      // height with a gentle wing-beat undulation; a perched bird sits still
+      const air = mon.flyAbs != null;
+      if (air) bob = (mon.flight && mon.flight.mode === "air") ? Math.sin(now / 130 + (mon.uid || i)) * 0.05 : 0;
       let lx = 0, lz = 0;
       if (now - (mon.lungeT || -9999) < 180) {
         const p = 1 - (now - mon.lungeT) / 180;
@@ -3928,14 +4219,16 @@ const R3D = (() => {
         lz = (WX(player.py) - WX(mon.py)) * 0.12 * p;
       }
       m.userData.lift = bob;
+      m.userData.airShadow = air; // place(): sun-project a flyer's shadow to the ground
       const mScale = def.scale * (mon.giant ? 1.5 : 1);
-      place(m, WX(mon.px) + lx, WX(mon.py) + lz, 1, mScale, !def.dirSpr && mon.facing < 0, false, liftAt(mon.x, mon.y) - sink);
+      place(m, WX(mon.px) + lx, WX(mon.py) + lz, 1, mScale, !def.dirSpr && mon.facing < 0, false,
+        air ? mon.flyAbs : liftAt(mon.x, mon.y) - sink);
       if (sink > 0.6) {
         // mostly under: no sun shadow (the body is below the surface) — show
         // a dark silhouette gliding flat just under the waterline instead, so
         // a diver reads as a shape in the water rather than vanishing outright
         if (m.userData.shadow) m.userData.shadow.visible = false;
-        const sub = getMesh("mobsub" + i, sprKey);
+        const sub = getMesh("mobsub" + (mon.uid || i), sprKey);
         sub.material = shadowMatFor(sharedMat);
         sub.renderOrder = 2;
         const shrink = Math.max(0.45, 1 - sink * 0.12); // deeper = smaller shape
@@ -3944,7 +4237,6 @@ const R3D = (() => {
       }
     });
     // npcs
-    const _vr = viewRadius();
     world.npcs.forEach((npc, i) => {
       if (Math.abs(npc.x - player.x) > _vr || Math.abs(npc.y - player.y) > _vr) return;
       if (npc.mix && MIXR.ok) {
@@ -4001,8 +4293,10 @@ const R3D = (() => {
         m.userData.seen = true; m.visible = true;
         place(m, WX(player.px), WX(player.py) + 0.12, 1, ov.scale || 1.5, false, false);
         // sit low on the water — groundY, not liftAt: under a bridge liftAt
-        // is the deck, but the boat rides the surface beneath it
-        m.position.y = groundY(player.x, player.y) + 0.7 + Math.sin(now / 300) * 0.03;
+        // is the deck, but the boat rides the surface beneath it. Anchor the
+        // BOTTOM of the (tile-length-scaled) billboard just under the surface
+        // — a fixed centre height would drown a 30-tile hull's art.
+        m.position.y = groundY(player.x, player.y) + (ov.scale || 1.5) / 2 - 0.15 + Math.sin(now / 300) * 0.03;
       } else {
         const b = getMesh("pboat", ITEMS[player.sailing].icon);
         b.position.set(WX(player.px), groundY(player.x, player.y) + 0.66 + Math.sin(now / 300) * 0.03, WX(player.py) + 0.12);
@@ -4088,13 +4382,85 @@ const R3D = (() => {
       }
       pm.visible = false;
       if (pm.userData.shadow) pm.userData.shadow.visible = false;
+      if (orbMesh) orbMesh.visible = false;
+    } else if (typeof Tutorial !== "undefined" && Tutorial.active() && player.character == null) {
+      // Tūhura Isle: until a body is chosen (via the Guide's CharSelect), the newcomer is
+      // an unformed SPARK — a floating, softly pulsing orb of light. The
+      // Guide's first lesson points at the character menu; picking any
+      // character swaps this for the normal 8-direction billboard above.
+      if (!orbMesh) {
+        const cv = document.createElement("canvas");
+        cv.width = cv.height = 64;
+        const g = cv.getContext("2d");
+        const rg = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+        rg.addColorStop(0, "rgba(255,250,225,1)");
+        rg.addColorStop(0.35, "rgba(255,232,160,0.9)");
+        rg.addColorStop(0.7, "rgba(150,220,255,0.30)");
+        rg.addColorStop(1, "rgba(120,200,255,0)");
+        g.fillStyle = rg;
+        g.fillRect(0, 0, 64, 64);
+        const t = new THREE.CanvasTexture(cv);
+        orbMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+          new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+        orbMesh.renderOrder = 7;
+        scene.add(orbMesh);
+      }
+      const pulse = 0.74 + Math.sin(now / 260) * 0.07;
+      orbMesh.position.set(WX(player.px) + lx,
+        playerLiftY + 0.55 + Math.sin(now / 430) * 0.1 + bob, WX(player.py) + lz);
+      orbMesh.rotation.x = TILT;
+      orbMesh.scale.set(pulse, pulse, 1);
+      orbMesh.visible = true;
+      pm.visible = false;
+      if (pm.userData.shadow) pm.userData.shadow.visible = false;
+      if (charMesh) { charMesh.visible = false; if (charMesh.userData.shadow) charMesh.userData.shadow.visible = false; }
+      if (armourMesh) armourMesh.visible = false;
     } else {
+      if (orbMesh) orbMesh.visible = false;
       pm.userData.lift = bob;
       place(pm, WX(player.px) + lx, WX(player.py) + lz, 1, 1, player.facing < 0, false, playerLiftY);
+      pm.visible = true;
       if (charMesh) { charMesh.visible = false; if (charMesh.userData.shadow) charMesh.userData.shadow.visible = false; }
       if (armourMesh) armourMesh.visible = false;
     }
-    _playerBB = (charMesh && charMesh.visible) ? charMesh : pm;
+    _playerBB = (charMesh && charMesh.visible) ? charMesh
+      : (orbMesh && orbMesh.visible) ? orbMesh : pm;
+    // ---- split echoes (gameplay/split.js): the player's INACTIVE bodies ----
+    // translucent copies of the character billboard, one per stored body; the
+    // active body is the normal player draw above. Meshes ride the `meshes`
+    // registry: mark seen while their body exists, let the sweep reap them
+    // after a merge.
+    {
+      const sbodies = player.bodies || [];
+      for (let i = 0; i < 4; i++) {
+        const b = sbodies[i];
+        const key = "splitb" + i;
+        let m = meshes.get(key);
+        const show = b && usingChar &&
+          Math.abs(b.x - player.x) <= _vr && Math.abs(b.y - player.y) <= _vr;
+        if (!show) { if (m && b) { m.visible = false; m.userData.seen = true; } continue; }
+        if (!m) {
+          const mat = charMat.clone();
+          mat.transparent = true; mat.opacity = 0.72; mat.alphaTest = 0.3;
+          m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+          m.renderOrder = 5;
+          scene.add(m);
+          meshes.set(key, m);
+        }
+        m.userData.seen = true; m.visible = true;
+        const bwi = Math.max(0, CHAR_DIRS.indexOf(b.dir8 || "south"));
+        setCharUV(m.geometry, player.character * CHAR_DIRS.length + ((bwi - camDir + 8) & 7));
+        const bx = b.px != null ? WX(b.px) : b.x + 0.5;
+        const by = b.py != null ? WX(b.py) : b.y + 0.5;
+        m.userData.lift = (b.moving || b.forced) ? Math.abs(Math.sin(now / 90 + i * 1.7)) * 0.08 : 0;
+        const _bst = (typeof playerCharStats === "function") ? playerCharStats() : null;
+        const _bh = _bst ? _bst.h : 1, _bw = _bst ? _bst.w : 1;
+        const _bs = CHAR_SCALE / CHAR_FILL_H;
+        place(m, bx, by, 1, _bs * _bh, false, false,
+          liftAt(b.x, b.y) + (b.level | 0) * STOREY_H - CHAR_FEET_FRAC * _bs * _bh);
+        m.scale.x = _bs * _bw;
+      }
+    }
     // held tool
     const act = player.act;
     let held = null;
@@ -4371,6 +4737,21 @@ const R3D = (() => {
         .applyQuaternion(_playerBB.quaternion).add(_playerBB.position).project(camera);
       if (_vHead.z <= 1) headPt = { x: (_vHead.x + 1) / 2 * W, y: (1 - _vHead.y) / 2 * H };
     }
+    // ---- action loading bar: any timed skill work (gather, craft, tend,
+    // till, chop, alchemy…) draws its current tick's progress as a slim gold
+    // bar riding just over the player's head (actions.js stamps _t0/_t1 each
+    // time the act schedules a tick; combat is excluded — it has its own beat)
+    if (headPt && player.act && player.act.kind !== "combat" &&
+        player.act._t1 > player.act._t0) {
+      const a = player.act;
+      const fracA = Math.max(0, Math.min(1, (now - a._t0) / (a._t1 - a._t0)));
+      const bw = 46 * uiK, bh = 5 * uiK;
+      const bx = headPt.x - bw / 2, byy = headPt.y - 14 * uiK;
+      octx.fillStyle = "rgba(8,12,18,0.78)";
+      octx.fillRect(bx, byy, bw, bh);
+      octx.fillStyle = "#ffd75e";
+      octx.fillRect(bx + 1, byy + 1, Math.max(0, (bw - 2) * fracA), bh - 2);
+    }
     // hover tile outline (projected quad, on the hovered tile's tier or the
     // player's current floor plane when upstairs)
     if (hover && hover.tileX !== undefined) {
@@ -4392,6 +4773,33 @@ const R3D = (() => {
       for (let i = 1; i < 4; i++) octx.lineTo(c[i][0], c[i][1]);
       octx.closePath();
       octx.stroke();
+    }
+    // queued-task tiles (Option/Alt+click, gameplay/split.js): a WHITE
+    // outline on every tile still waiting in a body's queue — and on the one
+    // a body is walking to off its queue — so the work plan reads at a
+    // glance; each outline drops the moment its body gets there.
+    if (typeof Split !== "undefined" && Split.queuedTiles) {
+      const qts = Split.queuedTiles();
+      if (qts.length) {
+        octx.strokeStyle = "rgba(255,255,255,0.9)";
+        octx.lineWidth = 2;
+        for (const q of qts) {
+          if (Math.abs(q.x - player.x) > 48 || Math.abs(q.y - player.y) > 48) continue;
+          const qy = liftAt(q.x, q.y) + 0.02;
+          let behind = false;
+          const qc = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([ox, oz]) => {
+            _v.set(q.x + ox, qy, q.y + oz).project(camera);
+            if (_v.z > 1) behind = true;
+            return [(_v.x + 1) / 2 * W, (1 - _v.y) / 2 * H];
+          });
+          if (behind) continue;
+          octx.beginPath();
+          octx.moveTo(qc[0][0], qc[0][1]);
+          for (let i = 1; i < 4; i++) octx.lineTo(qc[i][0], qc[i][1]);
+          octx.closePath();
+          octx.stroke();
+        }
+      }
     }
     // air bubbles while drowning: a shrinking row bobbing just above the
     // waterline over the player's head; each bubble ≈ one second of air
@@ -4424,10 +4832,19 @@ const R3D = (() => {
       const p = project(px, py, h);
       if (!p.behind) barAt(p.x, p.y, frac);
     }
+    // both monster overlay loops share the entity cull: beyond the view
+    // radius the billboard isn't drawn (syncEntities), so no bar/label either
+    const _ovr = viewRadius();
     for (const mon of monsters) {
-      if (!mon.alive) continue;
+      if (!mon.alive || mon.dormant) continue;
+      if (Math.abs(mon.x - player.x) > _ovr || Math.abs(mon.y - player.y) > _ovr) continue;
       const def = MONSTERS[mon.kind];
-      if (mon.hp < def.hp || mon.target) bar(mon.px, mon.py, mon.hp / def.hp, def.scale * (mon.giant ? 1.5 : 1) * 1.35 + liftPx(mon.px, mon.py));
+      const mmh = monMaxHp(mon.kind);
+      // swimmers' bars ride down with the body (same swimY sink the mesh uses);
+      // a flying bird's bar rides up with it (flyAbs is the absolute feet height)
+      const sink = mon.canSwim ? (mon.swimY || 0) : 0;
+      const airH = mon.flyAbs != null ? Math.max(0, mon.flyAbs - liftPx(mon.px, mon.py)) : 0;
+      if (mon.hp < mmh || mon.target) bar(mon.px, mon.py, mon.hp / mmh, def.scale * (mon.giant ? 1.5 : 1) * 1.35 + liftPx(mon.px, mon.py) - sink + airH);
     }
     // mob name / level labels — same projection as hp bar, fixed pixel size.
     // No extra letterSpacing — OpenDyslexic doesn't need artificial tracking
@@ -4439,9 +4856,14 @@ const R3D = (() => {
     // monster that would otherwise be dangerous reads as calm instead
     const peaceful = world.inPeacefulZone && world.inPeacefulZone(player.x, player.y);
     for (const mon of monsters) {
-      if (!mon.alive) continue;
+      if (!mon.alive || mon.dormant) continue;
+      if (Math.abs(mon.x - player.x) > _ovr || Math.abs(mon.y - player.y) > _ovr) continue;
       const def = MONSTERS[mon.kind];
-      const p = project(mon.px, mon.py, def.scale * (mon.giant ? 1.5 : 1) * 1.35 + liftPx(mon.px, mon.py));
+      // labels submerge with a diving swimmer, tracking the body (swimY sink),
+      // and climb with a flying bird (flyAbs)
+      const sink = mon.canSwim ? (mon.swimY || 0) : 0;
+      const airH = mon.flyAbs != null ? Math.max(0, mon.flyAbs - liftPx(mon.px, mon.py)) : 0;
+      const p = project(mon.px, mon.py, def.scale * (mon.giant ? 1.5 : 1) * 1.35 + liftPx(mon.px, mon.py) - sink + airH);
       if (p.behind) continue;
       const danger = def.lvl > 2 * combatLevel() && !peaceful;
       octx.shadowColor = "rgba(0,0,0,0.9)";
@@ -4638,7 +5060,8 @@ const R3D = (() => {
     for (const s of splats) {
       if (now < s.t) continue; // delayed splat: lands with its arrow (addSplat)
       const e = s.ent;
-      const p = project(e === player ? player.px : e.px, e === player ? player.py : e.py, 0.55 + (e === player ? playerLiftY : liftPx(e.px, e.py)));
+      const p = project(e === player ? player.px : e.px, e === player ? player.py : e.py,
+        0.55 + (e === player ? playerLiftY : (e.flyAbs != null ? e.flyAbs : liftPx(e.px, e.py))));
       if (p.behind) continue;
       octx.globalAlpha = Math.max(0, 1 - (now - s.t) / 900);
       octx.fillStyle = s.val > 0 ? "#c22" : "#22a";
@@ -4680,14 +5103,27 @@ const R3D = (() => {
   // local downstream direction from world.riverFlowAt — the water visibly
   // "flows". Streaks spawn on carved-water tiles near the player and die when
   // they run aground or time out.
-  const FLOW_N = 36;
+  // sized/opaque enough to read at the default zoom — the original
+  // 0.55x0.09 streaks at 0.38 alpha were invisible among the water tile art
+  // ("rivers lack current animations")
+  const FLOW_N = 48;
   const flowPool = [];
   let flowMat = null, flowGeom = null, flowLastT = 0;
   function syncFlow() {
     if (!flowMat) {
-      flowMat = new THREE.MeshBasicMaterial({ color: 0xd4ecff, transparent: true, opacity: 0.38, depthWrite: false });
-      flowGeom = new THREE.PlaneGeometry(0.55, 0.09);
+      flowMat = new THREE.MeshBasicMaterial({ color: 0xe8f6ff, transparent: true, opacity: 0.6, depthWrite: false });
+      flowGeom = new THREE.PlaneGeometry(0.9, 0.16);
     }
+    // flow at (wx,wy): the tutorial isle's RIVER animates via the Tutorial
+    // hook (it isn't in world.riverFlowAt's registry). The SEA is still —
+    // rivers are the only current in the world.
+    const flowAt = (wx, wy) => {
+      if (typeof Tutorial !== "undefined") {
+        const r = Tutorial.riverFlow && Tutorial.riverFlow(wx, wy);
+        if (r) return r;
+      }
+      return world.riverFlowAt ? world.riverFlowAt(wx, wy) : null;
+    };
     const dt = Math.min(100, Math.max(0, now - flowLastT));
     flowLastT = now;
     for (let tries = 0; tries < 3; tries++) {
@@ -4705,8 +5141,8 @@ const R3D = (() => {
       const wx = player.x + ((Math.random() * 29) | 0) - 14;
       const wy = player.y + ((Math.random() * 29) | 0) - 14;
       const wb = waterBit(wx, wy);
-      if (wb !== 2 && wb !== 3) { slot.m.visible = false; continue; }
-      const f = world.riverFlowAt ? world.riverFlowAt(wx, wy) : null;
+      if (wb < 1 || wb > 3) { slot.m.visible = false; continue; }   // any water (the isle river is sea-level → bit 1)
+      const f = flowAt(wx, wy);        // null on still water → no foam there
       if (!f) { slot.m.visible = false; continue; }
       slot.x = wx + 0.15 + Math.random() * 0.7;
       slot.y = wy + 0.15 + Math.random() * 0.7;
@@ -4715,15 +5151,15 @@ const R3D = (() => {
       slot.m.visible = true;
     }
     // tiles per second of drift — a river in flood visibly races
-    const sp = 1.35 * (1 + floodLvl * 0.9) * dt / 1000;
+    const sp = 1.35 * (1 + floodLvl * 1.6) * dt / 1000;
     for (const p of flowPool) {
       if (p.die <= now) { p.m.visible = false; continue; }
       p.x += p.fx * sp; p.y += p.fy * sp;
       const tx = Math.floor(p.x), ty = Math.floor(p.y);
       const wb = waterBit(tx, ty);
       if (wb < 1 || wb > 3) { p.die = 0; p.m.visible = false; continue; }
-      const f = world.riverFlowAt ? world.riverFlowAt(tx, ty) : null;
-      if (f) { p.fx = f[0]; p.fy = f[1]; } // bend with the river
+      const f = flowAt(tx, ty);
+      if (f) { p.fx = f[0]; p.fy = f[1]; } // bend with the river / rip
       p.m.position.set(p.x, waterLevelAt(tx, ty) + 0.05, p.y);
       p.m.rotation.y = -Math.atan2(p.fy, p.fx);
     }
@@ -4787,6 +5223,7 @@ const R3D = (() => {
         floodLvl = Math.round(fl * 4) / 4;
         waterLevelCache.clear();
         groundYCache.clear();
+        liftCache.clear();   // liftAt caches flood-dependent water/deck levels
         _floodRebuild.length = 0;
         for (const key of chunkMeshes.keys()) {
           const p = key.split(",");
@@ -4900,8 +5337,57 @@ const R3D = (() => {
     };
   }
 
+  // On-demand close-up snapshot of the live scene at a tile (the object
+  // workshop's billboard for 3D-geometry objects: doors, gates, ladders,
+  // portals, obstacles). Renders the retained scene once with a temporary
+  // camera into a small offscreen render target and returns the pixels as a
+  // canvas (or null off-ready). yaw (radians) picks which side the camera
+  // shoots from — omit it for the live camera's orbit side; the workshop
+  // sweeps 0..2π to build a full 8-direction billboard set.
+  let _shotRT = null, _shotCam = null;
+  function snapshotTile(tx, ty, px, yaw) {
+    if (!ready || !renderer) return null;
+    px = px || 144;
+    if (!_shotRT || _shotRT.width !== px) {
+      if (_shotRT) _shotRT.dispose();
+      _shotRT = new THREE.WebGLRenderTarget(px, px);
+    }
+    if (!_shotCam) _shotCam = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
+    const wx = tx + 0.5, wz = ty + 0.5;
+    const base = liftAt(tx, ty);
+    const a = yaw == null ? camYaw : yaw;
+    const sy = Math.sin(a), cyw = Math.cos(a);
+    const d = 3.4;
+    _shotCam.position.set(wx + sy * d, base + 2.4, wz + cyw * d);
+    _shotCam.lookAt(wx, base + 0.9, wz);
+    const prevRT = renderer.getRenderTarget();
+    renderer.setRenderTarget(_shotRT);
+    renderer.render(scene, _shotCam);
+    const buf = new Uint8Array(px * px * 4);
+    renderer.readRenderTargetPixels(_shotRT, 0, 0, px, px, buf);
+    renderer.setRenderTarget(prevRT);
+    // GL rows are bottom-up — flip into canvas order
+    const cv = document.createElement("canvas");
+    cv.width = px; cv.height = px;
+    const c2 = cv.getContext("2d");
+    const id = c2.createImageData(px, px);
+    for (let row = 0; row < px; row++)
+      id.data.set(buf.subarray(row * px * 4, (row + 1) * px * 4), (px - 1 - row) * px * 4);
+    c2.putImageData(id, 0, 0);
+    return cv;
+  }
+
+  // the renderer's key -> packed-object-art resolution, for the object
+  // workshop: which 8-direction objects-sheet entry a prop actually renders
+  // with ({idx, scale} or null). FLAT_DECOR keys draw as flat sprites
+  // in-game, so they resolve to null here too.
+  function objArtFor(key) {
+    if (FLAT_DECOR.has(key)) return null;
+    return objForKey(key);
+  }
+
   return {
-    init, frame, resize, pickTile, _diag, _structDetail, _meshLog: meshLog,
+    init, frame, resize, pickTile, buildAtlasAsync, preloadArt, snapshotTile, objArtFor, _diag, _structDetail, _meshLog: meshLog,
     _sunDebug: () => ({ ...sunState, bakeKey: sunBakeKey, mats: _shadowMats.size }),
     // altitude probes for gameplay (movement picks deck vs. under level when
     // stepping onto a two-level tile): walkable ground height / deck height

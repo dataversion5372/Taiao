@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — character selector (C) =====
+// ===== Taiao — character selector (C) =====
 // Two pages: (1) a grid of characters (each front-facing, with its name); click
 // one to advance to (2) the OUTFIT page for that character — a grid of the
 // outfit states that family has (Idle/Default + smallclothes + any variants,
@@ -123,6 +123,13 @@ const CharSelect = (() => {
     player.dir8 = "south";
     if (typeof saveGame === "function") saveGame();
     if (typeof log === "function") log(`You are now ${CHAR_LIST[i].name}.`, "gold");
+    // taking a form clears the Guide's first gate — refresh the journey bar,
+    // and nudge the newly-embodied player onward
+    if (typeof Tutorial !== "undefined") {
+      if (Tutorial.refreshBar) Tutorial.refreshBar();
+      if (Tutorial.active && Tutorial.active() && typeof log === "function")
+        log("You take shape at last — the path east is open. Follow it to the next keeper.", "gold");
+    }
     close();
   }
 
@@ -193,6 +200,13 @@ const CharSelect = (() => {
 
   function openUI() {
     if (typeof CHAR_LIST === "undefined" || !CHAR_LIST.length) return;
+    // split selves (gameplay/split.js): a divided self can't take a new form.
+    // Both ways in (the isle's Guide and Newhaven's Registrar) funnel through
+    // here, so the one gate covers them all.
+    if (typeof player !== "undefined" && player.bodies && player.bodies.length) {
+      log(`A new form needs ONE of you, and you are ${1 + player.bodies.length}. Gather your selves and merge (stand together, press X), then return.`, "warn");
+      return;
+    }
     build();
     open = true;
     el().classList.add("open");

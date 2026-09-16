@@ -451,6 +451,7 @@ function createWorldMap(ctx) {
   // IMMEDIATELY from disk. First-ever tiles render through a paced pump (a
   // couple of ~40ms renders per frame) instead of stalling a draw call.
   function persistMacro(key, cv) {
+    { const r = _macroKeyRect(key); if (_isletZoneHit(r[0], r[1], r[2], r[3])) return; } // per-character islet — never cache to disk
     try { cv.toBlob(b => { if (b) _mOpen().then(db =>
       db.transaction('m', 'readwrite').objectStore('m').put(b, _mKey('mac:' + key))).catch(() => {}); }, 'image/png'); }
     catch (e) { /* best effort */ }
@@ -488,7 +489,8 @@ function createWorldMap(ctx) {
     try {
       _macWorker = new Worker("js/world/roadworker.js");
       _macWorker.postMessage({ type: "init", seed: S, landE: LAND_E, rockE: ROCK_E,
-        chunk: CHUNK, vcell: VCELL, pcell: PCELL, icell: ICELL });
+        chunk: CHUNK, vcell: VCELL, pcell: PCELL, icell: ICELL,
+        gensig: (typeof WORLDGEN_SIG !== 'undefined' ? WORLDGEN_SIG : 'dev') });
       _macWorker.onmessage = e => {
         const d = e.data;
         if (!d || !d.macro) return;
@@ -564,6 +566,14 @@ function createWorldMap(ctx) {
       while (_macRenderQ.length) {
         const key = _macRenderQ.shift();
         if (macroCache.has(key)) continue;
+        // isletZone tiles stay ON the main thread: the worker's terrain copy
+        // only knows the islet's DEFAULT seat, not the chosen body's
+        { const r = _macroKeyRect(key);
+          if (_isletZoneHit(r[0], r[1], r[2], r[3])) {
+            const ci2 = key.indexOf(':');
+            getMacro(parseFloat(key.slice(0, ci2)), ...key.slice(ci2 + 1).split(',').map(Number));
+            continue;
+          } }
         _macInFlight.add(key);                     // blocks re-queue until the worker replies
         const ci = key.indexOf(':');
         const [mxS, myS] = key.slice(ci + 1).split(',');
@@ -628,9 +638,25 @@ function createWorldMap(ctx) {
   // Bumped to v3: the road network changed twice (river-avoidance added, then
   // reverted) and bridges became bank-to-bank stone decks — cached v2 images
   // still show the old roads/crossings and no longer match the world.
-  const _MAPDB = 'ioe-mapimg-v8'; // v8: parallel roads merge into shared lanes (corridor re-lane fix)
-  for (const old of ['ioe-mapimg-v1', 'ioe-mapimg-v2', 'ioe-mapimg-v3', 'ioe-mapimg-v4', 'ioe-mapimg-v5', 'ioe-mapimg-v6', 'ioe-mapimg-v7'])
-    try { indexedDB.deleteDatabase(old); } catch (e) { /* best effort */ }
+  // AUTO-VERSIONED (2026-09-16, supersedes the hand-bumped -vNN scheme): the
+  // store name carries MAPBAKE_SIG — a build-time hash of every world-gen
+  // source PLUS this painter (tools/build.mjs MAP_FILES) — so any change to
+  // Tūhura Isle, world generation, or the map rendering itself re-keys the
+  // persisted bakes (chunk images, mip tiles, macro tiles) on the next
+  // build. The map and minimap can never show stale terrain; no manual
+  // bump, ever. Stale generations are swept below by enumeration.
+  const _MAPDB = 'ioe-mapimg-' + (typeof MAPBAKE_SIG !== 'undefined' ? MAPBAKE_SIG : 'dev');
+  function _sweepStaleIDB(prefix, keep) {   // (same helper as chunks.js — files are standalone)
+    try {
+      if (indexedDB.databases)
+        indexedDB.databases().then(dbs => {
+          for (const d of dbs || [])
+            if (d && d.name && d.name.startsWith(prefix) && d.name !== keep)
+              try { indexedDB.deleteDatabase(d.name); } catch (e) { /* best effort */ }
+        }).catch(() => { /* enumeration unsupported */ });
+    } catch (e) { /* best effort */ }
+  }
+  _sweepStaleIDB('ioe-mapimg-', _MAPDB);
   let _mdb = null;
   function _mOpen() {
     if (_mdb) return Promise.resolve(_mdb);
@@ -642,7 +668,56 @@ function createWorldMap(ctx) {
     });
   }
   const _mKey = key => `${S}/${key}`;
+  // --- the Swim-Master's isletZone (terrain.js): PER-CHARACTER geometry ---
+  // The motu re-seats when a body is chosen (Tutorial.isletSync), so no map
+  // artefact that shows it may be persisted: chunk bakes, mip tiles and
+  // macro tiles overlapping the zone render fresh each session (and macro
+  // renders for the zone stay ON the main thread — the road worker's
+  // terrain copy only knows the DEFAULT seat). mapDropRect below is the
+  // in-memory invalidation isletSync calls when the seat moves.
+  function _isletZoneHit(x0, y0, x1, y1) {  // MAP-coord rect vs the zone
+    if (typeof TUT_ISLE === "undefined" || !TUT_ISLE.isletZone) return false;
+    const Z = TUT_ISLE.isletZone;
+    return x0 < Z.x1 && x1 > Z.x0 && y0 < Z.y1 && y1 > Z.y0;
+  }
+  const _chunkKeyRect = key => {          // "gcx,gcy" chunk bake → map rect
+    const [cx, cy] = key.split(",").map(Number);
+    return [cx * 16, cy * 16, cx * 16 + 16, cy * 16 + 16];
+  };
+  const _mipKeyRect = key => {            // "L:tx,ty" mip tile → map rect
+    const [L, rest] = key.split(":");
+    const [tx, ty] = rest.split(",").map(Number);
+    const span = (1 << +L) * 16;
+    return [tx * span, ty * span, (tx + 1) * span, (ty + 1) * span];
+  };
+  const _macroKeyRect = key => {          // "step:mx,my" macro tile → map rect
+    const [st, rest] = key.split(":");
+    const [mx, my] = rest.split(",").map(Number);
+    const MT = MACRO_PX * +st;
+    return [mx * MT, my * MT, (mx + 1) * MT, (my + 1) * MT];
+  };
+  // Drop every in-memory map artefact intersecting the MAP-coord rect —
+  // chunk bakes (the minimap composites these too), mip tiles, macro tiles
+  // and the flat-cell memo. Persisted copies need no cleanup: the guards on
+  // persistMapImage/_mipPersist/persistMacro keep zone artefacts out of IDB.
+  function mapDropRect(x0, y0, x1, y1) {
+    const sweep = (cache, rectOf, close) => {
+      for (const k of [...cache.keys()]) {
+        const r = rectOf(k);
+        if (r[0] < x1 && r[2] > x0 && r[1] < y1 && r[3] > y0) {
+          const v = cache.get(k);
+          cache.delete(k);
+          if (close && v && typeof v.close === "function") { try { v.close(); } catch (e) { /* already closed */ } }
+        }
+      }
+    };
+    sweep(mapChunkCache, _chunkKeyRect, true);
+    sweep(mipCache, _mipKeyRect, false);
+    sweep(macroCache, _macroKeyRect, false);
+    _flatCache.clear();
+  }
   function persistMapImage(key, canvas) {
+    { const r = _chunkKeyRect(key); if (_isletZoneHit(r[0], r[1], r[2], r[3])) return; }
     try {
       canvas.toBlob(b => {
         if (!b) return;
@@ -801,6 +876,7 @@ function createWorldMap(ctx) {
   // so any later session shows real tile art at full zoom-out immediately —
   // no need to re-hydrate thousands of individual chunk bakes first.
   function _mipPersist(key, cv) {
+    { const r = _mipKeyRect(key); if (_isletZoneHit(r[0], r[1], r[2], r[3])) return; } // per-character islet — never cache to disk
     try { cv.toBlob(b => { if (b) _mOpen().then(db =>
       db.transaction('m', 'readwrite').objectStore('m').put(b, _mKey('mip2:' + key))).catch(() => {}); }, 'image/png'); }
     catch (e) { /* best effort */ }
@@ -1083,6 +1159,55 @@ function createWorldMap(ctx) {
       }
     }
 
+    // --- Tūhura Isle overlay: paths, fences, gates, bridge, pier (user req) ---
+    // The bake is ANALYTIC — it never reads painted chunk tiles — so the
+    // isle's built lines are recomputed from the same terrain.js geometry
+    // the chunk painter uses. Drawn per GAME tile (TILE/2 px sub-cells), so
+    // single-file fences stay single-file on the map and minimap alike.
+    if (typeof tutIsleSD === "function" && typeof tutFenceAt === "function" &&
+        typeof TUT_ISLE !== "undefined" &&
+        baseX + CS >= TUT_ISLE.bbox.x0 && baseX <= TUT_ISLE.bbox.x1 &&
+        baseY + CS >= TUT_ISLE.bbox.y0 && baseY <= TUT_ISLE.bbox.y1) {
+      const HT2 = TILE / 2, RIV = TUT_ISLE.river;
+      for (let ty = 0; ty < CS; ty++) for (let tx = 0; tx < CS; tx++) {
+        for (let sy = 0; sy < 2; sy++) for (let sx = 0; sx < 2; sx++) {
+          const mx = baseX + tx + sx * 0.5, my = baseY + ty + sy * 0.5; // game-tile centre, map coords
+          const q2 = tutIsleSD(mx, my);
+          if (!q2) continue;
+          const px2 = tx * TILE + sx * HT2, py2 = ty * TILE + sy * HT2;
+          // bridge deck: ONLY the Cove→Forge crossing (s past 1.9) — between
+          // the Bush chamber and the Cove the journey RIDES the water through
+          // the river gate, so no deck is painted there (mirrors chunks.js)
+          if (q2.d < 1.1 && q2.s > 1.9 && q2.pRiver >= 0 && q2.riverLine < RIV.waterR + 2) {
+            ctx.fillStyle = "#9aa2ad"; ctx.fillRect(px2, py2, HT2, HT2); // bridge deck
+            continue;
+          }
+          const f = tutFenceAt(mx, my);
+          if (f) {
+            ctx.fillStyle = f.gate >= 0 ? "#e7c860" : "#5d4429";
+            ctx.fillRect(px2, py2, HT2, HT2);                            // gate arch / fence post
+            continue;
+          }
+          if (q2.D < -1.5 && q2.d < 0.9) {
+            ctx.fillStyle = "#b9905b"; ctx.fillRect(px2, py2, HT2, HT2); // the walking path
+          }
+        }
+      }
+      // the Harbour pier: radial decking from pod 14 out to sea (stamped as
+      // decor in chunks — recomputed here the same way tutorial.js stamps it)
+      {
+        const p14 = TUT_ISLE.pods[14], a = p14.ang * Math.PI / 180;
+        ctx.fillStyle = "#9aa2ad";
+        for (let k = 12; k <= 30; k += 0.5) {
+          const gx2 = p14.mx * 2 + Math.round(Math.cos(a) * k);
+          const gy2 = p14.my * 2 + Math.round(Math.sin(a) * k);
+          const lx = gx2 / 2 - baseX, ly = gy2 / 2 - baseY;
+          if (lx >= 0 && lx < CS && ly >= 0 && ly < CS)
+            ctx.fillRect(Math.floor(lx * TILE), Math.floor(ly * TILE), HT2, HT2);
+        }
+      }
+    }
+
     // --- decorations ---
     // Draw in TILE=4 coordinate space then scale up so hardcoded pixel sizes stay proportional
     ctx.save();
@@ -1282,7 +1407,7 @@ function createWorldMap(ctx) {
     return BIOME_NAMES[b] || 'Unknown';
   }
 
-  return { renderMapChunk, renderMapChunkCached, preloadMapImages, prewarmMapChunk, biomeNameAt, BIOME_NAMES,
+  return { renderMapChunk, renderMapChunkCached, preloadMapImages, prewarmMapChunk, mapDropRect, biomeNameAt, BIOME_NAMES,
     getMacro, overviewStep, OVERVIEW_Z, MACRO_PX, mapChunkCache, macroCache, mapRegionQuery,
     mipTile, mipPeek, mipMacroFill, mipBudget, MIP_MAX, requestMacro, prewarmMacros, macroFlat,
     _macDebug: () => ({ q: _macQ.length, rq: _macRenderQ.length, inf: _macInFlight.size, raf: _macRaf,

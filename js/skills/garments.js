@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — cultural garments (Tailoring) =====
+// ===== Taiao — cultural garments (Tailoring) =====
 // Turns the clothing seen on the 223-character roster (see docs/player-character-
 // outfits.txt) into real, craftable Tailoring goods — the soft-cloth wardrobe that
 // sits alongside the generic tailoring line (fillout.js/textiles.js) and the tiered

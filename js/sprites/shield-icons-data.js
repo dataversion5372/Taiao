@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — per-metal SHIELD inventory icons =====
+// ===== Taiao — per-metal SHIELD inventory icons =====
 // 11 shield kinds (heater/kite/round/buckler/tower + aspis/scutum/targe/
 // chimalli/dhal/pavise) x 16 armour metals = 176 icons. geartiers.js forges
 // <kind>_<metal> equip:"shield" items (fallback icon i_shield); this 16x11
@@ -8,7 +8,7 @@
 "use strict";
 (function () {
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["sh"] = "assets/sheets/303a55f7a2369420.webp";
+  ASSET_DATA["sh"] = "assets/sheets/sh-shield-icons.303a55f7.webp";
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("sh")) SHEET_KEYS.push("sh");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["sh"] = 64;
   var COLS = ['bronze', 'm3', 'm4', 'm6', 'm11', 'm12', 'm13', 'm20', 'm22', 'm25', 'm26', 'm30', 'voidforged', 'twilight', 'nickel_silver', 'cupronickel'];   // sheet column order = ARMOUR_BARS roster (metal shortBar)

@@ -97,7 +97,7 @@ for idx, items in enumerate(layout):
     print(f"sheet {idx}: {sheet.width}x{sheet.height}, {len(items)} states, {out_png.stat().st_size//1024} KB")
 
 fm = {k: [v[0], v[1]] for k, v in frame_map.items()}
-js = ('// ===== Isle of Emberfall — alternate-outfit sprite sheets (auto-generated) =====\n'
+js = ('// ===== Taiao — alternate-outfit sprite sheets (auto-generated) =====\n'
       '// Every non-Idle outfit state, packed into a few embedded data-URI sheets (no\n'
       '// runtime fetch → works over file://), each kept under the GPU texture-size\n'
       '// limit. OUTFIT_FRAME["<folder>|<state>"] = [sheetIndex, baseFrame]; the 8\n'

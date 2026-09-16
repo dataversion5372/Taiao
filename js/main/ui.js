@@ -1,10 +1,10 @@
-// ===== Isle of Emberfall — panels, inventory UI, shops, banks, crafting, and dialog =====
+// ===== Taiao — panels, inventory UI, shops, banks, crafting, and dialog =====
 "use strict";
 
 // ---------- UI ----------
 // Callers (4):
 //  main/ui.js:1,7,14,233
-const panels = ["inv", "equip", "skills", "help"];
+const panels = ["inv", "equip", "skills", "goals", "help", "cheats"];
 // Callers (11):
 //  main/ui.js:11,12,15,139,189,259,264,277,282,297,303
 function showPanel(name) {
@@ -106,6 +106,7 @@ function renderUI() {
   const active = panels.find(p => document.getElementById("panel-" + p).classList.contains("active"));
   if (active === "inv" || active === "equip") renderInv();
   if (active === "skills") renderSkills();
+  if (active === "goals") renderGoals();
   if (tradeCtx && tradeCtx.mode === "shop") renderShop();
   if (tradeCtx && tradeCtx.mode === "bank") renderBank();
 }
@@ -220,6 +221,10 @@ function renderInv() {
         if (def.reveal && typeof useReveal === "function") items.push({ label: `Consult ${def.name}`, fn: () => useReveal(i) });
         if (def.light && typeof lightCandle === "function") items.push({ label: `Light ${def.name}`, fn: () => lightCandle(i) });
         items.push({ label: `Examine ${def.name}`, fn: () => examineItem(s) });
+        // object workshop (gameplay/objedit.js): vote on the item's icon,
+        // equip slots, edibility, stacking… — same panel as world objects
+        if (typeof ObjEdit !== "undefined")
+          items.push({ label: `Edit ${def.name}`, fn: () => ObjEdit.open({ type: "item", key: s.id, name: def.name }) });
         items.push({ label: `Drop ${def.name}`, fn: () => {
           dropOnGround(s.id, s.qty, player.x, player.y, player.level | 0);
           player.inv[i] = null;
@@ -309,7 +314,8 @@ function skillRowHtml(s) {
   const buffed = b && now < b.until;
   const row = document.createElement("div");
   row.className = "skillrow";
-  row.title = `${Math.floor(xp)} xp — ${lvl >= MAX_LEVEL ? "max" : Math.ceil(next - xp) + " xp to level " + (lvl + 1)}`;
+  row.title = CHEAT_MODE ? "Cheat mode — every skill at max level, no xp"
+    : `${Math.floor(xp)} xp — ${lvl >= MAX_LEVEL ? "max" : Math.ceil(next - xp) + " xp to level " + (lvl + 1)}`;
   row.innerHTML = `<div class="skillname"><b>${s}</b><span class="skv"><button class="skillinfo" data-skill="${s}" title="Progression guide">?</button><span class="${buffed ? "buffed" : lvlTierClass(lvl)}">${buffed ? eff(s) : lvl}</span></span></div><div class="xbar"><div style="width:${Math.floor(frac * 100)}%"></div></div>`;
   return row;
 }
@@ -321,7 +327,13 @@ function renderSkills() {
   const catOf = s => (typeof SKILL_CATEGORY !== "undefined" && SKILL_CATEGORY[s]) || "Other";
   const order = (typeof SKILL_CATEGORY_ORDER !== "undefined" ? SKILL_CATEGORY_ORDER : []).slice();
   const byCat = {};
-  for (const s of SKILLS) (byCat[catOf(s)] || (byCat[catOf(s)] = [])).push(s);
+  // Tūhura Isle (gameplay/tutorial.js): during the tutorial only the skills
+  // the keepers have introduced are listed; graduation reveals everything
+  let hiddenN = 0;
+  for (const s of SKILLS) {
+    if (typeof Tutorial !== "undefined" && !Tutorial.skillVisible(s)) { hiddenN++; continue; }
+    (byCat[catOf(s)] || (byCat[catOf(s)] = [])).push(s);
+  }
   for (const c in byCat) if (!order.includes(c)) order.push(c);
   let total = 0;
   for (const cat of order) {
@@ -340,11 +352,62 @@ function renderSkills() {
     p.appendChild(grid);
   }
   p.querySelectorAll(".skillinfo").forEach(b => b.onclick = e => { e.stopPropagation(); openSkillGuide(b.dataset.skill); });
+  if (hiddenN) {
+    const h = document.createElement("div");
+    h.className = "sgintro";
+    h.style.cssText = "padding:8px 10px;color:#5a6a8a;font-size:12px;";
+    h.textContent = `✧ ${hiddenN} more skill${hiddenN > 1 ? "s" : ""} sleep${hiddenN > 1 ? "" : "s"} in you — the keepers of Tūhura will awaken some, and the rest open with the wide world.`;
+    p.appendChild(h);
+  }
   const t = document.createElement("div");
   t.className = "total";
   const rj = typeof readyJobCount === "function" ? readyJobCount() : 0;
   t.textContent = `Combat level: ${combatLevel()} — Total level: ${total}` + (rj ? `  ·  ${rj} job${rj > 1 ? "s" : ""} ready` : "");
   p.appendChild(t);
+}
+
+// The Tūhura Isle tutorial's CURRENT-stage goals, mirrored from the on-screen
+// journey bar (gameplay/tutorial.js refreshBar) into a sidebar tab so the player
+// can review "what now?" with the bar out of view. Same itemised rows, same
+// tick/strike/count pills. Graduates (and veterans who skipped the isle) see a
+// short "no goals" note. Rebuilt lazily each uiDirty tick like the other panels.
+function renderGoals() {
+  const p = document.getElementById("panel-goals");
+  const gs = (typeof Tutorial !== "undefined" && Tutorial.goalState) ? Tutorial.goalState() : null;
+  if (!gs) { p.innerHTML = `<div class="sgintro" style="padding:12px 4px;color:#5a6a8a;font-size:13px">No active goals.</div>`; return; }
+  const bar =
+    `<div style="font-weight:bold;color:#8fa3c8;margin-bottom:4px">Tūhura Isle — the journey · ${gs.doneN}/${gs.total}</div>` +
+    `<div style="height:6px;background:#232a3d;border-radius:3px;overflow:hidden">` +
+    `<div style="height:100%;width:${gs.pct}%;background:linear-gradient(90deg,#7fe3c7,#ffd75e)"></div></div>`;
+  if (gs.graduated || !gs.cur) {
+    p.innerHTML = bar +
+      `<div class="sgintro" style="padding:16px 4px 4px;color:#9ecfb2;font-size:13px">` +
+      `✦ No tutorial goals remain — the wide world is yours to explore.</div>`;
+    return;
+  }
+  // one pill per requirement — tick medallion, label (struck through when done),
+  // a right-hand count badge for multi-step counters, and a teal progress wash
+  const row = (on, label, num, need) => {
+    const pc = on ? 100 : Math.round(((num || 0) / (need || 1)) * 100);
+    const fill = on ? "rgba(111,174,138,.16)"
+      : `linear-gradient(90deg,rgba(127,227,199,.13) ${pc}%,rgba(20,26,40,.55) ${pc}%)`;
+    const tick = on
+      ? `<span style="flex:none;width:16px;height:16px;border-radius:50%;background:#6fae8a;color:#0e121c;font-size:11px;line-height:16px;text-align:center;font-weight:bold">✓</span>`
+      : `<span style="flex:none;width:16px;height:16px;border-radius:50%;border:1px solid #4a5670;box-sizing:border-box"></span>`;
+    const count = need > 1
+      ? `<span style="flex:none;margin-left:8px;font-size:11px;color:${on ? "#6fae8a" : "#8fa3c8"};background:rgba(35,42,61,.8);border-radius:8px;padding:1px 7px">${on ? need : num}/${need}</span>`
+      : "";
+    const text = on
+      ? `<span style="position:relative;display:inline-block;opacity:.75">${label}` +
+        `<span style="position:absolute;left:0;right:0;top:calc(50% - .5px);height:1px;background:currentColor"></span></span>`
+      : label;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-top:5px;padding:6px 9px;border:1px solid ${on ? "#3d5a4a" : "#2c374f"};border-radius:8px;background:${fill}">` +
+      `${tick}<span style="flex:1;text-align:left;color:${on ? "#9ecfb2" : "#cdd7ea"};font-size:13px">${text}</span>${count}</div>`;
+  };
+  const rows = gs.cur.rows.map(r => row(r.on, r.label, r.num, r.need)).join("");
+  p.innerHTML = bar +
+    `<div style="color:#7fe3c7;margin-top:12px;font-size:13px;font-weight:bold">Now: ${gs.cur.full}</div>` +
+    `<div>${rows}</div>`;
 }
 
 // ---------- per-skill progression guide ----------
@@ -413,10 +476,10 @@ function guideTiers(skill) {
       if (typeof FORAGE !== "undefined") for (const f of FORAGE) o.push({ lvl: f.req, label: "Forage " + f.name.toLowerCase(), xp: f.xp, icon: iconFor(f.id) });
       return o;
     }
-    case "Farming": case "Cerealiculture": case "Olericulture": case "Pomiculture":
-    case "Herbiculture": case "Fibriculture": {
+    case "Farming": {
+      // one Farming skill; crops grouped by category (c.cat) in the label
       const o = [];
-      for (const k in CROPS) { const c = CROPS[k]; if ((c.skill || "Farming") === skill) o.push({ lvl: c.req, label: "Grow " + c.name, xp: c.xp, icon: iconFor(c.item) }); }
+      for (const k in CROPS) { const c = CROPS[k]; o.push({ lvl: c.req, label: "Grow " + c.name + (c.cat ? " (" + c.cat + ")" : ""), xp: c.xp, icon: iconFor(c.item) }); }
       return o;
     }
     case "Weaponsmithing": case "Armoursmithing":
@@ -608,6 +671,15 @@ document.addEventListener("keydown", e => {
 // Callers (1):
 //  gameplay/pathing.js:70
 function talkTo(npc) {
+  // Tūhura Isle tutors open their tutorial dialogue (gameplay/tutorial.js)
+  if (npc.tutor && typeof Tutorial !== "undefined" && Tutorial.talk(npc)) return;
+  // Newhaven's Registrar: the wide-world way back into the character/appearance
+  // chooser (the C key and sidebar button no longer open it at will)
+  if (npc.charselect && typeof CharSelect !== "undefined") {
+    npc._say = { text: npc.line || "...", until: performance.now() + 4000 };
+    CharSelect.open();
+    return;
+  }
   // shopkeepers: no trading once the shop is shut for the night
   if (npc.trader && typeof shopClosed === "function" && shopClosed(npc)) {
     log(`${npc.name}'s shop is closed for the night. Come back in the morning.`, "warn");
@@ -689,24 +761,33 @@ function renderShop() {
 // renderUI runs on every uiDirty (HP regen ticks, XP drops, …) and a full
 // rebuild of hundreds of slot canvases each time made banking visibly laggy.
 let bankRev = 0, bankShownRev = -1;
-// vault filtering: category tabs + live search. The controls are static DOM
-// (never rebuilt), so the search box keeps focus while the grid re-renders.
+// vault filtering: a category dropdown + live search. Categories OVERLAP on
+// purpose — an iron ore is Ores, Metalwork and Gathered raws all at once — so
+// bankCatsFor(id) returns the SET of every category an item belongs to and the
+// dropdown tests membership. Option labels carry a live count of matching
+// vault stacks. The controls are static DOM (never rebuilt), so the search box
+// keeps focus while the grid re-renders.
 const bankFilter = { cat: "all", q: "" };
-const BANK_CATS = [["all", "All"], ["gear", "Gear"], ["ores", "Ores"], ["bars", "Bars"],
-  ["logs", "Logs"], ["timber", "Timber"], ["seeds", "Seeds"], ["food", "Food"],
-  ["herbs", "Herbs"], ["cloth", "Cloth"], ["other", "Other"]];
 // resource-type id sets, built once from the same tables the game runs on
 let _bankSets = null;
 function bankSets() {
   if (!_bankSets) {
-    const s = { seeds: new Set(), ores: new Set(), bars: new Set() };
-    for (const k in CROPS) if (CROPS[k].seed) s.seeds.add(CROPS[k].seed);
+    const s = { seeds: new Set(), ores: new Set(), bars: new Set(), crops: new Set(), fish: new Set() };
+    for (const k in CROPS) {
+      if (CROPS[k].seed) s.seeds.add(CROPS[k].seed);
+      if (CROPS[k].item) s.crops.add(CROPS[k].item);
+    }
     if (typeof METALS !== "undefined")
       for (const m of METALS) { if (m.ore) s.ores.add(m.ore); if (m.bar) s.bars.add(m.bar); }
+    if (typeof FISH !== "undefined")
+      for (const f of FISH) { if (f.raw) s.fish.add(f.raw); if (f.cooked) s.fish.add(f.cooked); }
     _bankSets = s;
   }
   return _bankSets;
 }
+// LEGACY single-category classifier — still the contract market.js buyers use
+// (mine towns buy bankCat(id)==="ores", farm towns "seeds"); the bank window
+// itself now filters on the overlapping bankCatsFor sets below.
 function bankCat(id) {
   const d = ITEMS[id];
   if (!d) return "other";
@@ -724,21 +805,138 @@ function bankCat(id) {
   if (tag === "wood") return "timber";
   return "other";
 }
+// ---- overlapping bank categories (the dropdown) ----
+// Each entry is [key, label, test(def, id, sets, marketTag)]. An item lands in
+// EVERY category whose test passes — broad umbrellas (All gear, Gathered raws)
+// deliberately overlap the narrow ones (Shields, Ores). "other" has no test:
+// it catches items that matched nothing at all.
+const BANK_JEWELRY_SLOTS = ["neck", "ring", "bracelet", "anklet"];
+// wearable body armour / clothing: any equip that isn't a weapon, shield,
+// rune, ammo or jewelry slot (multi-slot armour pieces carry an equip ARRAY)
+function bankWearable(d) {
+  if (!d.equip) return false;
+  if (Array.isArray(d.equip)) return true;
+  return !["weapon", "shield", "rune", "quiver"].includes(d.equip) && !BANK_JEWELRY_SLOTS.includes(d.equip);
+}
+const BANK_CAT_GROUPS = [
+  ["Gear & Combat", [
+    ["gear", "All gear", d => !!(d.equip || d.tool || d.arrowPower || d.boat)],
+    ["weapons", "Weapons", d => d.equip === "weapon"],
+    ["ammo", "Ammunition", d => !!d.arrowPower || d.equip === "quiver"],
+    ["wear", "Armour & clothing", d => bankWearable(d)],
+    ["metalarm", "Metal armour", (d, id, S, tag) => bankWearable(d) && tag === "metal"],
+    ["leatherarm", "Leather armour", (d, id, S, tag) => bankWearable(d) && tag === "leather"],
+    ["clothing", "Cloth garments", (d, id, S, tag) => bankWearable(d) && tag === "textile"],
+    // the "shield" equip tag is the whole offhand slot — bucklers, but also
+    // offhand candles/daggers — so the label says what the filter really is
+    ["shields", "Shields & offhand", d => d.equip === "shield"],
+    ["jewellery", "Jewellery", d => BANK_JEWELRY_SLOTS.includes(d.equip)],
+    ["tools", "Tools", d => !!d.tool],
+    ["boats", "Boats & vessels", d => !!d.boat],
+    ["runes", "Runes & essence", (d, id) => d.equip === "rune" || /_rune$/.test(id) || id === "rune_essence"],
+  ]],
+  ["Raw materials", [
+    ["ores", "Ores", (d, id, S) => S.ores.has(id) || /_ore$/.test(id) || id === "rune_essence"],
+    ["bars", "Metal bars", (d, id, S) => S.bars.has(id) || /_bar$|^bar_\d+$/.test(id)],
+    ["gems", "Gems", (d, id) => id === "gem" || /^gem_\d+$/.test(id)],
+    ["stone", "Stone & earth", (d, id, S, tag) => tag === "stone" || /stone|marble|limestone|clay|flint|chalk|slate/.test(id)],
+    ["logs", "Logs", d => !!d.log],
+    ["timber", "Timber & planks", (d, id) => /plank|board|beam|stave|timber/.test(id)],
+    ["fuel", "Fuel & charcoal", (d, id, S, tag) => tag === "fuel" || /charcoal|coal|peat/.test(id)],
+    ["hides", "Hides & pelts", (d, id) => /hide|pelt|fleece|rawhide/.test(id)],
+    ["fibres", "Fibres & yarn", (d, id) => /cotton|flax|wool|yarn|thread|fleece|sinew/.test(id)],
+    ["reagents", "Monster reagents", (d, id) => typeof REAGENT_IDS !== "undefined" && REAGENT_IDS.has(id)],
+    ["raw", "Gathered raws", (d, id, S, tag) => tag === "raw"],
+  ]],
+  ["Food & Farming", [
+    ["food", "Food", (d, id, S, tag) => !!d.heals || tag === "food"],
+    ["rawfood", "Raw ingredients", (d, id) => /^raw_/.test(id)],
+    ["fish", "Fish", (d, id, S) => S.fish.has(id)],
+    ["meat", "Meat", (d, id) => /(^|_)meat|steak|sausage|bacon/.test(id)],
+    ["dairy", "Dairy & cheese", (d, id) => /milk|cheese|butter|cream|curd/.test(id)],
+    ["baked", "Bread & baked", (d, id) => /bread|cake|pie(_|$)|bun|pastry|dough/.test(id)],
+    ["drink", "Drink", (d, id, S, tag) => tag === "drink"],
+    ["seeds", "Seeds", (d, id, S) => S.seeds.has(id) || /_seeds$/.test(id)],
+    ["crops", "Crops & produce", (d, id, S) => S.crops.has(id)],
+    ["herbs", "Herbs", (d, id) => /^herb/.test(id)],
+    ["potions", "Potions", (d, id, S, tag) => !!d.potion || tag === "potion"],
+  ]],
+  ["Craft & Trade goods", [
+    ["textiles", "Textiles", (d, id, S, tag) => tag === "textile"],
+    ["leathergoods", "Leather goods", (d, id, S, tag) => tag === "leather"],
+    ["woodwork", "Woodwork", (d, id, S, tag) => tag === "wood"],
+    ["metalwork", "Metalwork", (d, id, S, tag) => tag === "metal"],
+    ["pottery", "Pottery", (d, id, S, tag) => tag === "pottery"],
+    ["glass", "Glass", (d, id, S, tag) => tag === "glass"],
+    ["luxury", "Luxury & fine goods", (d, id, S, tag) => tag === "luxury"],
+    ["cordage", "Rope & cordage", (d, id, S, tag) => tag === "cordage" || /rope|twine|cord/.test(id)],
+    ["arcane", "Arcane & runecraft", (d, id, S, tag) => tag === "arcane"],
+    ["shipgoods", "Ship & sail goods", (d, id, S, tag) => tag === "ship" || !!d.boat],
+    ["craftgoods", "Crafted sundries", (d, id, S, tag) => tag === "craft"],
+  ]],
+  ["Household & Misc", [
+    ["furniture", "Furniture & placeables", d => !!d.place],
+    ["lights", "Candles & light", (d, id) => /candle|lantern|lamp|torch|taper/.test(id)],
+    ["keys", "Keys & locks", (d, id) => /(^|_)key(_|$)|_lock$/.test(id)],
+    ["valuables", "Valuables (150+ coins)", d => (d.value || 0) >= 150],
+    ["other", "Everything else", null],
+  ]],
+];
+// the set of every category an item belongs to (cached — items never re-class)
+const _bankCatCache = new Map();
+function bankCatsFor(id) {
+  let set = _bankCatCache.get(id);
+  if (set) return set;
+  set = new Set();
+  const d = ITEMS[id];
+  if (d) {
+    const S = bankSets();
+    const tag = typeof itemTag === "function" ? itemTag(id) : "misc";
+    for (const [, list] of BANK_CAT_GROUPS)
+      for (const [key, , test] of list)
+        if (test && test(d, id, S, tag)) set.add(key);
+  }
+  if (!set.size) set.add("other");
+  _bankCatCache.set(id, set);
+  return set;
+}
+// live per-category counts in the dropdown labels: "Ores (12)" = 12 distinct
+// vault stacks match. Recomputed on every grid rebuild (cheap: one cached
+// set-lookup per stack).
+function updateBankCatCounts() {
+  const sel = document.getElementById("bankcatsel");
+  if (!sel) return;
+  const counts = { all: player.bank.length };
+  for (const s of player.bank)
+    for (const c of bankCatsFor(s.id)) counts[c] = (counts[c] || 0) + 1;
+  for (const o of sel.options)
+    o.textContent = `${o.dataset.label} (${counts[o.value] || 0})`;
+}
 {
   const cats = document.getElementById("bankcats");
-  for (const [key, label] of BANK_CATS) {
-    const b = document.createElement("button");
-    b.textContent = label;
-    b.dataset.cat = key;
-    if (key === "all") b.classList.add("active");
-    b.onclick = () => {
-      bankFilter.cat = key;
-      cats.querySelectorAll("button").forEach(x => x.classList.toggle("active", x === b));
-      bankShownRev = -1;
-      renderBank();
-    };
-    cats.appendChild(b);
+  const sel = document.createElement("select");
+  sel.id = "bankcatsel";
+  sel.title = "Filter the vault by category (categories overlap)";
+  const addOpt = (parent, key, label) => {
+    const o = document.createElement("option");
+    o.value = key;
+    o.dataset.label = label;
+    o.textContent = label;
+    parent.appendChild(o);
+  };
+  addOpt(sel, "all", "All items");
+  for (const [glabel, list] of BANK_CAT_GROUPS) {
+    const og = document.createElement("optgroup");
+    og.label = glabel;
+    for (const [key, label] of list) addOpt(og, key, label);
+    sel.appendChild(og);
   }
+  sel.onchange = () => {
+    bankFilter.cat = sel.value;
+    bankShownRev = -1;
+    renderBank();
+  };
+  cats.appendChild(sel);
   document.getElementById("banksearch").oninput = e => {
     bankFilter.q = e.target.value.trim().toLowerCase();
     bankShownRev = -1;
@@ -802,7 +1000,7 @@ function bankArrFor(net) {
 function bankNetName(net) {
   const info = bankInfoFor(net);
   if (info) return info.title;
-  if (net === "main") return "Bank of Emberfall";
+  if (net === "main") return "Bank of Taiao";
   let h = 0;
   for (let i = 0; i < net.length; i++) h = (h * 131 + net.charCodeAt(i)) >>> 0;
   const A = ["Gull", "Drift", "Mist", "Storm", "Pearl", "Kelp", "Wreck", "Tide", "Fog", "Salt", "Reef", "Gale"];
@@ -814,6 +1012,7 @@ function bankNetName(net) {
 // shut until you've signed the ledger with a banker at the main branch.
 // Hermit networks (no city, nobody to keep a ledger) open freely, as before.
 function hasBankAccount(net) {
+  if (CHEAT_MODE) return true; // cheat mode: every ledger already holds your name
   return !!(player.bankAccounts && player.bankAccounts[net]);
 }
 // The bank's guaranteed kit: an account is NEVER without these — withdraw the
@@ -825,10 +1024,10 @@ const BANK_PERMANENTS = [["flint", 1], ["candle", 1], ["axe_iron", 1], ["pickaxe
 // new-adventurer package; regional city banks hash their own coin bonus and
 // gifts; tiny village co-op banks make a modest but heartfelt offer
 function bankPerksFor(net) {
-  if (net === "main") return { coins: 1000, gifts: [["dagger_iron", 1], ["shortbow", 1], ["arrows", 500]] };
+  if (net === "main") return { coins: 1000, gifts: [["dagger_iron", 1], ["shortbow", 1], ["arrow_iron", 500]] };
   let h = 0;
   for (let i = 0; i < net.length; i++) h = (h * 131 + net.charCodeAt(i)) >>> 0;
-  const pool = [["dagger_iron", 1], ["shortbow", 1], ["arrows", 300], ["spear_iron", 1], ["mace_iron", 1], ["shortsword_iron", 1]];
+  const pool = [["dagger_iron", 1], ["shortbow", 1], ["arrow_iron", 300], ["spear_iron", 1], ["mace_iron", 1], ["shortsword_iron", 1]];
   const info = bankInfoFor(net);
   if (info && !info.branch) {
     const gifts = [pool[(h >>> 5) % pool.length]];
@@ -850,6 +1049,23 @@ function ensureBankPermanents(net) {
     const s = arr.find(b => b.id === id);
     if (!s) { arr.push({ id, qty: q }); changed = true; }
     else if (s.qty < q) { s.qty = q; changed = true; }
+  }
+  if (changed) bankRev++;
+  return changed;
+}
+// cheat mode: every vault permanently stocks 1000 of every item in the game —
+// same standing-promise mechanic as BANK_PERMANENTS, so a stack drawn below
+// 1000 is topped straight back up (deposits can push it above; never trimmed)
+const CHEAT_STOCK_QTY = 1000;
+function ensureCheatStock(net) {
+  if (!CHEAT_MODE) return false;
+  const arr = bankArrFor(net);
+  const byId = new Map(arr.map(s => [s.id, s]));
+  let changed = false;
+  for (const id in ITEMS) {
+    const s = byId.get(id);
+    if (!s) { arr.push({ id, qty: CHEAT_STOCK_QTY }); changed = true; }
+    else if (s.qty < CHEAT_STOCK_QTY) { s.qty = CHEAT_STOCK_QTY; changed = true; }
   }
   if (changed) bankRev++;
   return changed;
@@ -893,6 +1109,7 @@ function openBank(node) {
   player.bankNet = net;
   player.bank = bankArrFor(net);
   ensureBankPermanents(net);                    // the guaranteed kit is always in place
+  ensureCheatStock(net);                        // cheat mode: 1000 of everything
   openTrade("bank", bankNetName(net), bx, by);
   bankFilter.q = "";
   document.getElementById("banksearch").value = "";
@@ -975,6 +1192,7 @@ function depositToBank(i, n) {
   s.qty -= n;
   if (s.qty <= 0) player.inv[i] = null;
   bankRev++;
+  if (typeof Tutorial !== "undefined" && Tutorial.onBank) Tutorial.onBank(); // isle stage task
   uiDirty = true;
 }
 // Callers (4):
@@ -1010,10 +1228,11 @@ function renderBank() {
   if (bankShownRev === bankRev) return;
   bankShownRev = bankRev;
   const grid = document.getElementById("bankgrid");
+  updateBankCatCounts();
   // show the biggest stacks first, not insertion order; apply the category
-  // tab and search box
+  // dropdown (set membership — categories overlap) and search box
   const sortedBank = player.bank.slice().sort((a, b) => b.qty - a.qty)
-    .filter(s => (bankFilter.cat === "all" || bankCat(s.id) === bankFilter.cat) &&
+    .filter(s => (bankFilter.cat === "all" || bankCatsFor(s.id).has(bankFilter.cat)) &&
       (!bankFilter.q || (ITEMS[s.id] && ITEMS[s.id].name.toLowerCase().includes(bankFilter.q))));
   const frag = document.createDocumentFragment();
   sortedBank.forEach(s => {
@@ -1032,6 +1251,7 @@ function renderBank() {
       // an account is never without its flint/candle/axe/pick/soap
       if (s.qty <= 0 && ensureBankPermanents(player.bankNet))
         log(`The ${bankNetName(player.bankNet)} restocks your ${(ITEMS[s.id] ? ITEMS[s.id].name : s.id).toLowerCase()} — account holders are never without one.`, "sys");
+      ensureCheatStock(player.bankNet); // cheat mode: the 1000-of-everything shelf refills itself
       bankRev++;
       uiDirty = true;
       renderBank();
@@ -1124,8 +1344,20 @@ function openCraft(node, recipes) {
         d.classList.add("cooking");
         const t = document.createElement("span");
         t.className = "cooktime";
-        t.textContent = left + "s";
+        const queued = j.startedAt > Date.now();
+        t.textContent = queued ? "queued" : left + "s";
         d.appendChild(t);
+        // loading bar (user req): the batch's progress through its own run —
+        // 0% while it still waits its turn in the station's serial queue.
+        // The once-a-second countdown re-render below keeps it moving.
+        const barBg = document.createElement("div");
+        barBg.style.cssText = "position:absolute;left:2px;right:2px;bottom:2px;height:4px;background:rgba(8,12,18,.8);border-radius:2px";
+        const fill = document.createElement("div");
+        const frac = queued ? 0 : Math.max(0, Math.min(1, (Date.now() - j.startedAt) / Math.max(1, j.doneAt - j.startedAt)));
+        fill.style.cssText = `height:100%;width:${Math.round(frac * 100)}%;background:#ffd75e;border-radius:2px`;
+        barBg.appendChild(fill);
+        d.style.position = "relative";
+        d.appendChild(barBg);
       }
       row.appendChild(d);
     }
@@ -1219,18 +1451,20 @@ function openPlantPanel(node) {
   openTrade("craft", node.skill ? node.skill + " field" : "Farm plot", node.x, node.y);
   const list = document.getElementById("craftlist");
   list.innerHTML = "";
-  // A field is dedicated to one agriculture skill — only show that skill's crops.
-  // Otherwise (legacy plots) show any crop you have seeds for or have unlocked.
+  // A field grows one CATEGORY of crop (its soil type, node.skill) — only show
+  // that category. Otherwise (legacy plots) show any crop you have seeds for or
+  // have unlocked. All crops train the single Farming skill now.
+  const need = (typeof CROP_SEED_COST !== "undefined") ? CROP_SEED_COST : 5;
   const kinds = Object.keys(CROPS).filter(k => {
     const c = CROPS[k];
-    if (node.skill && c.skill !== node.skill) return false;
+    if (node.skill && c.cat && c.cat !== node.skill) return false;
     return countItem(c.seed) > 0 || skillLvl(c.skill || "Farming") >= c.req;
-  }).sort((a, b) => (CROPS[a].skill || "").localeCompare(CROPS[b].skill || "") || CROPS[a].req - CROPS[b].req);
+  }).sort((a, b) => (CROPS[a].cat || "").localeCompare(CROPS[b].cat || "") || CROPS[a].req - CROPS[b].req);
   for (const kind of kinds) {
     const crop = CROPS[kind], sk = crop.skill || "Farming";
     const ok = skillLvl(sk) >= crop.req;
-    const have = countItem(crop.seed) >= 1;
-    const sub = `${sk} ${crop.req} — needs 1 ${ITEMS[crop.seed].name} (have ${countItem(crop.seed)})`;
+    const have = countItem(crop.seed) >= need;
+    const sub = `Farming ${crop.req} — needs ${need} ${ITEMS[crop.seed].name} (have ${countItem(crop.seed)})`;
     list.appendChild(craftRow(ITEMS[crop.item].icon, `Plant ${crop.name}`, sub, !(ok && have), () => {
       if (ok && have) { closeTrade(); plantCrop(node, kind); }
       else if (!ok) log(`You need ${sk} level ${crop.req} for that.`, "warn");

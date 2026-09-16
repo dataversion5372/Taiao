@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Carpentry furniture (placeable) =====
+// ===== Taiao — Carpentry furniture (placeable) =====
 // Carpentry's boat work moved to Shipwrighting long ago, leaving the trade
 // with three recipes. It is now the FURNITURE trade: every wooden furnishing
 // that already exists as a world object (objects-data.js) is craftable,

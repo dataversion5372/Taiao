@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — specialised production economy (data) =====
+// ===== Taiao — specialised production economy (data) =====
 // Loaded after content.js. This is DATA only — the generic engine in
 // production.js runs it. It adds narrow artisan professions (recognisable
 // trades, one stage of manufacture each) and the interconnected chains that
@@ -268,9 +268,11 @@ RECIPES.malting = [
     family: "dark_malt", stations: ["malthouse", "furnace"] },
 ];
 // Milling already exists (grains → flour). Add grist milling + a bran by-product
-// on the base wheat-flour recipe so it feeds livestock/other trades.
+// on the base wheat-flour recipe so it feeds livestock/other trades. Bran is
+// GUARANTEED (every grain has a husk) so animal feed is never an RNG grind —
+// the Tūhura farm's 10-flour goal must reliably feed its birds to Husbandry 3.
 if (RECIPES.milling[0] && RECIPES.milling[0].out === "flour")
-  RECIPES.milling[0].byproducts = [{ id: "bran", qty: 1, chance: 0.6 }];
+  RECIPES.milling[0].byproducts = [{ id: "bran", qty: 1, chance: 1 }];
 RECIPES.milling.push(
   { id: "mill_grist", out: "malt_grist", qty: 1,
     name: "Mill malt grist", skill: "Milling", req: scaleLevel(4), xp: 30,

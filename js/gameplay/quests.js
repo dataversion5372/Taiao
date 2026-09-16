@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — QUEST system =====
+// ===== Taiao — QUEST system =====
 // Multi-step quests that send the player around the world: TALK to villagers in
 // distant towns, carry LETTERS, SLAY specific monsters, COLLECT & DELIVER goods,
 // UNLOCK sealed rooms and RETRIEVE what's hidden inside — rewarding coins, skill

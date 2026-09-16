@@ -52,9 +52,9 @@ function genWorld() {
     riverSourceAt, riverDoors, riverFlowAt, roadNearPt,
   } = features;
   const {
-    chunks, obstacles, npcs, getChunk, preloadSeen, persistChunk, persistAt, flushChunks, pruneChunks,
+    chunks, obstacles, npcs, getChunk, preloadSeen, persistChunk, persistAt, flushChunks, pruneChunks, dropChunkRect,
   } = chunksApi;
-  const { renderMapChunk, renderMapChunkCached, preloadMapImages, prewarmMapChunk, biomeNameAt, BIOME_NAMES,
+  const { renderMapChunk, renderMapChunkCached, preloadMapImages, prewarmMapChunk, mapDropRect, biomeNameAt, BIOME_NAMES,
     getMacro, overviewStep, OVERVIEW_Z, MACRO_PX, mapChunkCache, macroCache, mapRegionQuery,
     mipTile, mipPeek, mipMacroFill, mipBudget, MIP_MAX, requestMacro, prewarmMacros, macroFlat, _macDebug,
     MAP_PATH, MAP_WATER, MAP_BRIDGE } = mapApi;
@@ -265,6 +265,8 @@ function genWorld() {
   return {
     obstacles,
     npcs,
+    dropChunkRect,
+    mapDropRect,   // MAP-coord rect → drop chunk bakes / mips / macros (map + minimap)
     // find an NPC standing on a tile. Pass `level` (a storey) to only match NPCs
     // on that floor — an upstairs resident no longer blocks ground-floor pathing
     // or steals a ground-floor click. Omit `level` for the old any-storey match.
@@ -327,6 +329,9 @@ function genWorld() {
     _worldNameDump: features._worldNameDump, // debug: a world's name allocation
     // restore persisted world-name registries (awaited by main.js init)
     preloadWorldNames: features.preloadWorldNames,
+    // async cold-boot naming of the world holding GAME tile (x,y), painting a
+    // real progress fraction — the loading bar's "Naming the world…" stage
+    genWorldNames: (x, y, tick) => features.genWorldNamesAsync(x / 2, y / 2, tick),
     inPeacefulZone,
     gatesForVillage,
     // the door or gate leaf occupying tile (x,y), or null
@@ -341,8 +346,14 @@ function genWorld() {
     _genLog: chunksApi.genLog,
     // road warm worker wiring (render3d drives it; see world/roadworker.js)
     _roadCellInject: features._roadCellInject,
+    // chunk terrain-field warm worker wiring (render3d syncChunkWorker →
+    // world/chunkworker.js): pre-computed pass-1/2 grids injected here
+    _fieldInject: chunksApi._fieldInject,
     _workerInit: { seed: WORLD_SEED, landE: LAND_E, rockE: ROCK_E,
-      chunk: CHUNK, vcell: VCELL, pcell: PCELL, icell: ICELL },
+      chunk: CHUNK, vcell: VCELL, pcell: PCELL, icell: ICELL,
+      // world-gen cache signature (tools/build.mjs) — workers importScripts
+      // the RAW sources, so the bundle's signature rides the init message
+      gensig: (typeof WORLDGEN_SIG !== 'undefined' ? WORLDGEN_SIG : 'dev') },
     collectSpawns(x, y, r) {
       const out = [];
       for (let cy = cdiv(y - r); cy <= cdiv(y + r); cy++)
@@ -392,7 +403,10 @@ function genWorld() {
     riverSourceAt,
     riverFlowAt,
     heightAt: (x, y) => elevation(x / 2, y / 2),
-    latitudeAt: (x, y) => latitudeAt(y / 2),
+    // Tūhura Isle pocket (gameplay/tutorial.js): the tutorial's staged sky
+    // pins the isle at a flat mid latitude for sun geometry and the HUD
+    latitudeAt: (x, y) => (typeof Tutorial !== "undefined" && Tutorial.flatSky())
+      ? 0.5 : latitudeAt(y / 2),
     humidityAt: (x, y) => humidity(x / 2, y / 2),
     temperatureAt: (x, y) => temperature(x / 2, y / 2),
     LAND_ELEVATION: LAND_E,

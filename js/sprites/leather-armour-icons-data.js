@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — tiered leather-armour icons (2 sheets) =====
+// ===== Taiao — tiered leather-armour icons (2 sheets) =====
 // The 32-tier, 5-piece leather-armour set (js/skills/leathercraft.js). Two
 // 16x5 matrices of 64px icons: rows = piece (coif/body/chaps/gloves/bracers),
 // columns = leather tier. la1 = tiers 1..16 (Rabbit..Croc), la2 = tiers 17..32
@@ -11,8 +11,8 @@
   if (typeof ASSET_DATA === "undefined") { try { window.ASSET_DATA = {}; } catch (e) { return; } }
   if (typeof SHEET_KEYS !== "undefined") for (var k of ["la1", "la2"]) { if (!SHEET_KEYS.includes(k)) SHEET_KEYS.push(k); }
   if (typeof SHEET_TILE !== "undefined") { SHEET_TILE["la1"] = 64; SHEET_TILE["la2"] = 64; }
-  ASSET_DATA["la1"] = "assets/sheets/56179e7c36ab6edc.webp";
-  ASSET_DATA["la2"] = "assets/sheets/9aedf9dbd0413038.webp";
+  ASSET_DATA["la1"] = "assets/sheets/la1-leather-armour-icons.56179e7c.webp";
+  ASSET_DATA["la2"] = "assets/sheets/la2-leather-armour-icons.9aedf9db.webp";
   if (typeof SPR === "undefined") return;
   var ROWS = ["coif", "body", "chaps", "gloves", "bracers"];   // top -> bottom
   function wire(sheet, baseTier) {

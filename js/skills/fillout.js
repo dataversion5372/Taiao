@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — fill thin production skills to 32 =====
+// ===== Taiao — fill thin production skills to 32 =====
 // Pads under-contented production trades to a full 32 progression, cross-feeding
 // so nothing becomes a dead output:
 //   Sawing → boards/planks (+beam/lath) → Carpentry
@@ -88,7 +88,7 @@
   // cloth below — no dead-end goods. (rough_yarn/fine_yarn item defs are kept
   // above only for save-compat; nothing produces or consumes them any more.)
   const spunFibres = new Set(RECIPES.spinning.map(r => Object.keys(r.in)[0]));
-  const newFibres = Object.values(CROPS).filter(c => c.skill === "Fibriculture" && !spunFibres.has(c.item));
+  const newFibres = Object.values(CROPS).filter(c => c.cat === "Fibriculture" && !spunFibres.has(c.item));
   const yarnName = fib => {
     const nm = ITEMS[fib] ? ITEMS[fib].name : fib, b = nm.replace(/ fibre$/i, "");
     if (/silk/i.test(nm)) return b + " thread";
@@ -119,7 +119,7 @@
 
   // rough_cloth / fine_cloth_x are consumed by the garment tables below (and
   // garments.js) — weave them from yarn so those recipes are actually craftable.
-  const flaxFib = (Object.values(CROPS).find(c => c.skill === "Fibriculture" && c.name === "flax") || {}).item;
+  const flaxFib = (Object.values(CROPS).find(c => c.cat === "Fibriculture" && c.name === "flax") || {}).item;
   const linenThread = flaxFib && ITEMS["yarn_" + flaxFib] ? "yarn_" + flaxFib : null;
   R("textiles", { id: "weave_rough_cloth", out: "rough_cloth", name: "Weave rough cloth", skill: "Weaving", req: 3, xp: 34,
     in: { wool_yarn: 2 }, tick: 1500, family: "cloth", stations: ["loom"] });
@@ -139,8 +139,8 @@
   // ---------- BREWING → 32 (ales, ciders, wines from grist/fruit/honey) ----------
   const B = (n, req, inp, heal) => [n.toLowerCase().replace(/[^a-z]+/g, "_"), n, req, inp, { stack: true, value: 24 + req * 4, heals: heal, prov: "batch" }];
   const cider = has("pomiculture_crop_0") ? "pomiculture_crop_0" : null; // apple (created by agriculture) if new
-  const appleId = (Object.values(CROPS).find(c => c.skill === "Pomiculture" && c.name === "apple") || {}).item;
-  const grapeId = (Object.values(CROPS).find(c => c.skill === "Pomiculture" && c.name === "grape") || {}).item;
+  const appleId = (Object.values(CROPS).find(c => c.cat === "Pomiculture" && c.name === "apple") || {}).item;
+  const grapeId = (Object.values(CROPS).find(c => c.cat === "Pomiculture" && c.name === "grape") || {}).item;
   const brews = [
     B("Pale ale", 3, { malt_grist: 2 }, 4), B("Brown ale", 5, { malt_grist: 2 }, 4), B("Bitter", 6, { malt_grist: 2 }, 5),
     B("Mild", 4, { malt_grist: 2 }, 4), B("Wheat beer", 7, { malt_0: 2 }, 5), B("Lager", 8, { malt_grist: 2 }, 5),

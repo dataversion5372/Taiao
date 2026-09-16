@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - Dyeing/Weaving/Papermaking icon sheet (auto-generated) =====
+// ===== Taiao - Dyeing/Weaving/Papermaking icon sheet (auto-generated) =====
 // 8x8 grid of 64px cells (58 icons + 6 blank). Replaces placeholder/prototype
 // icons across three skills. Content-aware sliced (icons overflow an even grid).
 // Order: A) 16 dye pigments  B) 8 dyed textiles  C) 21 fibre cloths (crop_10..30)
@@ -6,7 +6,7 @@
 "use strict";
 (function(){
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["tp"] = "assets/sheets/2ee51ade9fa12af9.webp";
+  ASSET_DATA["tp"] = "assets/sheet-src/tp-textile-paper-icons.webp";
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("tp")) SHEET_KEYS.push("tp");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["tp"] = 64;
   if (typeof SPR !== "undefined") for (let k = 0; k < 64; k++) SPR["i_tp" + k] = ["tp", k % 8, Math.floor(k / 8)];

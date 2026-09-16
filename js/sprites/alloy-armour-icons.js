@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — alloy chestplate/legs icon fill =====
+// ===== Taiao — alloy chestplate/legs icon fill =====
 // armor-icons-data.js sources chest/legs art from assets/assorted sprites/
 // armour.png, a 32-METAL sheet. Smithing's armour uses a 16-metal roster and 12
 // of those metals match the sheet — but the 4 ALLOY armour metals (voidforged,

@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — agility obstacles =====
+// ===== Taiao — agility obstacles =====
 "use strict";
 
 // Callers (1):

@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — weather: fronts, rain, snow =====
+// ===== Taiao — weather: fronts, rain, snow =====
 // Weather is a DETERMINISTIC field over (x, y, wall-clock time) — like the
 // day/night cycle it needs no save state, survives refresh, and reads the same
 // at any world point (HUD, renderer, distant checks all agree). Synoptic
@@ -130,6 +130,12 @@ function windKn(v) { return Math.hypot(v.x, v.y) * 10; }
 // ---- world-facing samplers ----
 function weatherAt(x, y, tMs) {
   if (typeof window !== "undefined" && window.__weatherOverride) return window.__weatherOverride;   // debug/testing hook
+  // Tūhura Isle pocket (gameplay/tutorial.js): staged sky — clear until the
+  // tutorial's weather stage, then a scripted shower; null once graduated
+  if (typeof Tutorial !== "undefined") {
+    const tw = Tutorial.weatherOverride();
+    if (tw) return tw;
+  }
   if (typeof world === "undefined" || !world) return null;
   tMs = tMs != null ? tMs : (typeof now !== "undefined" ? now : Date.now());
   const hum = world.humidityAt(x, y);
@@ -165,13 +171,18 @@ function weatherNow() {
 // ground); drizzle stays under the threshold — only real rain moves rivers.
 // Consumers: playerSinkY (deeper water), movement (stronger drift + current),
 // render3d (raised carved-water surface + faster foam streaks).
-// gamma-shaped lag kernel over ~9 min of past rain: weight w(age) = a·e^(1−a)
-// with a = age/FLOOD_RISE peaks ~3 min ago and tails off toward ~9 — so a
-// river starts rising a couple of minutes AFTER the rain sets in, crests
-// through a sustained downpour, stays swollen for a few minutes after the sky
-// clears, and drains back to nothing over ~8-9 minutes. Only rain heavier
-// than drizzle (precip > 0.25) feeds the flood.
-const FLOOD_STEPS = 7, FLOOD_DT = 90e3, FLOOD_RISE = 180e3;
+// gamma-shaped lag kernel over ~27 min of past rain: weight w(age) = a·e^(1−a)
+// with a = age/FLOOD_RISE peaks ~7 min ago and tails off toward ~27 — so a
+// river starts rising several minutes AFTER the rain sets in, crests through
+// a sustained downpour, stays swollen after the sky clears, and drains back
+// to nothing over ~20-25 minutes. Only rain heavier than drizzle
+// (precip > 0.25) feeds the flood. The long window + the squared response
+// below make a MAXIMUM flood (4 terrain steps, render3d FLOOD_AMP) genuinely
+// rare: it needs peak rain parked overhead for most of half an hour.
+// Distribution over sampled weather (offline sweep 2026-09-12): any visible
+// flood ~4.6% of time, 2+ steps ~2.2%, max ~0.65% (was 1.8% with the old
+// ~9-min window and linear response).
+const FLOOD_STEPS = 12, FLOOD_DT = 150e3, FLOOD_RISE = 420e3;
 function riverFloodAt(x, y, tMs) {
   if (typeof window !== "undefined" && window.__floodOverride != null) return window.__floodOverride;   // debug/testing hook
   if (typeof world === "undefined" || !world) return 0;
@@ -191,7 +202,11 @@ function riverFloodAt(x, y, tMs) {
     sum += (wx.kind === "rain" ? Math.max(0, (wx.precip - 0.25) / 0.75) : 0) * w;
     wsum += w;
   }
-  return Math.max(0, Math.min(1, (sum / wsum) * 1.25));
+  // squared response: moderate wet spells barely move the river, sustained
+  // torrents dominate — this is what pushes the top flood buckets out into
+  // rare-event territory (see the distribution note above)
+  const f = Math.min(1, (sum / wsum) * 1.15);
+  return f * f;
 }
 // the player's flood level, sampled at most ~1×/s on a coarse position key
 // (the rain field is regional — per-frame/per-tile resampling is pure waste)

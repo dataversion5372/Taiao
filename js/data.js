@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — data definitions =====
+// ===== Taiao — data definitions =====
 // Sheets: Kenney roguelike packs (CC0) + custom.png (hand-drawn pixel items).
 // 16x16 tiles, 1px margin.
 "use strict";
@@ -331,6 +331,20 @@ const SKILLS = [
 const MAX_LEVEL = 32;
 const LEVEL_SCALE = MAX_LEVEL / 99;
 const scaleLevel = l => Math.max(1, Math.ceil(l * LEVEL_SCALE));
+// Monster hp is authored on the old 1-99 stat scale like def/maxHit
+// (≈ 4 + 3.1×oldLvl — see content.js defineCreature); compress it onto the
+// 32 ladder at read time, so a monster's pool tracks a same-level player's
+// (maxHp = 10+3(L-1)) and suits the RS-style max hits (combat.js maxHitFor,
+// ~2..35). EVERY read of a monster's max hp goes through here — spawns,
+// respawn/leash heals, the hp bar and Death-verb ratios. Raw MONSTERS[k].hp
+// stays old-scale; never mix the two.
+const monMaxHp = kind => Math.max(1, Math.round(MONSTERS[kind].hp * LEVEL_SCALE));
+// Same compression for the monster's max hit (authored ≈ 0.35×oldLvl, up to
+// ~48 for the great bosses): scaled it lands 0..~16 against 32-ladder player
+// hp pools, RS-proportioned. A beast authored with ANY bite keeps at least 1;
+// true pacifists (maxHit 0 — chickens, cows) stay harmless.
+const monMaxHit = kind => MONSTERS[kind].maxHit > 0
+  ? Math.max(1, Math.round(MONSTERS[kind].maxHit * LEVEL_SCALE)) : 0;
 // Resource-node respawn time (ms) as a function of the node's required level,
 // interpolating these anchor points (level → seconds): 1→7, 8→30, 16→60,
 // 24→120, 32→300. Piecewise-linear between anchors, clamped outside the range.
@@ -450,7 +464,6 @@ const ITEMS = {
   staff:       { name: "Staff",        icon: "i_staff",     value: 130, equip: "weapon", magicPower: 2, magicReq: 3, weave: 3, range: 9,  atkTick: 2000 },
   pine_wand:   { name: "Pine wand",    icon: "i_pinewand",  value: 290, equip: "weapon", magicPower: 3, magicReq: 5, weave: 2, range: 8,  atkTick: 1400 },
   pine_staff:  { name: "Pine staff",   icon: "i_pinestaff", value: 430, equip: "weapon", magicPower: 4, magicReq: 8, weave: 3, range: 10, atkTick: 2000 },
-  arrows:      { name: "Arrows",       icon: "i_arrows",  stack: true, value: 2, equip: "quiver" },
   arrow_shafts:{ name: "Arrow shafts", icon: "i_shafts",  stack: true, value: 1 },
   // (wooden_shield removed 2026-09-06 — superseded by the Bronze Heater shield;
   //  old saves migrate wooden_shield → heater_bronze, see storage.js)
@@ -476,7 +489,7 @@ const EXAMINE = {
   axe: "For chopping trees.", pickaxe: "For mining rocks.", fishing_rod: "For catching fish.",
   bronze_sword: "A basic but reliable blade.", iron_sword: "A sharp iron blade.",
   gold_sword: "Flashy AND deadly.",
-  shortbow: "A simple bow.", longbow: "Long limbs, long reach.", pine_bow: "A springy pine bow.", arrows: "Sharp and straight.",
+  shortbow: "A simple bow.", longbow: "Long limbs, long reach.", pine_bow: "A springy pine bow.",
   wand: "Weaves two rune aspects into a spell.", staff: "Gathers three aspects before the fusion.",
   pine_wand: "Springy pine channels the weave faster.", pine_staff: "A deep reservoir for the grandest weaves.",
   planks: "Sawn timber.", chair: "Sturdy handiwork.", table: "Fine carpentry.",
@@ -553,9 +566,10 @@ const RECIPES = {
     { out: "table",  name: "Build table",         skill: "Carpentry", req: scaleLevel(16), xp: 120, in: { planks: 4 }, tick: 2200 },
   ],
   fletching: [
-    { out: "arrow_shafts", qty: 15, name: "Cut arrow shafts", skill: "Fletching", req: scaleLevel(1),  xp: 20,  in: { logs: 1 }, tick: 1300 },
-    { out: "arrows", qty: 15, name: "Make arrows",            skill: "Fletching", req: 1,              xp: 50,  in: { arrow_shafts: 15, bronze_bar: 1 }, tick: 1600 },
-    { out: "shortbow", name: "Carve shortbow",                skill: "Fletching", req: scaleLevel(12), xp: 65,  in: { logs: 2 },      tick: 1900 },
+    // xp 20 → 35 (2026-09-16, user req): 300 shafts (20 cuts) must land
+    // Fletching 2 (650 xp) — the level iron arrows require — 20×35 = 700 ✓
+    { out: "arrow_shafts", qty: 15, name: "Cut arrow shafts", skill: "Fletching", req: scaleLevel(1),  xp: 35,  in: { logs: 1 }, tick: 1300 },
+    { out: "shortbow", name: "Carve shortbow",                skill: "Fletching", req: 3,              xp: 65,  in: { logs: 2 },      tick: 1900 },
     { out: "longbow",  name: "Carve longbow",                 skill: "Fletching", req: scaleLevel(20), xp: 110, in: { logs: 3 },      tick: 2100 },
     { out: "pine_bow", name: "Carve pine bow",                skill: "Fletching", req: scaleLevel(26), xp: 160, in: { pine_logs: 2 }, tick: 2200 },
     { out: "wand",       name: "Carve wand",       skill: "Fletching", req: scaleLevel(6),  xp: 50,  in: { logs: 1, state_rune: 1 },      tick: 1800 },
@@ -685,7 +699,7 @@ const MONSTERS = {
     spr: [["m_skeleton"]], scale: 1,
     drops: [
       { id: "coins", min: 6, max: 20, ch: 1 },
-      { id: "arrows", min: 5, max: 12, ch: 0.25 },
+      { id: "arrow_iron", min: 5, max: 12, ch: 0.25 },
       { id: "air_rune", min: 2, max: 8, ch: 0.2 },
       { id: "fire_rune", min: 1, max: 4, ch: 0.1 },
     ],
@@ -742,7 +756,7 @@ const MONSTERS = {
     drops: [
       { id: "coins", min: 6, max: 22, ch: 1 },
       { id: "flatbread", min: 1, max:2, ch: 0.25 },
-      { id: "arrows", min: 4, max: 12, ch: 0.2 },
+      { id: "arrow_iron", min: 4, max: 12, ch: 0.2 },
       { id: "iron_ore", min: 1, max: 1, ch: 0.15 },
     ],
     respawn: 18000, xp: 75,
@@ -767,7 +781,7 @@ const MONSTERS = {
 const SHOP_STOCK = [
   "axe_iron", "pickaxe_iron", "shears", "hoe", "fishing_rod", "small_net", "big_net", "harpoon", "lobster_cage",
   "shortsword_iron", "heater_bronze", "bucket",
-  "shortbow", "arrows", "wand", "air_rune", "rune_1", // wand + Air/Strike: a first working sentence
+  "shortbow", "arrow_iron", "wand", "air_rune", "rune_1", // wand + Air/Strike: a first working sentence
   "flatbread", "vial",
   "key", "skeleton_key", // for the locked doors & gates (gameplay/locks.js); masterkey stays craft-only
   // (deprecated wheat/cotton/herb seeds removed from the store — their CROPS.wheat/

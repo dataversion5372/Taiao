@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — per-metal Pauldron inventory icons =====
+// ===== Taiao — per-metal Pauldron inventory icons =====
 // Smithing's 16 tiered pauldrons (geartiers.js -> ids pauldrons_<metal>) all
 // shared a hue-tinted i_shield sprite. This 8x2 64px sheet ("pd") gives each its
 // own art — a matched pair of shoulder guards — to pair with the chest/legs
@@ -8,7 +8,7 @@
 "use strict";
 (function () {
   if (typeof ASSET_DATA === "undefined") window.ASSET_DATA = {};
-  ASSET_DATA["pd"] = "assets/sheets/adc6f9abad8c32bc.webp";
+  ASSET_DATA["pd"] = "assets/sheet-src/pd-pauldron-icons.webp";
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("pd")) SHEET_KEYS.push("pd");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["pd"] = 64;
   var COLS = ['bronze', 'm3', 'm4', 'm6', 'm11', 'm12', 'm13', 'm20', 'm22', 'm25', 'm26', 'm30', 'voidforged', 'twilight', 'nickel_silver', 'cupronickel'];  // ARMOUR_BARS roster order (metal shortBar)

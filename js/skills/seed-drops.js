@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — every agriculture seed drops from a monster =====
+// ===== Taiao — every agriculture seed drops from a monster =====
 // Invariant (per design): ALL agriculture seeds must appear in at least one
 // monster's drop table, so a player can obtain every crop by hunting, not only
 // by buying from the general store. Some low-tier seeds already drop (via

@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — ancient portal network =====
+// ===== Taiao — ancient portal network =====
 // Portal POIs (the purple rings on the world map) stamp a real portal node
 // (world/chunks.js). Stepping up to one ATTUNES it (persisted in the save);
 // using an attuned portal opens a destination list of every other attuned
@@ -129,6 +129,12 @@ function openPortalChooser(n) {
 }
 
 function portalTravel(px2, py2) {
+  // Tūhura Isle gates & seal (gameplay/tutorial.js) — the veil refuses to
+  // open past a latched gate or onto the mist-taken isle
+  if (typeof Tutorial !== "undefined" && Tutorial.barred(px2, py2)) {
+    log("The veil shudders and goes dark — that destination is closed to you.", "warn");
+    return;
+  }
   world.getChunk(Math.floor(px2 / world.CHUNK), Math.floor(py2 / world.CHUNK));
   // arrive on the first open tile ringing the destination portal stone
   let tx = px2, ty = py2 + 1;

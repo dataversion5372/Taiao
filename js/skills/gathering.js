@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — gathering skills =====
+// ===== Taiao — gathering skills =====
 "use strict";
 
 // Callers (1):
@@ -47,6 +47,16 @@ function gatherItem(nt) {
   return nt.item;
 }
 
+// A "wild" resource node yields a BATCH of 5-10 resources before it depletes,
+// then takes proportionally longer to respawn (user request 2026-09-15). This is
+// every gather node that has a skill EXCEPT fishing spots — those already carry
+// their own creation-time 5-10 catch counter (chunks.js). Applies EVERYWHERE,
+// Tūhura Isle included (user: don't exempt the tutorial).
+// Callers (2): tickGather (roll + respawn scale)
+function wildNodeCharged(nt) {
+  return !!(nt && nt.skill && nt.skill !== "Fishing");
+}
+
 // Callers (1):
 //  gameplay/actions.js:10
 function tickGather(act) {
@@ -83,15 +93,28 @@ function tickGather(act) {
   }
   // mossy boulders also yield moss every strike
   if (nt.moss && addItem("moss", 1)) log("You strip off some moss.", "sys");
-  // Depletion: fishing spots hold a fixed 5-10 catch counter (node.left); other
-  // nodes deplete probabilistically (nt.depleteCh). Either way a depleted node
-  // goes dormant and returns after nt.respawn (the tiered curve).
+  // Depletion. Fishing spots hold a fixed 5-10 catch counter (node.left set at
+  // creation). Every other wild resource (trees, ore rocks, gem veins, boulders,
+  // bushes, herbs, flowers — wildNodeCharged) rolls a 5-10 batch counter here on
+  // the first strike (lazily, so already-generated chunks get it too). Either way
+  // a depleted node goes dormant and returns after its respawn (see below).
+  const charged = wildNodeCharged(nt);
   let deplete = false;
+  if (charged && node.left == null) {
+    node.leftMax = 5 + Math.floor(Math.random() * 6);   // 5-10 resources before depletion
+    node.left = node.leftMax;
+  }
   if (node.left != null) { node.left -= 1; if (node.left <= 0) deplete = true; }
   else if (nt.depleteCh && Math.random() < nt.depleteCh) deplete = true;
+  // Tūhura Isle stage tasks (gameplay/tutorial.js REQS): trees felled,
+  // whitebait netted — fires once per successful gather tick
+  if (typeof Tutorial !== "undefined" && Tutorial.onGather) Tutorial.onGather(node, nt, item, deplete);
   if (deplete) {
     node.alive = false;
-    node.respawnAt = now + nt.respawn;
+    // a charged node just gave leftMax resources this cycle, so its respawn
+    // stretches proportionally (per-resource rate ≈ the old single-strike node).
+    // Fishing spots + tutorial/probabilistic nodes keep their flat respawn.
+    node.respawnAt = now + nt.respawn * (charged ? (node.leftMax || 1) : 1);
     if (nt.respawn) depletedNodes.push(node);
     player.act = null;
     return;

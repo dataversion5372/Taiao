@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — per-character armour landmarks (auto-generated) =====
+// ===== Taiao — per-character armour landmarks (auto-generated) =====
 // Landmarks first detected on the UNDERWEAR (smallclothes) silhouette, then the
 // WIDTH/position points (shoulders, hips, head, neck, wrists) ADJUSTED toward how
 // the clothed outfits (Idle/new_outfit) actually sit on the figure — blend 40%

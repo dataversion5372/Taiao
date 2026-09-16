@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Pottery · Glassblowing =====
+// ===== Taiao — Pottery · Glassblowing =====
 // The clay-and-sand kiln branch, downstream of Mining and the stone trades.
 //
 //   Mining → clay → Pottery (fire in a kiln) → wares, crucibles, oil lamps
@@ -106,9 +106,17 @@
   // would stamp the recipe tier as a Defence gate (same trick as candles)
   mk("snorkel", "Snorkel", "i_vial", " hue-rotate(160deg) saturate(0.8) brightness(1.25)",
     { value: 96, equip: "face", finished: true, wearReq: 0 }, "snorkel — tinted placeholder");
-  EXAMINE.snorkel = "A blown-glass breathing tube on a leather strap. Worn on the face, it keeps the air coming a while after the water closes over your head.";
+  // diving bonuses read by movement.js tickAir/diveGear (generalised so rubber
+  // diving gear can stack): the snorkel raises the waterline and halves drain —
+  // exactly the old hard-coded snorkel behaviour, now data-driven. (0.4 is the
+  // literal SNORKEL_REACH from main/state.js — hardcoded here because that const
+  // loads AFTER this skill file, so referencing it would hit the TDZ.)
+  if (ITEMS.snorkel) { ITEMS.snorkel.diveReach = 0.4; ITEMS.snorkel.diveDrain = 0.5; }
+  EXAMINE.snorkel = "A blown-glass breathing tube on a leather strap, capped with a moulded rubber mouthpiece. Worn on the face, it keeps the air coming a while after the water closes over your head.";
+  // needs a rubber snorkel_mouthpiece (Rubbermaking) alongside the blown glass
+  // tube and leather strap — the rubber is what your teeth actually bite on.
   RECIPES.glassblowing.push({ id: "blow_snorkel", out: "snorkel", name: "Blow a snorkel",
-    skill: "Glassblowing", req: 10, xp: 64, in: { glass: 2, leather: 1 }, tick: 1900,
+    skill: "Glassblowing", req: 10, xp: 64, in: { glass: 2, leather: 1, snorkel_mouthpiece: 1 }, tick: 1900,
     family: "glassware", stations: ["glass_furnace", "furnace"] });
 
   // ---------- workstations ----------

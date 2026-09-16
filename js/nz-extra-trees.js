@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — NZ tree species (additive content) =====
+// ===== Taiao — NZ tree species (additive content) =====
 // Adds 29 native NZ trees as new gatherable Woodcutting nodes alongside the
 // existing 32-tier fantasy tree system (nothing removed). Each species gets
 // its own dedicated 3D object (via render3d.js) at a real-world-proportional

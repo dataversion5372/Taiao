@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall - Fletching wooden-weapon icon sheet (25 icons) =====
+// ===== Taiao - Fletching wooden-weapon icon sheet (25 icons) =====
 // 8 bows + 8 staves + 8 kōpere (woodcraft.js wc_bow_/wc_staff_/wc_kopere_) + the generic
 // arrow_shafts bundle. Slices a hand-made 9x3 sheet into the "fw" sheet and overrides each
 // item's placeholder icon (i_bow/i_staff via defineIcon; i_shafts for arrow_shafts).
@@ -8,7 +8,7 @@
   if (typeof ASSET_DATA === "undefined") { try { window.ASSET_DATA = {}; } catch (e) { return; } }
   if (typeof SHEET_KEYS !== "undefined" && !SHEET_KEYS.includes("fw")) SHEET_KEYS.push("fw");
   if (typeof SHEET_TILE !== "undefined") SHEET_TILE["fw"] = 64;
-  ASSET_DATA["fw"] = "assets/sheets/fb1ac688aba8741f.webp";
+  ASSET_DATA["fw"] = "assets/sheets/fw-fw-icons.fb1ac688.webp";
   if (typeof SPR === "undefined") return;
     SPR["i_wc_bow_0"] = ["fw", 0, 0, { sx: 0, sy: 0, sw: 64, sh: 64 }];
     if (typeof ITEMS !== "undefined" && ITEMS["wc_bow_0"]) ITEMS["wc_bow_0"].icon = "i_wc_bow_0";

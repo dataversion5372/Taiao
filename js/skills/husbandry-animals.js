@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Husbandry as living, roaming animals (32-tier) =====
+// ===== Taiao — Husbandry as living, roaming animals (32-tier) =====
 // You tend physical animals that roam the pastures. The 32 progression tiers map
 // onto specific creatures; a species that appears at several tiers offers each
 // unlocked action on its RIGHT-CLICK menu (left-click does the highest one).
@@ -85,7 +85,10 @@
       ITEMS.bucket = { name: "Bucket", icon: "i_bucket", stack: true, value: 6 };
       if (typeof EXAMINE !== "undefined") EXAMINE.bucket = "A sturdy wooden bucket — a general-purpose pail.";
       if (typeof RECIPES !== "undefined")
-        (RECIPES.crafting = RECIPES.crafting || []).push({
+        // carpentry, NOT the orphaned "crafting" list — no station hosts
+        // "crafting" (chandlery.js took the candles; nothing lists the rest),
+        // so containers must live where the workbench actually looks.
+        (RECIPES.carpentry = RECIPES.carpentry || []).push({
           id: "make_bucket", out: "bucket", name: "Make a bucket", skill: "Carpentry",
           req: 1, xp: 14, in: { planks: 1 }, tick: 1200, family: "containers",
         });
@@ -97,7 +100,7 @@
       ITEMS.pail = { name: "Empty pail", icon: "i_pail", stack: true, value: 6, tool: true };
       if (typeof EXAMINE !== "undefined") EXAMINE.pail = "An empty wooden pail — carry these to milk your animals.";
       if (typeof RECIPES !== "undefined")
-        (RECIPES.crafting = RECIPES.crafting || []).push({
+        (RECIPES.carpentry = RECIPES.carpentry || []).push({
           id: "make_pail", out: "pail", name: "Make an empty pail", skill: "Carpentry",
           req: 1, xp: 14, in: { planks: 1 }, tick: 1200, family: "containers",
         });
@@ -154,7 +157,7 @@
       CROPS.alfalfa = {
         name: "alfalfa", seed: "alfalfa_seeds", item: "alfalfa",
         req: (typeof scaleLevel === "function" ? scaleLevel(1) : 1), plantXp: 12, xp: 40,
-        time: 60000, yield: [3, 5], spr: "wheat_plant", skill: "Cerealiculture",
+        time: 60000, yield: [3, 5], spr: "wheat_plant", skill: "Farming", cat: "Cerealiculture",
       };
   }, 0);
 
@@ -162,17 +165,17 @@
   // type: collect | shear | milk | pluck | apiary | raise. out for harvest = item
   // map; for raise = {baby:"<kind>"}. opts.babyChance = ["<kind>", chance].
   const TIERS = [
-    ["keep_quail",      "Tend quail",              "quail",     1,  "collect", { bran: 1 },            { egg: 2, feathers: 1 }, 18],
-    ["keep_hens",       "Tend hens",               "chicken",   2,  "collect", { bran: 2 },            { egg: 3, feathers: 1 }, 22],
-    ["raise_rabbits",   "Raise rabbits",           "rabbit",    3,  "raise",   { bran: 1 },            { baby: "rabbit" },      18],
-    ["shear_sheep",     "Shear sheep",             "sheep",     4,  "shear",   { bran: 2 },            { fleece: 2 },           26],
-    ["keep_ducks",      "Tend ducks",              "duck",      5,  "collect", { bran: 2, wheat: 1 },  { egg: 2, feathers: 2 }, 24],
-    ["keep_bees",       "Tend bees",               "bee",       6,  "apiary",  { berries: 2 },         { honey: 2, beeswax: 1 }, 30],
-    ["milk_camels",     "Milk camels",             "camel",     7,  "milk",    { alfalfa: 3 },         { milk: 2 },             24],
-    ["keep_geese",      "Tend geese",              "goose",     8,  "collect", { bran: 3 },            { feathers: 3, egg: 1 }, 28],
-    ["milk_goats",      "Milk goats",              "goat",      9,  "milk",    { bran: 2 },            { milk: 2 },             24, { babyChance: ["goat", 0.3] }],
-    ["raise_pigs",      "Raise pigs",              "pig",       10, "raise",   { bran: 3 },            { baby: "pig" },         30],
-    ["milk_cows",       "Milk cows",               "cow",       11, "milk",    { bran: 3, wheat: 1 },  { milk: 3 },             30],
+    ["keep_quail",      "Tend quail",              "quail",     1,  "collect", { bran: 1 },            { quail_egg: 2, feathers: 1 }, 24],
+    ["keep_hens",       "Tend hens",               "chicken",   2,  "collect", { bran: 2 },            { egg: 3, feathers: 1 }, 28],
+    ["milk_cows",       "Milk cows",               "cow",       3,  "milk",    { bran: 3, wheat: 1 },  { milk: 3 },             30],
+    ["raise_rabbits",   "Raise rabbits",           "rabbit",    4,  "raise",   { bran: 1 },            { baby: "rabbit" },      18],
+    ["shear_sheep",     "Shear sheep",             "sheep",     5,  "shear",   { bran: 2 },            { fleece: 2 },           26],
+    ["keep_ducks",      "Tend ducks",              "duck",      6,  "collect", { bran: 2, wheat: 1 },  { egg: 2, feathers: 2 }, 24],
+    ["keep_bees",       "Tend bees",               "bee",       7,  "apiary",  { berries: 2 },         { honey: 2, beeswax: 1 }, 30],
+    ["milk_camels",     "Milk camels",             "camel",     8,  "milk",    { alfalfa: 3 },         { milk: 2 },             24],
+    ["keep_geese",      "Tend geese",              "goose",     9,  "collect", { bran: 3 },            { feathers: 3, egg: 1 }, 28],
+    ["milk_goats",      "Milk goats",              "goat",      10, "milk",    { bran: 2 },            { milk: 2 },             24, { babyChance: ["goat", 0.3] }],
+    ["raise_pigs",      "Raise pigs",              "pig",       11, "raise",   { bran: 3 },            { baby: "pig" },         30],
     ["raise_turkeys",   "Raise turkeys",           "turkey",    12, "raise",   { bran: 3, wheat: 1 },  { baby: "turkey" },      32],
     ["raise_goats",     "Raise goats",             "goat",      13, "raise",   { bran: 3 },            { baby: "goat" },        34],
     ["raise_sheep",     "Raise sheep",             "sheep",     14, "raise",   { bran: 3, wheat: 1 },  { baby: "sheep" },       34],
@@ -234,7 +237,8 @@
     return null;
   }
   const feedStr = feed => Object.entries(feed).map(([id, q]) => `${q} ${(ITEMS[id] ? ITEMS[id].name : id).toLowerCase()}`).join(", ");
-  const scaleFeed = (feed, giant) => { const f = {}; for (const k in feed) f[k] = feed[k] * (giant ? 2 : 1); return f; };
+  const FEED_MULT = 5; // user request 2026-09-15: animals need 5x the food they used to
+  const scaleFeed = (feed, giant) => { const f = {}; for (const k in feed) f[k] = feed[k] * (giant ? 2 : 1) * FEED_MULT; return f; };
   const secsLeft = mon => Math.max(0, Math.ceil((((mon.husbReadyAt || 0) - now)) / 1000));
 
   function spawnBaby(mon, adultKind) {
@@ -245,8 +249,9 @@
       if (world.inMap(mon.x + dx, mon.y + dy) && !world.isBlocked(mon.x + dx, mon.y + dy) && !world.isWater(mon.x + dx, mon.y + dy)) { nx = mon.x + dx; ny = mon.y + dy; break; }
     const bk = adultKind + "_baby";
     monsters.push({
+      uid: ++_monUid,
       kind: bk, x: nx, y: ny, sx: nx, sy: ny, px: PX(nx), py: PX(ny),
-      hp: MONSTERS[bk].hp, alive: true, moving: null, target: null, nextAtkAt: 0,
+      hp: monMaxHp(bk), alive: true, moving: null, target: null, nextAtkAt: 0,
       facing: 1, dir8: "south", spr: MONSTERS[bk].spr, lungeT: -9999,
       spawnBiome: world.biomeAt(nx, ny), growTo: adultKind, growAt: now + COOLDOWN,
     });
@@ -263,13 +268,15 @@
   }
 
   // ---- perform a tier action ----
+  // Returns true if a tend actually happened, false if it was blocked (spent,
+  // level/tool/pail short) — tickHusb uses this to stop the continuous tending.
   function husbDoAction(mon, actId) {
-    const acts = husbActions(mon); if (!acts) return;
-    const a = acts.find(x => x.id === actId) || acts[0]; if (!a) return;
-    if (mon.husbSpent) { log(`The ${aniName(mon).toLowerCase()} is resting — feed it first.`, "warn"); return; }
-    if (skillLvl("Husbandry") < a.req) { log(`You need Husbandry level ${a.req} for "${a.name}".`, "warn"); return; }
+    const acts = husbActions(mon); if (!acts) return false;
+    const a = acts.find(x => x.id === actId) || acts[0]; if (!a) return false;
+    if (mon.husbSpent) { log(`The ${aniName(mon).toLowerCase()} is resting — feed it first.`, "warn"); return false; }
+    if (skillLvl("Husbandry") < a.req) { log(`You need Husbandry level ${a.req} for "${a.name}".`, "warn"); return false; }
     const tool = a.type === "shear" ? "shears" : null;
-    if (tool && typeof hasTool === "function" && !hasTool(tool)) { log(`You need ${(ITEMS[tool] ? ITEMS[tool].name.toLowerCase() : tool)} to shear. Forge some with Toolmaking or buy them from the general store.`, "warn"); return; }
+    if (tool && typeof hasTool === "function" && !hasTool(tool)) { log(`You need ${(ITEMS[tool] ? ITEMS[tool].name.toLowerCase() : tool)} to shear. Forge some with Toolmaking or buy them from the general store.`, "warn"); return false; }
     const g = a.giant;
     if (a.type === "raise") {
       const target = (g && MONSTERS[a.out.baby + "_v_baby"]) ? a.out.baby + "_v" : a.out.baby;
@@ -289,10 +296,10 @@
       const mult = g ? 2 : 1;             // giants yield twice the ordinary item
       const milkNeed = (a.out.milk || 0) * mult; // one empty pail per unit of milk
       if (milkNeed > 0) {
-        if (countItem("pail") < milkNeed) { log(`You need ${milkNeed} empty pail${milkNeed > 1 ? "s" : ""} to milk the ${aniName(mon).toLowerCase()}. Buy them from the general store, or curdle milk at a creamery to empty them.`, "warn"); return; }
+        if (countItem("pail") < milkNeed) { log(`You need ${milkNeed} empty pail${milkNeed > 1 ? "s" : ""} to milk the ${aniName(mon).toLowerCase()}. Buy them from the general store, or curdle milk at a creamery to empty them.`, "warn"); return false; }
         removeItem("pail", milkNeed);
       }
-      for (const [id, q] of outs) addItem(id, q * mult);
+      for (const [id, q] of outs) { addItem(id, q * mult); if (typeof Tutorial !== "undefined" && Tutorial.onTend) Tutorial.onTend(id, q * mult); }
       if (a.babyChance && Math.random() < a.babyChance[1]) {
         const bt = (g && MONSTERS[a.babyChance[0] + "_v_baby"]) ? a.babyChance[0] + "_v" : a.babyChance[0];
         spawnBaby(mon, bt);
@@ -300,17 +307,53 @@
       log(harvestMsg(a, mon));
     }
     addXp("Husbandry", a.xp * (g ? 2 : 1));
+    const key = (mon.sx ?? mon.x) + "," + (mon.sy ?? mon.y);
+    // Batch model (user request 2026-09-15, mirrors wild gather nodes): a resource
+    // animal gives 5-10 tends before it's spent, then a proportionally longer
+    // recovery. "Raise" tiers birth young (not a resource batch) and stay single-
+    // tend. Applies everywhere, tutorial included. Each tend's yield is unchanged
+    // — milking still costs one pail per tend, no pail blowup.
+    const charged = a.type !== "raise";
+    if (charged) {
+      if (mon.husbLeft == null) mon.husbMax = mon.husbLeft = 5 + Math.floor(Math.random() * 6); // 5-10 tends
+      mon.husbLeft -= 1;
+      if (mon.husbLeft > 0) {
+        // still tendable — persist the batch progress (keyed by spawn tile, so a
+        // reload can't reset the counter to dodge the recovery) and stay ready.
+        if (typeof husbCooldowns !== "undefined")
+          husbCooldowns.set(key, { spent: false, left: mon.husbLeft, leftMax: mon.husbMax });
+        if (typeof uiDirty !== "undefined") uiDirty = true;
+        return true;
+      }
+    }
+    const cycle = charged ? (mon.husbMax || 1) : 1;   // recovery scales with the batch it gave
+    mon.husbLeft = null; mon.husbMax = null;           // a fresh feed re-rolls the batch
     mon.husbSpent = true;
-    // recovery is the standard tiered respawn time (data.js respawnFor): low-tier
-    // animals bounce back fast, high-tier ones take as long as the old flat 300s.
-    mon.husbReadyAt = now + (typeof respawnFor === "function" ? respawnFor(a.req) : COOLDOWN);
+    // recovery is the standard tiered respawn time (data.js respawnFor), stretched
+    // by the batch size: low-tier animals bounce back fast, high-tier ones slow.
+    mon.husbReadyAt = now + (typeof respawnFor === "function" ? respawnFor(a.req) : COOLDOWN) * cycle;
     mon.husbFeed = scaleFeed(a.feed, g);
     mon.husbSpr = (a.type === "raise") ? null : (SPENT_SPR[baseKind(mon.kind)] || null);
     // persist the cooldown keyed by the animal's spawn tile so a refresh can't
     // reset it (the animal respawns spent, restored in world.js) — no cheating recovery.
     if (typeof husbCooldowns !== "undefined")
-      husbCooldowns.set((mon.sx ?? mon.x) + "," + (mon.sy ?? mon.y), { readyAt: mon.husbReadyAt, spent: true, feed: mon.husbFeed, spr: mon.husbSpr });
+      husbCooldowns.set(key, { readyAt: mon.husbReadyAt, spent: true, feed: mon.husbFeed, spr: mon.husbSpr });
     if (typeof uiDirty !== "undefined") uiDirty = true;
+    return true;
+  }
+  // Continuous tending (user request 2026-09-15): once you start tending an
+  // animal you keep tending it, one tend per HUSB_TICK, until it's DEPLETED
+  // (husbSpent) — the same feel as felling a tree or harvesting a crop. Stops on
+  // a blocked tend (husbDoAction → false: no shears/pails/level), if the animal
+  // dies, or if it wanders out of reach. Started from pathing.js executeGoal.
+  const HUSB_TICK = 1400; // ms per tend
+  function tickHusb(act) {
+    const mon = act.mon;
+    if (!mon || !mon.alive || mon.husbSpent) { player.act = null; return; }
+    if (Math.max(Math.abs(mon.x - player.x), Math.abs(mon.y - player.y)) > 4) { player.act = null; return; } // wandered off
+    const did = husbDoAction(mon, act.actId);
+    if (!did || !mon.alive || mon.husbSpent) { player.act = null; return; }
+    act.nextAt = now + HUSB_TICK;
   }
   function harvestMsg(a, mon) {
     const nm = aniName(mon).toLowerCase();
@@ -363,6 +406,7 @@
     window.husbActions = husbActions;
     window.husbMenu = husbMenu;
     window.husbDoAction = husbDoAction;
+    window.tickHusb = tickHusb;
     window.husbDoFeed = husbDoFeed;
     window.growBabies = growBabies;
     window.husbSpriteKey = mon => (mon && mon.husbSpent && mon.husbSpr) ? mon.husbSpr : null;
@@ -371,7 +415,7 @@
       if (!husbActions(mon)) return null;
       const nm = aniName(mon);
       if (mon.husbSpent) return now >= (mon.husbReadyAt || 0) ? `The ${nm.toLowerCase()} is spent — feed it to tend again.` : `The ${nm.toLowerCase()} is recovering (${secsLeft(mon)}s).`;
-      return `A ${nm.toLowerCase()}. Ready to tend.`;
+      return `A ${nm.toLowerCase()}. Ready to tend${mon.husbLeft > 0 ? ` (${mon.husbLeft} more before it needs rest)` : ""}.`;
     };
     // back-compat: old goal types still resolve
     window.husbGoalType = mon => (mon && mon.husbSpent) ? "husbFeed" : "husbAction";

@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — Candlemaking · Soapmaking =====
+// ===== Taiao — Candlemaking · Soapmaking =====
 // Household chandlery, downstream of Husbandry and Charcoaling.
 //
 //   Husbandry tallow/beeswax + Spinning wick + Dyeing/Herbs
@@ -84,8 +84,11 @@
   for (const [id, name, req, wax, waxQty, flags] of CANDLES) {
     // light = brightness tier (1..~9 across req 1..32): higher candles cast more light at night
     if (!ITEMS[id]) mk(id, name, "i_vial", ` hue-rotate(${(req * 21) % 360}deg) saturate(1.1) brightness(1.15)`, { stack: true, value: 8 + req * 3, light: 1 + Math.floor(req / 4) }, "candle — tinted placeholder");
+    // the rushlight is the PRE-wick light — a soaked rush, no spun wick —
+    // which also makes it Tūhura's first dip (tutorial.js, Miles's goal)
+    const cin = id === "rushlight" ? { [wax]: waxQty } : { [wax]: waxQty, wick: 1 };
     RECIPES.candlemaking.push({ id: "dip_" + id, out: id, qty: id === "candle" ? 2 : 1, name: "Dip " + (/^[aeiou]/i.test(name) ? "an " : "a ") + name.toLowerCase(),
-      skill: "Candlemaking", req, xp: 16 + req * 3, in: inputs({ [wax]: waxQty, wick: 1 }, flags), tick: 1400 + req * 20,
+      skill: "Candlemaking", req, xp: 16 + req * 3, in: inputs(cin, flags), tick: 1400 + req * 20,
       family: wax === "beeswax" ? "beeswax_candles" : "tallow_candles", stations: ["chandlery", "furnace", "workbench"] });
   }
 

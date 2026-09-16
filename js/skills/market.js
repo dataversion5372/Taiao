@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — markets, NPC demand & contracts =====
+// ===== Taiao — markets, NPC demand & contracts =====
 // Turns the deep production graph into a living economy. Every settlement has an
 // economic PROFILE derived from its biome (port / farm / mine / forest / city);
 // each profile DEMANDS some kinds of goods (paying a premium to buy them from
@@ -299,7 +299,7 @@ const SHOP_TYPES = {
   weaponsmith: {
     name: "Weaponsmith", line: `"Sharp edges, fair prices."`,
     sells: () => shopSample(Object.keys(ITEMS).filter(id => ITEMS[id].equip === "weapon"), 15)
-      .concat(ITEMS.arrows ? ["arrows"] : []),
+      .concat(ITEMS.arrow_iron ? ["arrow_iron"] : []),
     buys: (id, d) => d.equip === "weapon" || !!d.arrowPower || id === "arrows" || id === "arrow_shafts",
   },
   seedsman: {

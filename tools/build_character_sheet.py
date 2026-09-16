@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pack all 94 default (Idle) characters x 8 directions into one sprite sheet and
 embed it (data URI) plus a manifest into js/sprites/characters-data.js for the
-Isle of Emberfall game.
+Taiao game.
 
 Characters are normalized to a common body height and foot baseline so they all
 stand consistently in-world. Frame order in the sheet is charIndex*8 + dirIndex,
@@ -96,7 +96,7 @@ def main():
     sheet.save(OUT_PNG)
     b64 = base64.b64encode(OUT_PNG.read_bytes()).decode()
     js = (
-        "// ===== Isle of Emberfall — playable character sheet (auto-generated) =====\n"
+        "// ===== Taiao — playable character sheet (auto-generated) =====\n"
         '"use strict";\n'
         f"const CHAR_CELL = {CELL};\n"
         f"const CHAR_COLS = {COLS};\n"

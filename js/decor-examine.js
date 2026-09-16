@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — examine text for world decoration objects =====
+// ===== Taiao — examine text for world decoration objects =====
 // Every decoration tile (world.getDecor(x,y) — flowers, rocks, furniture, civic
 // props, trade goods, walls…) can be right-click Examined. `decorExamine(key)`
 // resolves a line for ANY decor key: curated flavour first, then per-family

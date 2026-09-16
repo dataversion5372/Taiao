@@ -1,4 +1,4 @@
-// ===== Isle of Emberfall — station crafting, cooking, alchemy, and production skills =====
+// ===== Taiao — station crafting, cooking, alchemy, and production skills =====
 "use strict";
 
 // Callers (1):
@@ -9,7 +9,13 @@ function openStation(node) {
   if (st.alchemy) { openAlchemy(node); return; }
   // finished passive jobs now wait in the station's OUTPUT BOX (openCraft)
   // until the player collects them, instead of auto-dumping into the pack
-  const recs = (st.lists || []).flatMap(k => RECIPES[k] || []);
+  let recs = (st.lists || []).flatMap(k => RECIPES[k] || []);
+  // Tūhura Isle: the tutorial anvil forges ONLY the four lesson pieces
+  // (gameplay/tutorial.js) — the rest of the world's smithing waits offshore.
+  if (typeof Tutorial !== "undefined" && Tutorial.anvilRecipes) {
+    const allow = Tutorial.anvilRecipes(node);
+    if (allow) recs = recs.filter(r => allow.has(r.id));
+  }
   openCraft(node, recs);
 }
 
@@ -35,7 +41,11 @@ function beginCraft(recipe, node, qty) {
     // passive firings must stay hot for the WHOLE job — the fire has to outlast
     // it. Long jobs demand long-burning fuel (charcoal burns far longer).
     if (recipe.passive) {
-      const dur = (recipe.time || recipe.tick || 0) * (qty || 1);
+      // fire must outlast the whole job INCLUDING its wait in the station's
+      // queue (jobs at one station run in series — production.js startJob)
+      const wait = (typeof jobQueueEndAt === "function" && node)
+        ? Math.max(0, jobQueueEndAt(node.type) - Date.now()) : 0;
+      const dur = (recipe.time || recipe.tick || 0) * (qty || 1) + wait;
       if (stationBurnLeft(node) * 1000 < dur) {
         log(`The fire won't stay hot long enough (~${Math.ceil(dur / 1000)}s needed, ~${stationBurnLeft(node)}s left). Stoke it with longer-burning fuel — charcoal burns far longer than raw logs.`, "warn");
         return;
@@ -76,6 +86,7 @@ function tickCraft(act) {
   // craftOnce (production.js) is the single generic step: consume inputs, roll
   // quality, emit outputs + by-products, record provenance, grant XP + mastery.
   if (!craftOnce(r, act.node)) { player.act = null; return; }
+  if (typeof Tutorial !== "undefined" && Tutorial.onCraft) Tutorial.onCraft(r.out); // Tūhura forge task
   if (act.remaining != null && act.remaining !== Infinity) {
     act.remaining--;
     if (act.remaining <= 0) { player.act = null; return; }
