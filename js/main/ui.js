@@ -1287,11 +1287,12 @@ function craftRow(iconKey, title, sub, locked, onclick) {
   return d;
 }
 
-// batch amount for the crafting panel: 1 / 5 / 10 / max. "max" = run an active
-// recipe until materials run out, or queue the biggest affordable passive batch.
-let craftQty = "max";
-function craftAmount(recipe) {
-  if (craftQty !== "max") return +craftQty;
+// "make ALL" amount for a recipe: run an active recipe until materials run
+// out, or queue the biggest affordable passive batch. (The old 1/5/10/max
+// batch bar is gone — stations use the BANK's click grammar now, user req
+// 2026-09-16: click makes 1, Shift+click 5, Option/Alt+click all, and
+// right-click opens the amount menu.)
+function craftMax(recipe) {
   let m = Infinity;
   for (const [id, q] of Object.entries(recipe.in)) m = Math.min(m, Math.floor(countItem(id) / q));
   return recipe.passive ? Math.max(1, m === Infinity ? 1 : m) : Infinity;
@@ -1305,17 +1306,12 @@ function openCraft(node, recipes) {
     node.x != null ? node.x : player.x, node.y != null ? node.y : player.y);
   const list = document.getElementById("craftlist");
   list.innerHTML = "";
-  // batch selector
-  const bar = document.createElement("div");
-  bar.className = "batchbar";
-  ["1", "5", "10", "max"].forEach(v => {
-    const b = document.createElement("button");
-    b.textContent = v === "max" ? "Max" : v;
-    b.className = "batchbtn" + (craftQty === v ? " active" : "");
-    b.onclick = () => { craftQty = v; openCraft(node, recipes); };
-    bar.appendChild(b);
-  });
-  list.appendChild(bar);
+  // the bank's click grammar, spelled out once at the top of the panel
+  const hint = document.createElement("div");
+  hint.className = "rreq";
+  hint.style.cssText = "padding:4px 6px;opacity:.8;";
+  hint.textContent = "Click: make 1 · ⇧ click: 5 · ⌥ click: all · right-click: more";
+  list.appendChild(hint);
   // ---- output box: passive jobs at this station. Finished goods sit here
   // (like a little bank slot on the station) until the player collects them;
   // unfinished ones show a countdown.
@@ -1436,12 +1432,20 @@ function openCraft(node, recipes) {
     if (need) sub += ` · 🔥 ${need}°${hotEnough ? "" : " (too cold)"}`;
     if (bys.length) sub += ` · yields ${bys.join(", ")}`;
     if (r.passive) sub += ` · passive ~${Math.ceil((r.time || r.tick || 0) / 1000)}s${need && !fireLasts ? " (fire too brief)" : ""}`;
-    list.appendChild(craftRow(ITEMS[outId].icon, r.name, sub, !have, () => {
+    // bank-style amounts (user req 2026-09-16): click = 1, Shift+click = 5,
+    // Option/Alt+click = all, right-click = the amount menu (5/10/50/X…/all)
+    const doCraft = n => {
       if (!haveMats) { log("You don't have the materials.", "warn"); return; }
       if (!hotEnough) { log(`The fire isn't hot enough (${curHeat}° / ${need}°). Stoke it with logs.`, "warn"); return; }
       if (!fireLasts) { log(`The fire won't last the ~${Math.ceil(dur / 1000)}s firing. Stoke it with charcoal — it burns far longer.`, "warn"); return; }
-      closeTrade(); beginCraft(r, node, craftAmount(r));
-    }));
+      let amt = n === Infinity ? craftMax(r) : n;
+      if (r.passive) amt = Math.max(1, Math.min(amt, craftMax(r))); // a passive job queues only what the mats afford
+      closeTrade(); beginCraft(r, node, amt);
+    };
+    const row = craftRow(ITEMS[outId].icon, r.name, sub, !have,
+      e => doCraft(e && e.altKey ? Infinity : e && e.shiftKey ? 5 : 1));
+    row.oncontextmenu = e => amountMenu(e, "Make", "all", doCraft);
+    list.appendChild(row);
   }
 }
 

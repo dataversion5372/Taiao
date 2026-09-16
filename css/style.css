@@ -422,9 +422,6 @@ html, body { height: 100%; background: #1a1620; color: #ddd; font-family: "OpenD
 #bestiary-body tr:hover td { background: #221b30; }
 
 /* crafting: batch selector + passive job rows */
-.batchbar { display: flex; gap: 6px; margin-bottom: 8px; }
-.batchbtn { flex: 1; padding: 4px 0; background: #191423; color: #cdbff0; border: 1px solid #38304a; border-radius: 3px; font-size: 12px; cursor: pointer; }
-.batchbtn.active { background: #7c5fd3; color: #fff; border-color: #7c5fd3; }
 .batchbtn:hover { border-color: #7c5fd3; }
 .jobrow { font-size: 12px; color: #ffe97a; padding: 4px 6px; margin-bottom: 4px; background: #191423; border: 1px solid #38304a; border-radius: 3px; }
 
