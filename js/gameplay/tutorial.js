@@ -199,16 +199,38 @@ const TUT_CONTENT = (() => {
     // survive — everything natural on the isle is copper.)
     at(3, 4, 0, { node: "anvil", extra: { station: true } }),
     at(3, 7, -2, { node: "furnace", extra: { station: true } }),
-    at(3, -5, -4, { node: "copper" }),
-    at(3, -7, -7, { node: "copper" }),
-    at(3, -9, -3, { node: "copper" }),
-    at(3, -3, -11, { node: "copper" }),
-    at(3, -10, -10, { node: "copper" }),
-    at(3, -1, -6, { node: "copper" }),
-    at(3, -2, -9, { node: "copper" }),
-    at(3, -4, -8, { node: "iron" }),
-    at(3, -7, -10, { node: "rockM1" }),   // tin
-    at(3, -9, -12, { node: "rockM1" }),   // tin (spare, for bronze arrows later)
+    // THE TERRACE IS AN EXACT LEDGER (user req 2026-09-16): every rock's
+    // yield is PINNED (extra.left skips gathering.js's 5-10 roll), and the
+    // isle-wide strip in chunks.js deletes every NATURAL metal rock, so this
+    // is all the ore there is (per respawn cycle). The maths:
+    //  · smelt plan → Smelting 3 (1154 xp): 46 copper bars (46×20 = 920 xp)
+    //    + 2 five-bar batches of bronze (10 × 25 = 250 xp) = 1170 ≥ 1154
+    //    (45 copper bars = 1150 falls short — 46 is exact)
+    //  · copper ore = 46 (copper bars) + 20 (bronze: 2/bar) = 66
+    //    → ELEVEN rocks × 6 ore. Mining xp 66 × 30 = 1980 crosses
+    //    Ore-mining 2 (650) at ore #22 and 3 (1154, the iron rock's req)
+    //    at ore #39 — the ladder unlocks itself partway up the terrace
+    //  · tin = 10 (2 bronze batches × 5 bars × 1 tin) → TWO rocks × 5
+    //  · iron = 25 (5 five-bar batches, 1 ore/bar) → FIVE rocks × 5
+    //    (the forge itself spends ~22: 20 arrowhead batches + a 2-bar sword)
+    at(3, -5, -4, { node: "copper", extra: { left: 6, leftMax: 6 } }),
+    at(3, -7, -7, { node: "copper", extra: { left: 6, leftMax: 6 } }),
+    at(3, -9, -3, { node: "copper", extra: { left: 6, leftMax: 6 } }),
+    at(3, -3, -11, { node: "copper", extra: { left: 6, leftMax: 6 } }),
+    at(3, -10, -10, { node: "copper", extra: { left: 6, leftMax: 6 } }),
+    at(3, -1, -6, { node: "copper", extra: { left: 6, leftMax: 6 } }),
+    at(3, -2, -9, { node: "copper", extra: { left: 6, leftMax: 6 } }),
+    at(3, -6, -12, { node: "copper", extra: { left: 6, leftMax: 6 } }),
+    at(3, -11, -6, { node: "copper", extra: { left: 6, leftMax: 6 } }),
+    at(3, -12, -9, { node: "copper", extra: { left: 6, leftMax: 6 } }),
+    at(3, 0, -9, { node: "copper", extra: { left: 6, leftMax: 6 } }),
+    at(3, -7, -10, { node: "rockM1", extra: { left: 5, leftMax: 5 } }),   // tin
+    at(3, -9, -12, { node: "rockM1", extra: { left: 5, leftMax: 5 } }),   // tin
+    at(3, -4, -8, { node: "iron", extra: { left: 5, leftMax: 5 } }),
+    at(3, -5, -13, { node: "iron", extra: { left: 5, leftMax: 5 } }),
+    at(3, -8, -14, { node: "iron", extra: { left: 5, leftMax: 5 } }),
+    at(3, -11, -12, { node: "iron", extra: { left: 5, leftMax: 5 } }),
+    at(3, -13, -4, { node: "iron", extra: { left: 5, leftMax: 5 } }),
     // pod 4 — the Lagoon (Swim-Master): the deep pool is carved in terrain; no
     // hand-placed content — Vrixa gifts the raft + snorkel.
     // pod 5 — the Bank camp: the vault, plus a carpenter's bench and a stand
@@ -952,9 +974,11 @@ const Tutorial = (() => {
       if (player.sailing || (typeof ridingEnt === "function" && ridingEnt()))
         return "The chop over the drowned shelf would swamp any hull — this crossing must be SWUM.";
     }
-    if (q.D >= 14) return false;
+    // graduated: the mist takes back the WHOLE footprint, not just the coast —
+    // the isle is a separate place now, unreachable and invisible from the sea
     if (!active())
-      return "A wall of pearly mist churns ahead. Nothing you do finds a way through.";
+      return q.D < 110 ? "A wall of pearly mist churns ahead. Nothing you do finds a way through." : false;
+    if (q.D >= 14) return false;
     // journey-gate arches (ring/spoke crossings, terrain.js tutGateArchAt):
     // latch ONLY the arch tiles — every other fence tile is physically
     // blocked, so no rule needs to live there
@@ -1095,8 +1119,8 @@ const Tutorial = (() => {
       reward: { items: [["pickaxe_iron", 1], ["knife", 1], ["flint", 1]] },
       pages: [
         { h: "From rock to blade",
-          t: ["This pickaxe is yours — but the craft you'll earn stroke by stroke; nothing here is given. Swing the pick at my terrace: COPPER first, and as your arms harden the dark IRON rock and the pale TIN rocks will yield too. Rocks regrow — mine a little extra tin so you carry a SPARE bronze bar up the path.",
-              "Smelt your ore into BARS at the furnace: copper AND tin together make bronze; iron makes iron. Every swing, every bar, every piece hammered at the anvil earns its own experience — work bronze until iron is within your reach."] },
+          t: ["This pickaxe is yours — but the craft you'll earn stroke by stroke; nothing here is given. My terrace is a MEASURED LEDGER, the only ore on this whole isle: ELEVEN copper rocks (six ore each), TWO pale tin rocks (five each), FIVE dark iron rocks (five each). Copper first — your arms harden on it: tin yields at Ore-mining TWO, iron at THREE, and the copper alone carries you there.",
+              "Then the furnace, in this order: FORTY-SIX COPPER BARS, then TWO five-bar batches of BRONZE (each bronze bar drinks two copper and one tin — your twenty spare copper and all ten tin, to the last stone). That work lands your Smelting at THREE — exactly enough for FIVE five-bar batches of IRON. Every swing and every bar earns its own experience; nothing on my terrace is wasted, so waste nothing."] },
         { h: "First, light the furnace",
           t: ["A cold furnace smelts nothing — every fire on this isle burns REAL fuel. So take my working KNIFE and this piece of FLINT — keep both in your pack. Stand at the furnace, STRIKE a spark, then STOKE the fire with logs. LIGHTING MY FURNACE is the first mark of your lesson — and every stoke feeds your FIREMAKING; even a fizzled spark is practice.",
               "Plain logs burn hot enough to smelt copper and bronze — but IRON wants a fiercer fire. Fell a MĀNUKA when your Woodcutting reaches 3 and stoke with its rākau, and keep striking until your Firemaking can hold that heat. The flint never wears out; it lights every fire you'll ever lay."] },
@@ -1243,19 +1267,19 @@ const Tutorial = (() => {
               "Go on, touch it — feel the attunement take. The mist will reclaim this one when you sail, but out there, every portal you wake is yours for good."] },
         { h: "Quests & the journal",
           t: ["Out there, folk marked with a ✦ have WORK for you — letters to carry, roads to clear, sealed rooms to open. Finish one and they'll trust you with something bigger. Press J for your journal; M for the world map, which zooms from your street to the whole world.",
-              "Right-click a city fountain to set your RESPAWN there, so death returns you somewhere friendly. The harbour waits below — {ferry} will see you across."],
+              "Right-click a city fountain to set your RESPAWN there, so death returns you somewhere friendly. The harbour waits below — {ferry} will open the way."],
           act: [["Open the quest journal (J)", "questlog"]] },
       ],
     },
     ferry: {
       pages: [
         { h: "Ready for the wide world?",
-          t: ["I'm {ferry}. My waka has crossed more sea than you've dreamt of, and when you're ready, my karakia will carry you straight to NEWHAVEN — the great city at the centre of everything, where every road begins.",
-              "But know this: Tūhura exists between the tides. The moment you leave, the mist takes it back — no chart, ship or portal will ever find it again. So take your time, and take every gift."] },
+          t: ["I'm {ferry}. I have sailed every sea you can dream of — and I'll tell you a navigator's secret: no hull sails OUT of Tūhura. For that there is my karakia. It calls down a pillar of light that will lift you over the roof of the sky and set you down in NEWHAVEN, the great city at the centre of everything.",
+              "But know this: Tūhura exists between the tides. The moment you rise, the mist takes it back — no chart, ship or portal will ever find it again. So take your time, and take every gift."] },
         { h: "The crossing",
-          t: ["In Newhaven you'll find the grand bank, the markets, the quest-givers, and roads running to a thousand towns beyond. Your respawn will follow you there.",
-              "Say the word, and we go."],
-          act: [["Carry me to Newhaven!", "graduate"], ["I'll explore a little longer", "close"]] },
+          t: ["The way is long and strange. You will climb until the isle is a coin on the sea, fall between worlds the whole night through, and drop out of a MORNING sky over Newhaven — the grand bank, the markets, the quest-givers and the thousand roads all waking beneath you.",
+              "Stand ready, and I will sing the light down."],
+          act: [["Sing the karakia — send me up!", "graduate"], ["I'll explore a little longer", "close"]] },
       ],
     },
   };
@@ -1515,8 +1539,12 @@ const Tutorial = (() => {
   }
 
   // the Navigator's crossing: teleport to Newhaven, then SEAL the isle —
-  // it exists only inside the tutorial, so the mist takes back every trace
-  function graduate() {
+  // it exists only inside the tutorial, so the mist takes back every trace.
+  // graduateCore() is the silent mechanics (teleport + seal + overnight
+  // clock shift + save); graduate() wraps it in the Bifrost light-pillar
+  // cinematic (gameplay/bifrost.js) when available, falling back to the
+  // old instant crossing if the cinematic module is missing.
+  function graduateCore() {
     const t = state();
     const s = world.playerStart;
     world.getChunk(Math.floor(s.x / world.CHUNK), Math.floor(s.y / world.CHUNK));
@@ -1546,15 +1574,36 @@ const Tutorial = (() => {
       const [px, py] = k.split(",").map(Number);
       if (inRect(px, py)) delete player.portals[k];
     }
-    refreshBar(); // graduated → the journey bar comes down
-    if (typeof log === "function") {
-      log("The Navigator's karakia rises — the sea itself folds beneath the waka...", "gold");
-      log("Welcome to NEWHAVEN, heart of the endless world. Your story starts now.", "gold");
-      log("Behind you the mist closes over Tūhura Isle. No chart, ship or portal will find it again.", "sys");
+    // the crossing takes the night: advance the WORLD's clock (persisted,
+    // daynight.js dayPhase) so the player falls out of the sky into the
+    // NEXT morning over Newhaven, whatever the wall clock says
+    {
+      const dayMs = (typeof DAY_MS !== "undefined") ? DAY_MS : 64 * 60 * 1000;
+      const p = (typeof dayPhase === "function") ? dayPhase() : 0; // graduated → staged sky off, real clock
+      const MORNING = 8.5 / 24;                                    // ~08:30 Newhaven local
+      let d = MORNING - p;
+      if (d <= 0.02) d += 1;                                       // always the NEXT morning
+      player.timeShiftMs = (player.timeShiftMs || 0) + Math.round(d * dayMs);
     }
-    if (typeof sfx === "function") sfx("portal", 0.7);
+    refreshBar(); // graduated → the journey bar comes down
     if (typeof saveGame === "function") saveGame();
     if (typeof uiDirty !== "undefined") uiDirty = true;
+  }
+  function graduateLogs() {
+    if (typeof log !== "function") return;
+    log("You fall out of a bright morning sky — welcome to NEWHAVEN, heart of the endless world. Your story starts now.", "gold");
+    log("The crossing took the night. Far behind, the mist has closed over Tūhura Isle — no chart, ship or portal will ever find it again.", "sys");
+  }
+  function graduate() {
+    if (typeof log === "function")
+      log("Sigrid's karakia rises — and the sky answers with a pillar of light.", "gold");
+    if (typeof Bifrost !== "undefined" && Bifrost.start) {
+      Bifrost.start({ onTeleport: graduateCore, onDone: graduateLogs });
+    } else {
+      graduateCore();
+      graduateLogs();
+      if (typeof sfx === "function") sfx("portal", 0.7);
+    }
   }
 
   // ---------- per-frame tick (main.js) ----------

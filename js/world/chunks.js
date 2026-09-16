@@ -1858,11 +1858,18 @@ function createWorldChunks(ctx) {
       // truthful (user req): a demoted tree is a plain "Tree", so it sheds
       // any species skin and looks the part. Native nzt_* trees are NOT
       // demoted — a Rimu is labelled Rimu and needs Rimu's level.
-      for (const n of nodes) {
+      for (let ni = nodes.length - 1; ni >= 0; ni--) {
+        const n = nodes[ni];
         const q = tutIsleSD(n.x * 0.5, n.y * 0.5);
         if (!q || q.D >= 60) continue; // 12 → 60: the islet's growth demotes too
         if (n.type.startsWith("treeT") && n.type !== "treeT0") { n.type = "treeT0"; delete n.sprv; }
-        else if (/^rockM\d+$/.test(n.type) || n.type === "iron" || n.type === "goldrock") n.type = "copper";
+        // NATURAL METAL ROCKS ARE STRIPPED OUTRIGHT (2026-09-16, user req):
+        // the Smith's terrace is an EXACT ore ledger (tutorial.js pod-3
+        // stamps, pinned yields) — a stray biome-rolled rock anywhere on the
+        // isle would break the arithmetic. Stamps run after this pass, so
+        // the terrace itself survives.
+        else if (/^rockM\d+$/.test(n.type) || n.type === "iron" || n.type === "goldrock" ||
+                 n.type === "copper") { nodes.splice(ni, 1); continue; }
         else {
           const fm = n.type.match(/^fishspot_(\d+)$/);
           if (fm && +fm[1] > 1) n.type = "fishspot_" + ((n.x + n.y) & 1);

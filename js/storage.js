@@ -168,6 +168,7 @@ function buildSaveData() {
     quests: player.quests || {},   // quest progress (gameplay/quests.js): active/done/flags/revealed
     stink: player.stink && player.stink.fl ? player.stink : { fl: {} }, // stink metre (gameplay/stink.js)
     respawn: player.respawn || null, // chosen respawn city fountain {x,y,name}; null = Newhaven
+    timeShiftMs: player.timeShiftMs || 0, // persisted world-clock shift (graduation morning)
     tutorial: player.tutorial || null, // Tūhura Isle progress (gameplay/tutorial.js): seen/given/welcomed/graduated
     // player-placed furniture & vessels (gameplay/placing.js)
     // persist only permanent placed objects (furniture/vessels); temporary
@@ -317,6 +318,7 @@ function loadGame() {
       player.quests = (d.quests && typeof d.quests === "object") ? d.quests : {};
       player.stink = (d.stink && d.stink.fl && typeof d.stink.fl === "object") ? d.stink : { fl: {} };
       player.respawn = (d.respawn && typeof d.respawn.x === "number" && typeof d.respawn.y === "number") ? d.respawn : null;
+      player.timeShiftMs = (typeof d.timeShiftMs === "number" && isFinite(d.timeShiftMs)) ? d.timeShiftMs : 0;
       // Tūhura Isle tutorial progress; pre-tutorial saves (null) are veterans
       // and never get re-schooled — the isle simply sits on their map
       player.tutorial = (d.tutorial && typeof d.tutorial === "object") ? d.tutorial : null;

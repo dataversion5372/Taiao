@@ -173,5 +173,6 @@ js/gameplay/cheats.js
 js/gameplay/armour-overlay.js
 js/gameplay/dream.js
 js/gameplay/split.js
+js/gameplay/bifrost.js
 js/gameplay/pulse.js
 js/main.js

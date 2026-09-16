@@ -79,6 +79,9 @@ const player = {
   // chosen respawn city: { x, y, name } of its plaza fountain (right-click a
   // city fountain -> "Set respawn point"). null = Newhaven (world.playerStart).
   respawn: null,
+  // persisted world-clock shift in ms (daynight.js dayPhase): graduation's
+  // overnight crossing advances the world to the next Newhaven morning
+  timeShiftMs: 0,
   // Tūhura Isle tutorial progress (gameplay/tutorial.js): { seen, given,
   // welcomed, graduated }. null on veteran saves that predate the isle.
   tutorial: null,

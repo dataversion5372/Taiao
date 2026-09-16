@@ -28,7 +28,11 @@ function dayPhase() {
     const tp = Tutorial.phaseOverride();
     if (tp != null) return tp;
   }
-  const off = (typeof window !== "undefined" && window.__timeOffsetMs) || 0;
+  // player.timeShiftMs: a PERSISTED whole-world clock shift (graduation's
+  // overnight crossing lands the player in a Newhaven morning; the shift
+  // sticks so their days stay anchored to that arrival, not the wall clock)
+  const off = ((typeof window !== "undefined" && window.__timeOffsetMs) || 0) +
+    ((typeof player !== "undefined" && player.timeShiftMs) || 0);
   const t = (typeof now !== "undefined" ? now : Date.now()) + off;
   return (((t % DAY_MS) + DAY_MS) % DAY_MS) / DAY_MS;
 }

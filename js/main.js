@@ -301,17 +301,23 @@ async function init() {
     last = now;
     // one bad frame (a transient renderer error) must never kill the loop
     try {
-      stepPlayer(dt);
-      updateZoom(dt);
-      updateAction();
-      if (typeof Split !== "undefined") Split.tick(dt); // split selves: queues + ghost bodies
+      // Bifrost graduation cinematic (gameplay/bifrost.js): the player, action
+      // and quest sims pause while the light carries them — but the world keeps
+      // turning and render() keeps painting so Newhaven warms up behind the void
+      const cine = typeof Bifrost !== "undefined" && Bifrost.active();
+      if (!cine) {
+        stepPlayer(dt);
+        updateZoom(dt);
+        updateAction();
+        if (typeof Split !== "undefined") Split.tick(dt); // split selves: queues + ghost bodies
+      }
       updateMonsters(dt);
       updateWorldStuff();
       tickTrade(); // close the shop/bank window when out of reach
       if (typeof npcChatTick === "function") npcChatTick(); // AI NPC earshot greetings (Nets)
       if (typeof tickPlaced === "function") tickPlaced(); // temporary placed decor withers
-      if (typeof Quests !== "undefined") Quests.tick(); // quest collect/reach objectives
-      if (typeof Tutorial !== "undefined" && Tutorial.tick) Tutorial.tick(); // Tūhura source-reach reward
+      if (!cine && typeof Quests !== "undefined") Quests.tick(); // quest collect/reach objectives
+      if (!cine && typeof Tutorial !== "undefined" && Tutorial.tick) Tutorial.tick(); // Tūhura source-reach reward
       render();
     } catch (e) {
       console.error("frame error:", e);
