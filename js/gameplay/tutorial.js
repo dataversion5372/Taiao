@@ -142,30 +142,31 @@ var TUT_VILLAGE = (() => {
     { pod: 14, x0: -12, y0: -12, w: 5, h: 5 },
     { pod: 14, x0: 6,   y0: -12, w: 6, h: 5 },
     { pod: 14, x0: -14, y0: -3,  w: 5, h: 5 },
-    { pod: 14, x0: 9,   y0: 3,   w: 5, h: 5 },
+    { pod: 14, x0: 9,   y0: 3,   w: 5, h: 5 },   // index 6 — closest to the green; also Sigrid's house
   ];
+  // Sigrid's bedroom + the graduate's spare room live on a THIRD storey of
+  // the house closest to the green, rather than a dedicated 8th building —
+  // there's already ample bedroom capacity in the 7 houses, no need to add
+  // more (user req 2026-09-17). Reached by climbing the same shared ladder
+  // twice: floor 1 is its two regular tutors' hallway (unchanged), floor 2
+  // is Sigrid's own bed (slot 0) + the spare bed (slot 1).
+  const SIGRID_HOUSE_IDX = 6;
   houses.forEach((hb, i) => {
-    hb.kind = "tut_house"; hb.storeys = 2;
+    hb.kind = "tut_house";
+    hb.storeys = i === SIGRID_HOUSE_IDX ? 3 : 2;
     hb.residents = homing.filter((tu, ti) => ti % houses.length === i).map(tu => tu.id);
   });
-  // Sigrid's own house, a short stroll from her waka post: her bedroom
-  // (storey 2) plus a spare room reserved for the graduate (storey 3,
-  // climbing the same ladder once more — "sometimes another ladder leading
-  // to a third floor"). She's excluded from the general village/seats
-  // system (villageHome never returns a seat for "ferry"), so this is kept
-  // as its own record rather than an 8th entry in `houses`.
-  const sigridHouse = { pod: 14, x0: -4, y0: -9, w: 4, h: 4, kind: "tut_house", storeys: 3, residents: ["ferry"] };
-  // deterministic bed tile for a house resident, by slot: 0/1 = the hallway
-  // floor's two alcoves (NW/NE corners, storey 1); 2 = the rare loft bed
-  // straight above the NW alcove (storey 2 — only sigridHouse uses slot 2)
-  const bedTile = (hb, slot) => ({
+  // deterministic bed tile: floor 1 = the hallway's two alcoves (NW/NE
+  // corners) for the house's regular tutor residents; floor 2 (only
+  // SIGRID_HOUSE_IDX has one) reuses the same NW/NE alcove positions one
+  // storey up, for Sigrid (slot 0) and the spare room (slot 1)
+  const bedTile = (hb, slot, floor) => ({
     x: slot === 1 ? hb.x0 + hb.w - 2 : hb.x0 + 1,
     y: hb.y0 + 1,
-    level: slot === 2 ? 2 : 1,
+    level: floor || 1,
   });
-  const allHouses = [...houses, sigridHouse];
   // build the lamp field (needs the house list above): door stands + indoor glows…
-  for (const hb of allHouses) {
+  for (const hb of houses) {
     lampAdd(hb.pod, hb.x0 + (hb.w >> 1) + 1, hb.y0 + hb.h, false);       // beside the door, not in it
     lampAdd(hb.pod, hb.x0 + (hb.w >> 1), hb.y0 + (hb.h >> 1), true);     // through-roof window glow
   }
@@ -182,11 +183,11 @@ var TUT_VILLAGE = (() => {
         if (Math.hypot(gx, gy) < 6) continue;                            // the ring owns the green
         const jx = gx + (((gx * 7 + gy * 13 + pod) % 3 + 3) % 3) - 1;
         const jy = gy + (((gx * 5 + gy * 11 + pod) % 3 + 3) % 3) - 1;
-        if (allHouses.some(hb => hb.pod === pod && jx >= hb.x0 - 1 && jx < hb.x0 + hb.w + 1 &&
+        if (houses.some(hb => hb.pod === pod && jx >= hb.x0 - 1 && jx < hb.x0 + hb.w + 1 &&
                               jy >= hb.y0 - 1 && jy < hb.y0 + hb.h + 1)) continue;
         lampAdd(pod, jx, jy, false);
       }
-  return { seats, lamps, houses, sigridHouse, bedTile };
+  return { seats, lamps, houses, sigridHouseIdx: SIGRID_HOUSE_IDX, bedTile };
 })();
 
 // (The Smith's KNIFE gift is the existing `knife` TOOL item (tool:"knife",
@@ -1152,24 +1153,27 @@ const Tutorial = (() => {
     const [px, py] = podXY(seat.pod); // the village spans BOTH shore pods (0 + 14)
     return { x: px + seat.dx, y: py + seat.dy };
   }
-  // which TUT_VILLAGE house (or Sigrid's) a tutor is a resident of, and
-  // their bed slot within it — used to assign _bed/_bedLevel/_ladder/_owns
-  // (chunks.js deriveNpcs, _villageSync) and to furnish the right bedroom
-  // (render3d.js tutHouseUpperDecor, via Tutorial.villageBed)
+  // which TUT_VILLAGE house a tutor is a resident of, their bed slot, and
+  // storey — used to assign _bed/_bedLevel/_ladder/_owns (chunks.js
+  // deriveNpcs, _villageSync) and to furnish the right bedroom (render3d.js
+  // tutHouseUpperDecor, via Tutorial.villageBed). Sigrid ("ferry") isn't in
+  // any house's `residents` list (she's excluded from the general
+  // village/seats system) — she gets the sigridHouseIdx house's floor-2
+  // slot 0 instead.
   function residentHouse(id) {
     if (typeof TUT_VILLAGE === "undefined") return null;
     for (const hb of TUT_VILLAGE.houses) {
       const slot = hb.residents.indexOf(id);
-      if (slot >= 0) return { house: hb, slot };
+      if (slot >= 0) return { house: hb, slot, floor: 1 };
     }
-    if (TUT_VILLAGE.sigridHouse.residents.indexOf(id) >= 0) return { house: TUT_VILLAGE.sigridHouse, slot: 0 };
+    if (id === "ferry") return { house: TUT_VILLAGE.houses[TUT_VILLAGE.sigridHouseIdx], slot: 0, floor: 2 };
     return null;
   }
   function villageBed(id) {
     const r = residentHouse(id);
     if (!r) return null;
     const [px, py] = podXY(r.house.pod);
-    const bt = TUT_VILLAGE.bedTile(r.house, r.slot);
+    const bt = TUT_VILLAGE.bedTile(r.house, r.slot, r.floor);
     return {
       x: px + bt.x, y: py + bt.y, level: bt.level,
       ladder: [px + r.house.x0 + 1, py + r.house.y0 + r.house.h - 2],
@@ -1183,28 +1187,30 @@ const Tutorial = (() => {
   // x0/y0 (ch.buildings records don't carry a back-reference).
   function tutHouseUpperDecor(b) {
     if (typeof TUT_VILLAGE === "undefined" || b.kind !== "tut_house") return null;
-    const all = [...TUT_VILLAGE.houses, TUT_VILLAGE.sigridHouse];
-    const hb = all.find(h => { const [px, py] = podXY(h.pod); return px + h.x0 === b.x0 && py + h.y0 === b.y0; });
+    const hb = TUT_VILLAGE.houses.find(h => { const [px, py] = podXY(h.pod); return px + h.x0 === b.x0 && py + h.y0 === b.y0; });
     if (!hb) return null;
     const out = [];
     for (const id of hb.residents) {
       const vb = villageBed(id);
       if (vb) out.push({ x: vb.x, y: vb.y, level: vb.level, key: "bed_frame" });
     }
-    // Sigrid's house alone also gets the spare room, one floor up — the
-    // graduate's bed for the night (user req 2026-09-17)
-    if (hb === TUT_VILLAGE.sigridHouse) {
+    // this house alone also gets Sigrid's own bed + the spare room, one
+    // floor up (user req 2026-09-17: fold both into an existing house
+    // instead of a dedicated 8th building)
+    if (hb === TUT_VILLAGE.houses[TUT_VILLAGE.sigridHouseIdx]) {
+      const fb = villageBed("ferry");
+      if (fb) out.push({ x: fb.x, y: fb.y, level: fb.level, key: "bed_frame" });
       const sb = spareBedTile();
       out.push({ x: sb.x, y: sb.y, level: sb.level, key: "bed_frame" });
     }
     return out;
   }
-  // the spare room's bed tile — Sigrid's house, storey 2 (slot 2 of
-  // TUT_VILLAGE.bedTile: the loft directly above her own bedroom)
+  // the spare room's bed tile — the sigridHouseIdx house, floor 2 slot 1
+  // (Sigrid's own bed is slot 0 of the same floor)
   function spareBedTile() {
-    const hb = TUT_VILLAGE.sigridHouse;
+    const hb = TUT_VILLAGE.houses[TUT_VILLAGE.sigridHouseIdx];
     const [px, py] = podXY(hb.pod);
-    const bt = TUT_VILLAGE.bedTile(hb, 2);
+    const bt = TUT_VILLAGE.bedTile(hb, 1, 2);
     return { x: px + bt.x, y: py + bt.y, level: bt.level };
   }
   // is (x,y,level) the spare bed, and is it still meaningful to click
@@ -1216,11 +1222,12 @@ const Tutorial = (() => {
     const b = spareBedTile();
     return b.x === x && b.y === y && b.level === level;
   }
-  // Sigrid leads the way: marks her stage seen (the staged sky rolls to
-  // night, same as every other keeper — advanceStage), drops a real goal
-  // in the journey panel (REQS.ferry), and sends Sigrid herself walking
-  // home to her own bed via the SAME generic off-duty/bedtime machinery
-  // every other keeper already uses (user req 2026-09-17)
+  // Sigrid leads the way for real: marks her stage seen (the staged sky
+  // rolls to night, same as every other keeper) and drops a real goal in
+  // the journey panel, then walks herself to the SPARE bed with the player
+  // automatically following (Tutorial.tickEscort, below) — once she
+  // arrives (onEscortArrive) she peels off alone to her own bed, second
+  // leg unaccompanied (user req 2026-09-17).
   function inviteSigridSleep() {
     const t = state();
     if (!t) return;
@@ -1229,15 +1236,89 @@ const Tutorial = (() => {
     _seenCount = Object.keys(t.seen).length;
     advanceStage(prev);
     if (typeof log === "function") {
-      log("Sigrid leads you down the lane toward her house.", "gold");
+      log("Sigrid leads you down the lane toward her house — follow her.", "gold");
       log(`Sigrid's task: ${REQS.ferry.task}.`, "gold");
     }
     refreshBar();
     if (typeof saveGame === "function") saveGame();
     const list = (typeof world !== "undefined" && world && world.npcs) || (typeof npcs !== "undefined" ? npcs : null);
     const sn = list && list.find(n => n.tutor === "ferry");
-    const tu = TUT_TUTORS.find(t2 => t2.id === "ferry");
-    if (sn && tu) offDutyIfy(sn, tu);
+    if (!sn) return;
+    const T = typeof performance !== "undefined" ? performance.now() : 0;
+    sn._r = 6; sn._wanderAt = T + 300; // same off-duty flavor as every housed keeper
+    sn.line = offDutyLine("ferry");
+    const vb = villageBed("ferry");     // her own house's ladder/footprint (shared with the spare room)
+    if (!vb) return;
+    // set her real bed now (not just the escort target) so that once she's
+    // settled at the end of leg 2, the generic bedtime routine recognises
+    // she's already home and stands still, instead of tugging her back
+    // toward a stale _home
+    sn._ladder = vb.ladder; sn._owns = vb.owns; sn._bed = [vb.x, vb.y]; sn._bedLevel = vb.level;
+    sn.level = sn.level || 0;
+    const spare = spareBedTile();
+    sn._escortTarget = [spare.x, spare.y, spare.level];
+    t.escorting = true;
+  }
+  // fires from render3d.js's stepMixNpc the instant an NPC's _escortTarget
+  // is reached. Sigrid's walk has two legs: leg 1 (the spare room) PARKS
+  // her there — re-targeting her own current tile so she just stands,
+  // rather than falling through to the (unconfigured) bedtime/wander
+  // branches — and waits for tickEscort() to see the PLAYER catch up
+  // before starting leg 2 (her own bed, unaccompanied this time).
+  function onEscortArrive(npc) {
+    if (npc.tutor !== "ferry") return;
+    const t = state();
+    if (!t) return;
+    if (!t.sigridAtSpare) { t.sigridAtSpare = 1; npc._escortTarget = [npc.x, npc.y, npc.level]; return; }
+    t.sigridSettled = 1; // leg 2 done — home for the night, until morning
+    if (typeof saveGame === "function") saveGame();
+  }
+  // per-frame: gently walk the player toward Sigrid while t.escorting is
+  // set, auto-climbing the shared ladder one storey at a time when standing
+  // on it (walkTo alone can't cross storeys — that's an explicit ladder
+  // action normally). Throttled so it doesn't recompute a path every frame;
+  // never disables manual input, so a stray click/WASD just gets gently
+  // overridden again shortly rather than truly locking the player. Once the
+  // PLAYER (not just Sigrid) reaches the spare bed, hands off leg 2 and
+  // releases control.
+  function tickEscort() {
+    const t = state();
+    if (!t || !t.escorting || typeof player === "undefined") return;
+    const list = (typeof world !== "undefined" && world && world.npcs) || (typeof npcs !== "undefined" ? npcs : null);
+    const sn = list && list.find(n => n.tutor === "ferry");
+    const vb = villageBed("ferry");
+    if (!sn || !vb) { t.escorting = false; return; }
+    const T = typeof performance !== "undefined" ? performance.now() : 0;
+    const ladder = vb.ladder;
+    const spare = spareBedTile();
+    if (t.sigridAtSpare && player.x === spare.x && player.y === spare.y && (player.level | 0) === spare.level) {
+      t.escorting = false;
+      if (typeof log === "function")
+        log("Sigrid shows you to your bed for the night. \"Sleep whenever you're ready.\"", "gold");
+      if (typeof saveGame === "function") saveGame();
+      sn._escortTarget = [vb.x, vb.y, vb.level]; // leg 2: her own bed, unaccompanied
+      return;
+    }
+    // climb one storey per stand-on-the-ladder tick, mirroring npcClimbToward
+    if (player.x === ladder[0] && player.y === ladder[1] && (player.level | 0) < spare.level) {
+      if (T < (player._escortClimbAt || 0)) return;
+      player._escortClimbAt = T + 500;
+      player.level = (player.level | 0) + 1;
+      if (typeof uiDirty !== "undefined") uiDirty = true;
+      return;
+    }
+    if (T < (player._escortWalkAt || 0)) return;
+    player._escortWalkAt = T + 900;
+    // on the spare room's floor, walk straight to the (fixed) spare bed
+    // tile rather than chasing Sigrid's own live position — she's headed
+    // toward a DIFFERENT tile (her own bed) once she arrives, and chasing
+    // her tile-by-tile crowded her final approach in testing. On the
+    // ground floor, still head for the ladder she's also making for.
+    const upstairs = (player.level | 0) === spare.level;
+    const [tx, ty] = upstairs ? [spare.x, spare.y] : ladder;
+    if (Math.max(Math.abs(player.x - tx), Math.abs(player.y - ty)) <= (upstairs ? 1 : 0))
+      return; // already close enough
+    if (typeof walkTo === "function") walkTo(tx, ty);
   }
   // wake up: reused everywhere the SAME as clicking the spare bed. One-off
   // morning flourish (not a persistent system — see project notes) sends a
@@ -1267,20 +1348,39 @@ const Tutorial = (() => {
       n._wanderAt = typeof performance !== "undefined" ? performance.now() : 0;
     }
   }
+  // Sigrid's post moves with the story (user req 2026-09-17): her fixed
+  // day/early-game/post-sleep spot is by the pier (her own dx/dy), but for
+  // the one evening stretch where the journey is otherwise done and she
+  // hasn't sent the player to bed yet, she's mingling by the Harbour
+  // green's campfire instead (tutorial.js:415's campfire_ring decor).
+  function ferryPost() {
+    const tu = TUT_TUTORS.find(t2 => t2.id === "ferry");
+    const t = state();
+    const atCampfire = frontier() >= TUT_TUTORS.length - 1 && !(t && t.sleptAtSigrids);
+    return atCampfire ? { dx: -1, dy: 5 } : { dx: tu.dx, dy: tu.dy };
+  }
   function _villageSync() {
     if (typeof TUT_ISLE === "undefined") return;
     const list = (typeof world !== "undefined" && world && world.npcs) ||
       (typeof npcs !== "undefined" ? npcs : null);
     if (!list) return;
+    const t = state();
     let moved = 0;
     for (const n of list) {
       if (!n.tutor) continue;
+      // mid-escort, walking her own two legs home, or already settled in
+      // her own bed for the night — don't let a routine refreshBar() call
+      // yank her back to a "post" position. Once sleptAtSigrids flips
+      // (morning), this no longer applies and she relocates to the pier.
+      if (n.tutor === "ferry" && (n._escortTarget || (t && t.escorting) ||
+          (t && t.sigridSettled && !t.sleptAtSigrids))) continue;
       const tu = TUT_TUTORS.find(t2 => t2.id === n.tutor);
       if (!tu) continue;
       const vh = villageHome(n.tutor);
       const pod = TUT_ISLE.pods[tu.pod];
-      const hx = vh ? vh.x : pod.mx * 2 + tu.dx;
-      const hy = vh ? vh.y : pod.my * 2 + tu.dy;
+      const post = n.tutor === "ferry" ? ferryPost() : { dx: tu.dx, dy: tu.dy };
+      const hx = vh ? vh.x : pod.mx * 2 + post.dx;
+      const hy = vh ? vh.y : pod.my * 2 + post.dy;
       if (n._home && n._home[0] === hx && n._home[1] === hy) continue;
       n.x = hx; n.y = hy; n.px = PX(hx); n.py = PX(hy);
       n._home = [hx, hy]; n._mt = 0;
@@ -2150,6 +2250,7 @@ const Tutorial = (() => {
     isletSync(); // re-seat the motu the moment the worn body changes (also at boot, BEFORE the shore-wash looks around)
     if (!_shoreChecked && typeof gameReady !== "undefined" && gameReady) _shoreWash(t);
     if (!t || t.graduated) return;
+    tickEscort();
     // the split-selves lesson: BOTH selves working at once (the farm's
     // regrow waits are the natural moment — Kenji's page teaches X)
     if ((!t.prog || !t.prog.twinned) && typeof Split !== "undefined" && Split.twinBusy &&
@@ -2198,7 +2299,7 @@ const Tutorial = (() => {
     phaseOverride, weatherOverride, flatSky, barred, frontier, refreshBar, goalState,
     skillVisible, riverFlow, tick, onCraft, anvilRecipes,
     villageHome, villageLamps, offDutyLine, villageBed, tutHouseUpperDecor,
-    sigridSpareBedAt, sleepAtSigrids,
+    sigridSpareBedAt, sleepAtSigrids, ferryPost, onEscortArrive, tickEscort,
     onGather, onWash, onBank, onKill, onChant,
     onQueue, onBrace, onStoke, onMerge, onChatReply,
     onHarvest, onTend, onEquip, onPickup, onOutOfArrows };

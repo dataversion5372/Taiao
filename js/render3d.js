@@ -3864,7 +3864,19 @@ const R3D = (() => {
     }
     if (T < npc._wanderAt) return true;
     npc._wanderAt = T + 230 + Math.random() * 150;
-    npcStepToward(npc, lx, ly, T);                      // walk to the ladder foot/top
+    // npcStepToward is a pure greedy stepper with no memory — a housemate
+    // parked on the ladder tile, a wall-corner approach angle, or the
+    // player blocking the way can leave it permanently rejecting every
+    // candidate. Mirror the lamp task's stuck-counter: after enough
+    // consecutive failures, snap onto the ladder rather than wedge forever
+    // (user-reported: "not all NPCs can pathfind to their bed", 2026-09-17)
+    if (npcStepToward(npc, lx, ly, T)) npc._climbStuck = 0;
+    else {
+      npc._climbStuck = (npc._climbStuck || 0) + 1;
+      if (npc._climbStuck > 10) {
+        npc.x = lx; npc.y = ly; npc.px = PX(lx); npc.py = PX(ly); npc._climbStuck = 0;
+      }
+    }
     return true;
   }
   function stepMixNpc(npc) {
@@ -3878,6 +3890,30 @@ const R3D = (() => {
       } else {
         npc.px = PX(m.fx) + (PX(m.tx) - PX(m.fx)) * m.t;
         npc.py = PX(m.fy) + (PX(m.ty) - PX(m.fy)) * m.t;
+      }
+      return;
+    }
+    // escort: walk to an arbitrary tile/storey, highest priority (Tūhura
+    // Isle's Sigrid sequence, gameplay/tutorial.js) — properly climbs via
+    // npcClimbToward (unlike the lamp task below, which only ever targets
+    // street level), and notifies Tutorial on arrival instead of just
+    // clearing silently.
+    if (npc._escortTarget) {
+      const [gx0, gy0, glevel0] = npc._escortTarget;
+      if ((npc.level | 0) !== (glevel0 | 0)) { npcClimbToward(npc, glevel0, T); return; }
+      if (npc.x === gx0 && npc.y === gy0) {
+        npc._escortTarget = null; npc._escortStuck = 0;
+        if (typeof Tutorial !== "undefined" && Tutorial.onEscortArrive) Tutorial.onEscortArrive(npc);
+        return;
+      }
+      if (T < npc._wanderAt) return;
+      npc._wanderAt = T + 220 + Math.random() * 100;
+      if (npcStepToward(npc, gx0, gy0, T)) npc._escortStuck = 0;
+      else {
+        npc._escortStuck = (npc._escortStuck || 0) + 1;
+        if (npc._escortStuck > 10) {
+          npc.x = gx0; npc.y = gy0; npc.px = PX(gx0); npc.py = PX(gy0); npc._escortStuck = 0;
+        }
       }
       return;
     }
@@ -3909,8 +3945,18 @@ const R3D = (() => {
         // climb the ladder to the bed's storey before walking to the bed itself.
         if ((npc.level | 0) !== bedLv) {
           if ((npc.level | 0) === 0 && home && !inHome) {            // still outside — head for the door first
-            if (T >= npc._wanderAt) { npc._wanderAt = T + 240 + Math.random() * 140;
-              npcStepToward(npc, home[0] + (home[2] >> 1), home[1] + home[3] - 2, T); }
+            if (T >= npc._wanderAt) {
+              npc._wanderAt = T + 240 + Math.random() * 140;
+              const dx2 = home[0] + (home[2] >> 1), dy2 = home[1] + home[3] - 2;
+              // same stuck-recovery as npcClimbToward — see its comment
+              if (npcStepToward(npc, dx2, dy2, T)) npc._bedStuck = 0;
+              else {
+                npc._bedStuck = (npc._bedStuck || 0) + 1;
+                if (npc._bedStuck > 10) {
+                  npc.x = dx2; npc.y = dy2; npc.px = PX(dx2); npc.py = PX(dy2); npc._bedStuck = 0;
+                }
+              }
+            }
             return;
           }
           if (npcClimbToward(npc, bedLv, T)) return;                 // route to ladder & climb
@@ -3921,8 +3967,12 @@ const R3D = (() => {
         // if we've wandered OUTSIDE our building (ground level), make for the doorway
         // first (greedy stepping routes around walls poorly), then on to the bed.
         const tgt = ((npc.level | 0) === 0 && home && !inHome) ? [home[0] + (home[2] >> 1), home[1] + home[3] - 2] : bed;
-        if (!npcStepToward(npc, tgt[0], tgt[1], T)) {                 // blocked
-          if (inHome || Math.max(Math.abs(npc.x - bed[0]), Math.abs(npc.y - bed[1])) <= 1) return; // settle at home
+        if (npcStepToward(npc, tgt[0], tgt[1], T)) npc._bedStuck = 0;
+        else {                                                        // blocked
+          npc._bedStuck = (npc._bedStuck || 0) + 1;
+          if (npc._bedStuck > 10) {
+            npc.x = tgt[0]; npc.y = tgt[1]; npc.px = PX(tgt[0]); npc.py = PX(tgt[1]); npc._bedStuck = 0;
+          } else if (inHome || Math.max(Math.abs(npc.x - bed[0]), Math.abs(npc.y - bed[1])) <= 1) return; // settle at home
         }
         return;
       }

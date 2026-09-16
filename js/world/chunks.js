@@ -377,8 +377,12 @@ function createWorldChunks(ctx) {
         // hydrated at night derives them already settled in the village
         const vh = (typeof Tutorial !== "undefined" && Tutorial.villageHome)
           ? Tutorial.villageHome(tu.id) : null;
-        const x = vh ? vh.x : pod.mx * 2 + tu.dx;
-        const y = vh ? vh.y : pod.my * 2 + tu.dy;
+        // Sigrid's post moves with the story (pier / campfire / pier) —
+        // Tutorial.ferryPost() mirrors _villageSync's same logic
+        const post = (tu.id === "ferry" && typeof Tutorial !== "undefined" && Tutorial.ferryPost)
+          ? Tutorial.ferryPost() : { dx: tu.dx, dy: tu.dy };
+        const x = vh ? vh.x : pod.mx * 2 + post.dx;
+        const y = vh ? vh.y : pod.my * 2 + post.dy;
         if (x < ch.cx * CHUNK || x >= (ch.cx + 1) * CHUNK ||
             y < ch.cy * CHUNK || y >= (ch.cy + 1) * CHUNK) continue;
         const tkey = "tut:" + tu.id;
@@ -2103,7 +2107,7 @@ function createWorldChunks(ctx) {
       // user req 2026-09-17; see world.js buildingMeta and render3d.js's
       // tutHouseUpperDecor for the bedroom furnishing itself).
       if (typeof TUT_VILLAGE !== "undefined" && TUT_VILLAGE.houses)
-        for (const hb of [...TUT_VILLAGE.houses, TUT_VILLAGE.sigridHouse]) {
+        for (const hb of TUT_VILLAGE.houses) {
           const vp = TUT_ISLE.pods[hb.pod];
           const b = { x0: vp.mx * 2 + hb.x0, y0: vp.my * 2 + hb.y0, w: hb.w, h: hb.h,
             kind: hb.kind, storeys: hb.storeys };
