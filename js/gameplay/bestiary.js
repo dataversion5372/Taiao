@@ -1,7 +1,7 @@
 // ===== Taiao — in-game bestiary =====
 // A browsable catalogue of every creature: sprite, level, spawn biomes and drop
 // table. Without cheat mode you only see creatures you've SLAIN (player.kills,
-// recorded in combat.js killMonster). With CHEAT_MODE on, every creature shows.
+// recorded in combat.js killMonster). With DEV_MODE on, every creature shows.
 // Opened from the sidebar "Bestiary" button or the B key.
 "use strict";
 
@@ -96,7 +96,7 @@
   }
 
   function openBestiary() {
-    const cheat = typeof CHEAT_MODE !== "undefined" && CHEAT_MODE;
+    const cheat = typeof DEV_MODE !== "undefined" && DEV_MODE;
     const body = document.getElementById("bestiary-body");
     populateBiomes();
     const all = entries();
@@ -109,7 +109,7 @@
     if (q) vis = vis.filter(e => e.name.toLowerCase().includes(q) || e.biomes.some(b => b.toLowerCase().includes(q)));
 
     let html = `<div class="bintro">Discovered <b>${discovered}</b> of <b>${total}</b> creatures.` +
-      (cheat ? ` <span style="color:#ffb0b0">[CHEAT] all creatures shown.</span>` : ` Slay a creature to add it to your bestiary.`) + `</div>`;
+      (cheat ? ` <span style="color:#ffb0b0">[DEV] all creatures shown.</span>` : ` Slay a creature to add it to your bestiary.`) + `</div>`;
     if (!vis.length) {
       html += `<p class="bintro">${(q || _biome) ? "No creatures match this filter." : "You haven't slain any creatures yet — go hunting!"}</p>`;
       body.innerHTML = html;

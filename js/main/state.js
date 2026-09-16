@@ -147,7 +147,7 @@ const PX = t => t * TILE * SCALE;
 //  main/state.js:27,29,31,32,53,55,110 main/ui.js:109,254,273 skills/agility.js:5
 //  skills/crafting.js:15,38 skills/farming.js:16 skills/gathering.js:11 skills/thieving.js:7
 // cheat mode: every skill is pinned at MAX_LEVEL (32) — there is no xp
-function skillLvl(s) { return CHEAT_MODE ? MAX_LEVEL : levelFromXp(player.skills[s]); }
+function skillLvl(s) { return DEV_MODE ? MAX_LEVEL : levelFromXp(player.skills[s]); }
 // Callers (15):
 //  main/ui.js:119,289 skills/combat.js:22,40,47,52,58,99 skills/crafting.js:25,31,66
 //  skills/gathering.js:23,28,32 skills/thieving.js:16
@@ -219,7 +219,7 @@ function addSplat(ent, val, delay = 0) { splats.push({ ent, val, t: now + delay 
 // already keep those two text kinds apart.
 let _xpNotifyBatch = 0, _xpNotifyBatchAt = -1;
 function addXp(skill, amt, quiet) {
-  if (CHEAT_MODE) return; // skills are pinned at max (skillLvl) — no xp exists to gain
+  if (DEV_MODE) return; // skills are pinned at max (skillLvl) — no xp exists to gain
   // per-character skill aptitude (character-stats.js): a race/class suited to a
   // skill trains it faster (missing skill = 1× = no change).
   amt = Math.round(amt * (typeof charXpMul === "function" ? charXpMul(skill) : 1));
@@ -376,7 +376,7 @@ function passable(x, y) {
         if (x > w.x0 && x < w.x0 + w.w - 1 && y > w.y0 && y < w.y0 + w.h - 1) return lv < w.storeys;
     return false;
   }
-  if (CHEAT_MODE) return true;
+  if (DEV_MODE) return true;
   // parked hulls span real tiles (gameplay/placing.js footprints): the water
   // they cover can't be walked or swum through — click the hull to board it.
   // The vessel being RIDDEN is exempt (it moves with the player).
@@ -465,7 +465,7 @@ function dualTileAt(x, y) {
 // Callers (3):
 //  gameplay/movement.js (tryStep)  gameplay/pathing.js (findPath x2)
 function stepClimbOK(fx, fy, tx, ty) {
-  if (CHEAT_MODE) return true;
+  if (DEV_MODE) return true;
   if (typeof REN === "undefined" || !REN || !REN.groundLevel || !REN.deckLevel) return true;
   const under = !!player.sailing || player.deck === false;
   const fd = !under ? REN.deckLevel(fx, fy) : null;

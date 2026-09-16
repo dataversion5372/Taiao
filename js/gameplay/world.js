@@ -180,7 +180,7 @@ function seenBounds() {
 // Callers (2):
 //  gameplay/world.js:545,567
 function clampWmView() {
-  if (CHEAT_MODE) return; // full-world view — nothing to clamp to, like Map.html
+  if (DEV_MODE) return; // full-world view — nothing to clamp to, like Map.html
   const b = seenBounds();
   if (!b) return;
   wm.cx = Math.max(b.x0, Math.min(b.x1, wm.cx));
@@ -200,7 +200,7 @@ function markSeen() {
   // persisted/prewarmed. The old R=10 version queued a map render (= full
   // chunk generation) for up to 441 chunks per step and let the in-memory
   // chunk cache grow without bound — a long session OOM-crashed the tab.
-  const R = CHEAT_MODE ? 4 : 1;
+  const R = DEV_MODE ? 4 : 1;
   let crossed = false;
   for (let dy = -R; dy <= R; dy++)
     for (let dx = -R; dx <= R; dx++) {
@@ -771,9 +771,9 @@ function wmDraw() {
   // Render all chunks in viewport using Map.html-quality renderer
   const gtx0 = wm.cx - W / 2 / z, gtx1 = wm.cx + W / 2 / z;
   const gty0 = wm.cy - H / 2 / z, gty1 = wm.cy + H / 2 / z;
-  // CHEAT_MODE shows any chunk in the viewport, like Map.html (no "explored"
+  // DEV_MODE shows any chunk in the viewport, like Map.html (no "explored"
   // concept at all); normal mode keeps the fog-of-war restriction.
-  const revealAll = CHEAT_MODE;
+  const revealAll = DEV_MODE;
 
   if (z < world.OVERVIEW_Z) {
     // Zoomed out, two layers:
@@ -1715,7 +1715,7 @@ function wmDraw() {
   wmCtx.beginPath(); wmCtx.arc(px2, py2, 6, 0, 7); wmCtx.stroke();
   wmCtx.fillStyle = "#fff";
   wmCtx.font = "11px OpenDyslexic, Verdana"; wmCtx.textAlign = "left";
-  const tip = CHEAT_MODE
+  const tip = DEV_MODE
     ? `[CHEAT] Double-click to teleport — ${seenChunks.size} areas explored — scroll to zoom, drag to pan, M/Esc to close`
     : `${seenChunks.size} areas explored — scroll to zoom, drag to pan, M/Esc to close`;
   wmCtx.fillText(tip, 10, H - 10);
@@ -1884,7 +1884,7 @@ window.addEventListener("mouseup", () => { wm.drag = null; });
 // cheat-mode teleport is DOUBLE-click on the map (single click / drag just pans),
 // so an accidental click never yanks you across the world
 wmCanvas.addEventListener("dblclick", e => {
-  if (!CHEAT_MODE) return;
+  if (!DEV_MODE) return;
   const r = wmCanvas.getBoundingClientRect();
   const wx = Math.round((e.clientX - r.left - wmCanvas.clientWidth / 2) / wm.zoom + wm.cx);
   const wy = Math.round((e.clientY - r.top - wmCanvas.clientHeight / 2) / wm.zoom + wm.cy);
@@ -1914,7 +1914,7 @@ wmEl.addEventListener("mousemove", e => {
   const r = wmCanvas.getBoundingClientRect();
   const wx = (e.clientX - r.left - wmCanvas.clientWidth / 2) / wm.zoom + wm.cx;
   const wy = (e.clientY - r.top - wmCanvas.clientHeight / 2) / wm.zoom + wm.cy;
-  if (!CHEAT_MODE && !inSeen(wx, wy)) { wmTip.style.display = "none"; return; }
+  if (!DEV_MODE && !inSeen(wx, wy)) { wmTip.style.display = "none"; return; }
   // wx/wy in game tiles; Map.html coords = /2
   const mx = wx / 2, my = wy / 2;
   const labels = [world.biomeNameAt(wx, wy)];

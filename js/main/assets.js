@@ -1,16 +1,17 @@
 // ===== Taiao — assets, canvas, and sprite drawing =====
 "use strict";
 
-// ---------- dev cheat mode ----------
-// Toggled with option+C (gameplay/input.js). The flag is PERSISTED because
-// each mode keeps its OWN save file (storage.js SAVE_KEY picks by CHEAT_MODE
-// at load), so toggling flips the stored flag and reloads into the other
-// save. Absent flag defaults ON (the historical dev default).
-// Callers (5):
-//  gameplay/movement.js:65 gameplay/world.js:64,521,550 main/state.js:116
-let CHEAT_MODE = (() => {
-  try { return localStorage.getItem("emberfall_cheat") !== "0"; } catch (e) { return true; }
-})();
+// ---------- developer mode ----------
+// Compile-time only, deliberately unreachable from a player's browser: no
+// key toggle, no localStorage flag, no URL parameter. Community developers
+// working from a fork of the code enable it by flipping the line below to
+// `true` and rebuilding (node tools/build.mjs).
+//
+// DEV_MODE unlocks the development tools: skills pinned to max, XP off,
+// open banks/locks, 1000 of every item, the full bestiary, and the Dev
+// sidebar tab (time/weather/snow/flood overrides). It keeps its OWN save
+// file (storage.js SAVE_KEY), so flipping it never touches a real save.
+const DEV_MODE = false;
 
 // ---------- assets ----------
 // Callers (2):

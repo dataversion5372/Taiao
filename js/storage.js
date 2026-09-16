@@ -2,14 +2,15 @@
 "use strict";
 
 // ---------- save / load ----------
-// Cheat mode keeps a save file of its own: SAVE_KEY is picked by CHEAT_MODE
-// (persisted flag, main/assets.js) at load, and the option+C toggle reloads
-// the page — so within any one page lifetime every save/load path here works
-// against exactly one mode's file, and the two characters never mix.
+// Dev mode keeps a save file of its own: SAVE_KEY is picked by DEV_MODE
+// (a compile-time constant, main/assets.js) at load, so every save/load
+// path here works against exactly one mode's file and a community
+// developer's dev character never mixes with their real one. (The key
+// names still say "cheat" — renaming stored keys would strand saves.)
 // Callers (5):
 //  storage.js:20,44,66,117,132
 const NORMAL_SAVE_KEY = "emberfall_save_v2";
-const SAVE_KEY = CHEAT_MODE ? "emberfall_save_cheat_v1" : NORMAL_SAVE_KEY;
+const SAVE_KEY = DEV_MODE ? "emberfall_save_cheat_v1" : NORMAL_SAVE_KEY;
 // Callers (2):
 //  storage.js:80,100
 const OLD_KEY = "emberfall_save_v1";
@@ -250,7 +251,7 @@ function loadGame() {
     // character (a divergent copy — the real save is never touched again),
     // so flipping the cheat switch continues from where you stand instead of
     // waking a stranger in Newhaven
-    if (!raw && CHEAT_MODE) {
+    if (!raw && DEV_MODE) {
       raw = localStorage.getItem(NORMAL_SAVE_KEY);
       if (raw) try { localStorage.setItem(SAVE_KEY, raw); } catch (e) {}
     }
@@ -399,7 +400,7 @@ function loadGame() {
     }
     // the one-shot v1 migration below REMOVES the old key — never let a fresh
     // cheat-mode boot consume it, it belongs to the normal-mode character
-    const old = CHEAT_MODE ? null : localStorage.getItem(OLD_KEY);
+    const old = DEV_MODE ? null : localStorage.getItem(OLD_KEY);
     if (old) {
       const d = JSON.parse(old);
       const s = freshSkills();

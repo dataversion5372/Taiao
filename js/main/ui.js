@@ -314,7 +314,7 @@ function skillRowHtml(s) {
   const buffed = b && now < b.until;
   const row = document.createElement("div");
   row.className = "skillrow";
-  row.title = CHEAT_MODE ? "Cheat mode — every skill at max level, no xp"
+  row.title = DEV_MODE ? "Cheat mode — every skill at max level, no xp"
     : `${Math.floor(xp)} xp — ${lvl >= MAX_LEVEL ? "max" : Math.ceil(next - xp) + " xp to level " + (lvl + 1)}`;
   row.innerHTML = `<div class="skillname"><b>${s}</b><span class="skv"><button class="skillinfo" data-skill="${s}" title="Progression guide">?</button><span class="${buffed ? "buffed" : lvlTierClass(lvl)}">${buffed ? eff(s) : lvl}</span></span></div><div class="xbar"><div style="width:${Math.floor(frac * 100)}%"></div></div>`;
   return row;
@@ -1012,7 +1012,7 @@ function bankNetName(net) {
 // shut until you've signed the ledger with a banker at the main branch.
 // Hermit networks (no city, nobody to keep a ledger) open freely, as before.
 function hasBankAccount(net) {
-  if (CHEAT_MODE) return true; // cheat mode: every ledger already holds your name
+  if (DEV_MODE) return true; // cheat mode: every ledger already holds your name
   return !!(player.bankAccounts && player.bankAccounts[net]);
 }
 // The bank's guaranteed kit: an account is NEVER without these — withdraw the
@@ -1058,7 +1058,7 @@ function ensureBankPermanents(net) {
 // 1000 is topped straight back up (deposits can push it above; never trimmed)
 const CHEAT_STOCK_QTY = 1000;
 function ensureCheatStock(net) {
-  if (!CHEAT_MODE) return false;
+  if (!DEV_MODE) return false;
   const arr = bankArrFor(net);
   const byId = new Map(arr.map(s => [s.id, s]));
   let changed = false;

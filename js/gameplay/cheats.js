@@ -1,12 +1,13 @@
-// ===== Taiao — cheat-mode Cheats panel =====
-// A sidebar tab (only in CHEAT_MODE) that drives the debug override hooks the
-// simulation already honours:
+// ===== Taiao — DEV_MODE Dev panel =====
+// A sidebar tab (only in DEV_MODE builds — main/assets.js compile-time
+// constant) that drives the debug override hooks the simulation already
+// honours:
 //   window.__timeOffsetMs    daynight.js dayPhase — shifts clocks/sun/shadows
 //   window.__weatherOverride weather.js weatherAt — full weather object
 //   window.__snowOverride    weather.js snowCoverAt — ground snow cover 0..1
 //   window.__floodOverride   weather.js riverFloodAt — river flood level 0..1
 // Overrides persist across refreshes (localStorage) but only ever apply while
-// CHEAT_MODE is on — the normal-mode save never sees them.
+// DEV_MODE is on — the normal-mode save never sees them.
 "use strict";
 
 const CHEATS_LS_KEY = "emberfall_cheat_overrides";
@@ -34,7 +35,7 @@ function cheatsSaveState(st) {
 
 // apply a stored override set onto the window hooks (cheat mode only)
 function cheatsApply(st) {
-  if (!CHEAT_MODE || typeof window === "undefined") return;
+  if (!DEV_MODE || typeof window === "undefined") return;
   window.__timeOffsetMs = st.timeOffsetMs || 0;
   window.__weatherOverride = st.weather ? (CHEAT_WEATHERS[st.weather] || null) : null;
   window.__snowOverride = (st.snow == null) ? null : st.snow;
@@ -56,7 +57,7 @@ function cheatsInit() {
   const panel = document.getElementById("panel-cheats");
   const tab = document.getElementById("cheattab");
   if (!panel || !tab) return;
-  if (!CHEAT_MODE) {
+  if (!DEV_MODE) {
     // normal mode: hooks must stay untouched (tab is already display:none)
     return;
   }
@@ -66,8 +67,8 @@ function cheatsInit() {
   cheatsApply(st);
 
   panel.innerHTML = `
-    <h3>Cheats</h3>
-    <p class="hint">Overrides for testing — they follow this cheat-mode save (never the normal one) and survive refresh. "Live" hands control back to the simulation.</p>
+    <h3>Dev tools</h3>
+    <p class="hint">Overrides for testing — they follow this DEV_MODE save (never the normal one) and survive refresh. "Live" hands control back to the simulation.</p>
 
     <div class="cheatgroup">
       <div class="cheatlabel">Time of day <span id="ch-time-read"></span></div>

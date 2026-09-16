@@ -31,14 +31,14 @@
 //            rage-quit notes) persisted in the store, a console report via
 //            Pulse.log(), and an in-game viewer on the I key.
 //
-// Cheat-mode caveat: addXp() no-ops under CHEAT_MODE, but it is still CALLED
+// Cheat-mode caveat: addXp() no-ops under DEV_MODE, but it is still CALLED
 // by the skill tick code, so the wrap sees the skill name either way — the
 // observer works identically in both modes (each mode has its own store).
 "use strict";
 
 (function () {
   const VER = 1;
-  const LS_KEY = (typeof CHEAT_MODE !== "undefined" && CHEAT_MODE)
+  const LS_KEY = (typeof DEV_MODE !== "undefined" && DEV_MODE)
     ? "emberfall_pulse_cheat_v1" : "emberfall_pulse_v1";
 
   // resuming within this of the last persisted heartbeat = same session

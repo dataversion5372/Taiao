@@ -57,7 +57,7 @@ function tickAir(dt) {
   // a taller character's nose sits higher, so they wade deeper before the
   // waterline reaches it (character-stats.js height scales MOUTH_Y).
   const mouthY = MOUTH_Y * (typeof charHeightMul === "function" ? charHeightMul() : 1) + g.reach;
-  if (!CHEAT_MODE && playerSinkY() > mouthY) {
+  if (!DEV_MODE && playerSinkY() > mouthY) {
     player.air -= dt / 1000 * g.drain;
     if (player.air <= 0) {
       player.air = amax;
@@ -224,7 +224,7 @@ function stepPlayer(dt) {
     // sidestep deflections don't — walking a different way read as the
     // character ignoring the player. Deflection stays for real 1-tile
     // obstacles (piers, boulders).
-    const steep = !CHEAT_MODE && passable(player.x + kdx, player.y + kdy) &&
+    const steep = !DEV_MODE && passable(player.x + kdx, player.y + kdy) &&
       !stepClimbOK(player.x, player.y, player.x + kdx, player.y + kdy);
     // unbraced river crossing: when a tile of downstream push is owed, this
     // step goes out as the diagonal (across + downstream) instead
@@ -429,7 +429,7 @@ function moveTo(nx, ny) {
       const dY = REN.deckLevel(nx, ny), wY = REN.groundLevel(nx, ny);
       if (dY != null && wY != null) airGap = dY - wY;
     }
-    const boat = !CHEAT_MODE && bestBoat(airGap);
+    const boat = !DEV_MODE && bestBoat(airGap);
     if (boat) {
       dur *= ITEMS[boat].sailSpeed;
       if (!player.sailing) { log(`You board your ${ITEMS[boat].name.toLowerCase()}.`, "sys"); sfx("splash_big", 0.5); }
@@ -443,7 +443,7 @@ function moveTo(nx, ny) {
       // sailing with nothing that fits, and a deck really is the obstacle:
       // slip over the side and wade beneath (cheat mode keeps the old
       // no-boat behaviour untouched)
-      if (player.sailing && airGap != null && !CHEAT_MODE) {
+      if (player.sailing && airGap != null && !DEV_MODE) {
         log(`Your ${ITEMS[player.sailing].name.toLowerCase()} won't fit under the bridge — you slip over the side and wade beneath.`, "sys");
         player.sailing = null;
       }
@@ -464,7 +464,7 @@ function moveTo(nx, ny) {
         // the upstream floor drops with the flood too — a swollen river is
         // nearly impassable against the current
         dur /= Math.max(0.25 - fl * 0.1, 1 + 0.75 * (1 + fl * 1.6) * dot);
-      } else if (!CHEAT_MODE) dur *= 1.25; // still-water wade
+      } else if (!DEV_MODE) dur *= 1.25; // still-water wade
     }
     }
   } else if (player.sailing && !water) {

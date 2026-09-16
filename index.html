@@ -66,13 +66,11 @@
 		    ["gameReady", "Entering Taiao…", 5, 5],
 		  ];
 		  // a save in storage means the NEXT boot is warm-shaped — the same test
-		  // that decides which shape the boot will actually take. Key pick must
-		  // mirror storage.js: cheat mode (persisted flag, default ON) keeps its
-		  // own save file.
+		  // that decides which shape the boot will actually take. Either mode's
+		  // save file counts (storage.js: dev builds keep a save of their own).
 		  let hasSave = false;
 		  try {
-		    const cheat = localStorage.getItem("emberfall_cheat") !== "0";
-		    hasSave = !!localStorage.getItem(cheat ? "emberfall_save_cheat_v1" : "emberfall_save_v2");
+		    hasSave = !!(localStorage.getItem("emberfall_save_v2") || localStorage.getItem("emberfall_save_cheat_v1"));
 		  } catch (e) {}
 		  let prof = null;
 		  try { prof = JSON.parse(localStorage.getItem(hasSave ? "ef_boot_profile_w" : "ef_boot_profile_c") || "null"); } catch (e) {}
@@ -285,7 +283,7 @@
 			  <button class="tab" data-tab="skills">Skills</button>
 			  <button class="tab" data-tab="goals">Goals</button>
 			  <button class="tab" data-tab="help">?</button>
-			  <button class="tab" data-tab="cheats" id="cheattab" style="display:none" title="Cheat-mode overrides: time, weather, snow, flood">Cheats</button>
+			  <button class="tab" data-tab="cheats" id="cheattab" style="display:none" title="Developer overrides: time, weather, snow, flood (DEV_MODE builds only)">Dev</button>
 			</div>
 			<div id="panels">
 				<div id="panel-inv" class="panel active">
@@ -296,7 +294,7 @@
 			</div>
 			<div id="panel-skills" class="panel"></div>
 			<div id="panel-goals" class="panel"><!-- built by js/main/ui.js renderGoals from the Tūhura Isle tutorial --></div>
-			<div id="panel-cheats" class="panel"><!-- built by js/gameplay/cheats.js in cheat mode --></div>
+			<div id="panel-cheats" class="panel"><!-- built by js/gameplay/cheats.js in DEV_MODE builds --></div>
 			<div id="panel-help" class="panel">
 			  <h3>Taiao</h3>
 				  <p>An offline single-player tribute to old-school tile MMOs. You start in the city of <b>Newhaven</b>; 37 biomes stretch out forever in every direction, each with its own creatures.</p>

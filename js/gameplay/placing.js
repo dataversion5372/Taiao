@@ -94,7 +94,7 @@ function vesselBlockAt(x, y) {
 // can the ridden hull advance its anchor to (nx,ny)? A land step is always
 // allowed — that's stepping ashore, rideFollow leaves the hull on the water.
 function hullStepOK(ent, nx, ny) {
-  if (CHEAT_MODE) return true;
+  if (DEV_MODE) return true;
   if (!world.isWater(nx, ny)) return true;
   const nm = dir8From(nx - player.x, ny - player.y);
   const wi = nm ? Math.max(0, DIR8.indexOf(nm)) : (ent.dir | 0);

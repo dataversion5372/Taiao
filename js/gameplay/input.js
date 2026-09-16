@@ -522,21 +522,6 @@ window.addEventListener("keydown", e => {
   // or trigger hotkeys
   const ae = document.activeElement;
   if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) return;
-  // option+C toggles cheat mode (checked before the plain-C character screen;
-  // e.code because option+c types "ç" on mac keyboards)
-  if (e.altKey && e.code === "KeyC") {
-    // each mode keeps its OWN save file (storage.js SAVE_KEY): write the
-    // current character to its file, flip the persisted flag, and reload —
-    // CHEAT_MODE itself is left alone so the beforeunload autosave still
-    // lands in the CURRENT mode's save
-    const on = !CHEAT_MODE;
-    if (typeof saveGame === "function") saveGame();
-    try { localStorage.setItem("emberfall_cheat", on ? "1" : "0"); } catch (err) {}
-    log(`Cheat mode ${on ? "ON" : "OFF"} — switching saves…`, on ? "gold" : "sys");
-    e.preventDefault();
-    location.reload();
-    return;
-  }
   if (e.code === "ShiftLeft") keys.ShiftLeft = true;
   // Left-Shift+S opens the Soaps comparison menu (gameplay/stink.js)
   // P toggles the soaps menu. (Was Left-Shift+S — Shift now BRACES against a

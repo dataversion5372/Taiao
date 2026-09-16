@@ -106,7 +106,7 @@ function lockAt(d) {
 
 // the lock still barring this door, or null if unfitted / already opened
 function doorLocked(d) {
-  if (CHEAT_MODE) return null; // cheat mode: every lock in the world stands open
+  if (DEV_MODE) return null; // cheat mode: every lock in the world stands open
   const L = lockAt(d);
   if (!L) return null;
   // the latch always turns from the INSIDE — a dusk lock-up can't trap
