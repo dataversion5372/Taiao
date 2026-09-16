@@ -101,7 +101,7 @@ xaos.zoom = (function() {
             canvas.width = width;
             canvas.height = height;
         } else {
-            ctx.clearRect(0, 0, width, height);
+            canvas.getContext("2d").clearRect(0, 0, width, height); // [taiao-patch 4] upstream referenced an undefined `ctx` here (ReferenceError when canvas attr size == CSS size)
         }
 
         this.canvas = canvas;
