@@ -1,9 +1,9 @@
-// ===== Taiao — nature ambience (rain; wind/ocean parked) =====
+// ===== Taiao — nature ambience (rain / wind / ocean) =====
 // Synthesized loop beds (assets/ambience/, built by tools/make_ambience.py —
 // shaped noise, fully original audio) mixed live from the world's real state:
 //   rain  — the weather field's precipitation, when it's falling as rain
-//   wind  — ⏸ parked: geostrophic wind speed at the player
-//   ocean — ⏸ parked: how much open sea (deep/ocean/reef) rings the player
+//   wind  — geostrophic wind speed at the player
+//   ocean — how much open sea (deep/ocean/reef) rings the player
 // Every level eases toward its target (~1.5 s) so weather rolls in and out
 // instead of switching, steps indoors muffle the lot, and the whole layer
 // sits under the "Nature sounds" slider (audio.js sfxNatureVol) alongside
@@ -12,10 +12,9 @@
 
 const AMBIENCE = (() => {
   const BASE = "assets/ambience/";
-  // ⏸ wind + ocean PARKED (user req 2026-09-15): the beds (wind.ogg /
-  // ocean.ogg) and their target logic below stay, but only rain is mixed —
-  // add them back to KEYS to re-enable.
-  const KEYS = ["rain"];
+  // wind + ocean un-parked 2026-09-16 ("silent skies end here") — all
+  // three beds mix; drop a key here to park a bed again.
+  const KEYS = ["rain", "wind", "ocean"];
   const els = {};
   const cur = { rain: 0, wind: 0, ocean: 0 };
   let tgt = { rain: 0, wind: 0, ocean: 0 };
@@ -47,7 +46,6 @@ const AMBIENCE = (() => {
       out.wind = Math.min(1, kn / 26) * (w.kind === "snow" ? 1.15 : 1);
     }
     // sea: sample a ring of tiles around the player for open-water biomes
-    // (computed but unmixed while ocean is parked — see KEYS above)
     if (typeof world !== "undefined" && world && world.biomeAt && typeof B !== "undefined") {
       const SEA = [B.DEEP, B.WATER, B.REEF];
       let hit = 0;

@@ -31,7 +31,7 @@
 // and flag credited, keeper gifts granted, and a catch-up bundle of the
 // items those stages would have put in your pack (logs, whitebait, forged
 // kit, pails, flour, arrows…) appears in your inventory. Ship FALSE.
-const STAGE_SKIP = true;
+const STAGE_SKIP = false;
 
 // ---------- data consumed by world/chunks.js ----------
 // Ambient monster kinds allowed to keep their spawns on the isle — everything
@@ -40,7 +40,12 @@ const TUT_TAME = new Set(["chicken", "sheep", "cow", "slime", "rabbit", "duck", 
   // NZ native birds (nz-extra-birds.js): every non-aggressive small/medium
   // species is welcome on the isle — the fliers (birdflight.js) give fresh
   // hands their first sight of birds on the wing. The aggressive weka and the
-  // giants (hakawai, pouākai, moa) stay off the tutorial isle.
+  // giants (hakawai, pouākai, moa) stay off the tutorial isle's AMBIENT rolls
+  // — but ONE Kuranui is hand-stamped in the Farm Vale (TUT_CONTENT pod 6, a
+  // stamp bypasses this allowlist): the pods 5-8 stretch is the isle's
+  // flattest beat, and she is its one spectacle — the giant Kenji's dialogue
+  // promises, met in the flesh. Non-aggressive (all NZ birds are), so the
+  // level-1-safe rule holds.
   "tui", "piwakawaka", "kereru", "kiwi", "kaka", "kea", "ruru", "tieke", "kotata",
   "titipounamu", "koreke", "pukeko", "whio", "putangitangi", "huia", "karearea", "takapu"]);
 
@@ -240,41 +245,43 @@ const TUT_CONTENT = (() => {
     // survive — everything natural on the isle is copper.)
     at(3, 4, 0, { node: "anvil", extra: { station: true } }),
     at(3, 7, -2, { node: "furnace", extra: { station: true } }),
-    // THE TERRACE IS AN EXACT LEDGER (user req 2026-09-16): every rock's
-    // yield is PINNED (extra.left skips gathering.js's 5-10 roll), and the
-    // isle-wide strip in chunks.js deletes every NATURAL metal rock, so this
-    // is all the ore there is (per respawn cycle). SMELTING WORKS IN SIX-
-    // ITEM FURNACE LOADS (bestiary-drops.js normalizes every smelt recipe:
-    // inputs sum to 6, out 6 bars, xp ×6 — copper 6→6 @120xp, bronze
-    // 4 copper + 2 tin → 6 @150xp, iron 6→6 @360xp), so the ledger counts
-    // in whole FIRINGS:
-    //  · smelt plan → Smelting 3 (1154 xp): EIGHT copper firings (48 ore →
-    //    48 bars, 960 xp) + TWO bronze firings (8 copper + 4 tin → 12 bars,
-    //    300 xp) = 1260 ≥ 1154 (seven copper firings = 1140 falls short —
-    //    eight is exact)
-    //  · copper ore = 48 + 8 = 56 → EIGHT rocks × 7 ore
-    //  · tin = 4 → TWO rocks × 2
-    //  · iron = 30 (FIVE firings → 30 bars) → FIVE rocks × 6
-    //    (the forge now spends only ~4 bars: 2 arrowhead batches + a
-    //     2-bar sword — the five firings stand as the user specified them)
-    //  · mining xp (30/ore): Ore-mining 2 at ore #22, 3 (the iron rock's
-    //    req) at #39 — copper + tin alone are 60 ores, so the ladder
-    //    unlocks itself before the first iron swing
+    // THE TERRACE IS A LEDGER — HALVED, WITH SLACK (softened 2026-09-16):
+    // every rock's yield is PINNED (extra.left skips gathering.js's 5-10
+    // roll), and the isle-wide strip in chunks.js deletes every NATURAL
+    // metal rock, so this is all the ore there is (per respawn cycle).
+    // SMELTING WORKS IN SIX-ITEM FURNACE LOADS (bestiary-drops.js
+    // normalizes every smelt recipe: inputs sum to 6, out 6 bars, xp ×6 —
+    // copper 6→6 @120xp, bronze 4 copper + 2 tin → 6 @150xp, iron 6→6
+    // @360xp). The old exact plan (8 copper + 2 bronze firings, no slack)
+    // meant one wrong-order firing = wait out the respawn curve — the
+    // harshest spike on the isle. Now Menkaure's keeper gift front-loads
+    // demonstration xp (Smelting 550, Ore-mining 400 — see DLG.smith
+    // reward) and the ledger runs at HALF the firings with spare stone:
+    //  · smelt plan → Smelting 3 (1154 xp, required before ANY iron_bar
+    //    can be smelted): gift 550 + FOUR copper firings (24 ore → 24
+    //    bars, 480 xp; Smelting 2 = 650 falls after the first) + ONE
+    //    bronze firing (4 copper + 2 tin → 6 bars, 150 xp) = 1180 ≥ 1154.
+    //  · copper ore: 24 + 4 = 28 needed → FIVE rocks × 7 = 35 (7 spare)
+    //  · tin: 2 needed → TWO rocks × 2 = 4 (2 spare). The spares absorb
+    //    one whole stray firing (an extra copper load or an extra bronze)
+    //    — a mis-ordered plan no longer strands anyone.
+    //  · iron: ONE rock × 6 → one firing → 6 bars; the forge spends 4
+    //    (2-bar sword + two 15-arrowhead batches at 1 bar), 2 spare.
+    //  · mining xp (30/ore + the 400 gift): tin (Ore-mining 2 = 650)
+    //    yields after ~9 copper ores, iron (3 = 1154) after ~26 — both
+    //    inside the 35-copper run, so the ladder still unlocks itself.
+    //  · PERFECT FIRING (optional, replaces the old required exactness):
+    //    onCraft counts furnace loads in prog.firings; finish the whole
+    //    kit in ≤6 firings (4 copper + 1 bronze + 1 iron, nothing stray)
+    //    and Menkaure pays a 150-coin mastersmith's bonus.
     at(3, -5, -4, { node: "copper", extra: { left: 7, leftMax: 7 } }),
     at(3, -7, -7, { node: "copper", extra: { left: 7, leftMax: 7 } }),
     at(3, -9, -3, { node: "copper", extra: { left: 7, leftMax: 7 } }),
     at(3, -3, -11, { node: "copper", extra: { left: 7, leftMax: 7 } }),
     at(3, -10, -10, { node: "copper", extra: { left: 7, leftMax: 7 } }),
-    at(3, -1, -6, { node: "copper", extra: { left: 7, leftMax: 7 } }),
-    at(3, -2, -9, { node: "copper", extra: { left: 7, leftMax: 7 } }),
-    at(3, -6, -12, { node: "copper", extra: { left: 7, leftMax: 7 } }),
     at(3, -7, -10, { node: "rockM1", extra: { left: 2, leftMax: 2 } }),   // tin
     at(3, -9, -12, { node: "rockM1", extra: { left: 2, leftMax: 2 } }),   // tin
     at(3, -4, -8, { node: "iron", extra: { left: 6, leftMax: 6 } }),
-    at(3, -5, -13, { node: "iron", extra: { left: 6, leftMax: 6 } }),
-    at(3, -8, -14, { node: "iron", extra: { left: 6, leftMax: 6 } }),
-    at(3, -11, -12, { node: "iron", extra: { left: 6, leftMax: 6 } }),
-    at(3, -13, -4, { node: "iron", extra: { left: 6, leftMax: 6 } }),
     // pod 4 — the Lagoon (Swim-Master): the deep pool is carved in terrain; no
     // hand-placed content — Vrixa gifts the raft + snorkel.
     // pod 5 — the Bank camp: the vault, plus a carpenter's bench and a stand
@@ -300,6 +307,13 @@ const TUT_CONTENT = (() => {
     at(6, 9, 9, { mon: "chicken" }),
     at(6, 11, 12, { mon: "chicken" }),
     at(6, 0, 11, { mon: "sheep" }),
+    // THE SPECTACLE BEAT (2026-09-16): pods 5-8 are four gather-and-craft
+    // lessons back to back — the isle's flattest stretch. One hand-stamped
+    // Kuranui (moanui — the giant moa, SIZE 2.8, lvl 16, never aggressive)
+    // grazing the open pasture breaks it: the first GIANT animal any fresh
+    // hand meets, paying off Kenji's "one in six is born big" line and the
+    // Farmhand stage note. Stamps bypass the TUT_TAME ambient strip.
+    at(6, -8, 5, { mon: "moanui" }),
     // pod 7 — the Woodcrafting camp (Carpenter): fletcher's bench, sawmill,
     // carpenter's workbench (planks + PAILS for milking), and a stand of
     // logs. (The wand — and its essence rock — are GONE: no magic taught on
@@ -800,7 +814,19 @@ const Tutorial = (() => {
     switch (itemId) {
       case "flour":          return bumpGoal("flour");
       case "pail":           return bumpGoal("pails");
-      case "arrowhead_iron": return bumpGoal("arrowheads", 15); // one anvil batch = 15 heads
+      case "arrowhead_iron": { // one anvil batch = 15 heads
+        bumpGoal("arrowheads", 15);
+        maybePerfectFiring(state()); // heads can be the ledger's last stroke
+        return;
+      }
+      case "copper_bar": case "bronze_bar": case "iron_bar": {
+        // count furnace loads for the optional PERFECT FIRING bonus (see the
+        // terrace-ledger comment in TUT_CONTENT) — no announcement, no goal
+        // row: exactness is a flourish now, not a requirement
+        const t = state();
+        if (t) t.prog.firings = (t.prog.firings || 0) + 1;
+        return;
+      }
       case "arrow_shafts":   return bumpGoal("shafts", 15);     // one cut = 15 shafts
       case "arrow_iron":     return bumpGoal("arrow_iron", 15); // one fletch = 15 arrows
       case "shortbow":       return bumpGoal("shortbow");
@@ -834,8 +860,24 @@ const Tutorial = (() => {
       if (made >= SMITH_ITEMS.length) log("All the wearable pieces forged — keep the arrowhead batches coming. (Wearing your work is wise, but the forge gate only asks that you MAKE it.)", "gold");
     }
     if (made >= SMITH_ITEMS.length && typeof sfx === "function") sfx("quest", 0.5);
+    maybePerfectFiring(t); // a kit piece can be the ledger's last stroke too
     refreshBar();
     if (typeof saveGame === "function") saveGame();
+  }
+  // the optional PERFECT FIRING bonus: the whole forge lesson in the minimum
+  // SIX furnace loads (4 copper + 1 bronze + 1 iron, nothing stray). Checked
+  // on both onCraft exit paths because the smith stage's last credit is
+  // always a craft (bars precede kit, the furnace precedes bars). Missing it
+  // is SILENT — the terrace slack exists to be used without shame.
+  function maybePerfectFiring(t) {
+    if (!t || t.perfectPaid || !reqDone("smith")) return;
+    t.perfectPaid = 1;
+    if ((t.prog.firings || 0) <= 6 && typeof addItem === "function") {
+      addItem("coins", 150);
+      if (typeof log === "function")
+        log("Menkaure turns your last piece over and whistles — SIX firings, nothing stray. A perfect ledger! He presses his mastersmith's koha into your hand: 150 coins.", "gold");
+      if (typeof sfx === "function") sfx("quest", 0.6);
+    }
   }
   // the tutorial anvil forges ONLY the four lesson pieces (skills/crafting.js
   // openStation filters its recipe list through this). null = no restriction.
@@ -872,7 +914,7 @@ const Tutorial = (() => {
     { h: 13,    wx: "clear",   note: "Early-afternoon warmth lies over the isle." },   // Soapmaker
     { h: 13.75, wx: "cloudy",  note: "Clouds drift in off the sea. {sky} would tell you the pressure is falling." }, // Swim-Master
     { h: 14.5,  wx: "rain",    note: "Rain sweeps the isle! Feel it — every storm in this world is real, and rivers swell with it." }, // Banker
-    { h: 15.5,  wx: "drizzle", note: "The downpour softens to drizzle. Petrichor rises off the fields." }, // Farmhand
+    { h: 15.5,  wx: "drizzle", note: "The downpour softens to drizzle. Petrichor rises off the fields — and something VAST moves through it: a Kuranui, the giant of giants, grazing the pasture bold as morning." }, // Farmhand
     { h: 16.25, wx: "clear",   note: "The front passes — sunlight breaks through washed-clean air." }, // Carpenter
     { h: 17,    wx: "clear",   note: "Late-afternoon light lengthens every shadow." }, // Cook
     // sunset on the flat-latitude isle is 18:00 — the candle STAGE (index 13,
@@ -1220,23 +1262,15 @@ const Tutorial = (() => {
       reward: { coins: 25 },
       pages: [
         { h: "Haere mai — welcome to Tūhura Isle!",
-          t: ["You wake on the Isle of Discovery, traveller — empty-handed, as everyone arrives. Don't fret: every keeper on this path equips you for the lesson they teach, tool by tool, until you walk off my isle fully kitted.",
-              "Out past that horizon lies a world that never ends — thousands of towns, dozens of trades, storms and seasons, monsters and mysteries. All of it is yours.",
-              "This isle is a journey: follow the dirt path east, camp to camp. At every gate waits a keeper with something wonderful to teach — and each gate only unbars when its keeper has finished with you. No rushing ahead!"] },
-        { h: "The basics",
-          t: ["Click the ground to walk. Click a tree, a rock, a fire or a person to use them — your character handles the rest. RIGHT-click anything for more choices; almost everything can be examined.",
-              "Your packs, skills and equipment live in the sidebar tabs. Your Skills tab starts near-empty — each keeper AWAKENS the crafts they teach, and the rest of the world's trades open the day you sail. The ? tab holds a full guide whenever you're lost, and the bar at the top of your screen tracks the journey.",
-              "And one more thing worth knowing early: the folk of this world can be TALKED to — press Enter near anyone and say what you like, in your own words. They truly answer. The Skywatcher up the path makes a lesson of it; try it on me any time."] },
-        { h: "Be anyone — choose now",
-          t: ["Look at yourself, e hoa — you're still a spark of unformed light! You cannot set foot on the path until you take a BODY. Tap the button below and choose one: dozens of folk, each with their own build, pace and wardrobe.",
-              "The first gate will not open while you're still just light — so choose before you go. (Change your mind any time by talking to me again; out in the world, Newhaven's Registrar keeps the register of forms.)",
-              "One more thing: Tūhura keeps its own sky. It always wakes at dawn, and time only turns as YOU learn — meet the keepers and watch the day roll on: noon, rain, sunset, stars.",
-              "Choose your body, then take the path east — {bush} the Bushman is expecting you."],
+          t: ["You wake on the Isle of Discovery, traveller — empty-handed, as everyone arrives. Look at yourself, e hoa: you're still a spark of unformed light. Tap the button below and take a BODY — dozens of folk, each with their own build, pace and wardrobe. (Change your mind any time by talking to me again.)",
+              "Click the ground to walk; click a tree, rock, fire or person to use it. RIGHT-click for more choices, and press Enter near anyone to TALK in your own words — they truly answer. Lost? The ? tab holds a full guide, and the bar up top tracks your journey.",
+              "Follow the dirt path east once you're formed — {bush} the Bushman is expecting you, and every keeper after equips you for the lesson they teach, tool by tool, until you walk off my isle fully kitted."],
           act: [["Choose my body", "charselect"]] },
       ],
     },
     bush: {
       reward: { items: [["axe_iron", 1]] },
+      openGrant: true,
       pages: [
         { h: "The bush provides",
           t: ["Kia ora! Take my spare iron axe — it's yours. See all these young trees? With an axe in your pack, click one and you'll fell it for logs. Berry bushes, herb patches, wildflowers, even boulders — nearly everything growing or lying about can be gathered, and it all grows back in time.",
@@ -1267,11 +1301,16 @@ const Tutorial = (() => {
       ],
     },
     smith: {
-      reward: { items: [["pickaxe_iron", 1], ["knife", 1], ["flint", 1]] },
+      // the xp is Menkaure's DEMONSTRATION — he works a load in front of you
+      // (see page 1) so the ledger below runs at half the firings it used to.
+      // Numbers are load-bearing: the terrace-ledger comment in TUT_CONTENT
+      // derives the whole smelt plan from Smelting 550 / Ore-mining 400.
+      reward: { items: [["pickaxe_iron", 1], ["knife", 1], ["flint", 1]],
+                xp: { Smelting: 550, "Ore-mining": 400 } },
       pages: [
         { h: "From rock to blade",
-          t: ["This pickaxe is yours — but the craft you'll earn stroke by stroke; nothing here is given. My terrace is a MEASURED LEDGER, the only ore on this whole isle: EIGHT copper rocks (seven ore each), TWO pale tin rocks (two each), FIVE dark iron rocks (six each). Copper first — your arms harden on it: tin yields at Ore-mining TWO, iron at THREE, and the copper alone carries you there.",
-              "My furnace smelts in LOADS OF SIX. So, in this order: EIGHT firings of COPPER (forty-eight bars), then TWO firings of BRONZE — each load drinks four copper and two tin, your last eight copper and every tin stone. That work lands your Smelting at THREE — exactly enough for FIVE firings of IRON, thirty bars. Every swing and every firing earns its own experience; nothing on my terrace is wasted, so waste nothing."] },
+          t: ["This pickaxe is yours — and the first lesson is free: watch my hands. One load drawn, raked and fired true — THAT is the knack, and I've just put it in your arms (take the experience; the rest you'll earn stroke by stroke). My terrace is a MEASURED LEDGER, the only ore on this whole isle: FIVE copper rocks (seven ore each), TWO pale tin rocks (two each), ONE dark iron rock (six ore). Copper first — your arms harden on it: tin yields at Ore-mining TWO, iron at THREE, and the copper carries you there.",
+              "My furnace smelts in LOADS OF SIX. The plan: FOUR firings of COPPER (twenty-four bars), then ONE firing of BRONZE — it drinks four copper and two tin. That lands your Smelting at THREE — enough for ONE firing of IRON, six bars, plenty for the kit ahead. I've left SPARE STONE on the terrace, so a stray firing strands no one. But hear this: a MASTER runs the whole ledger in SIX firings flat, nothing wasted — do that, and I'll pay you a mastersmith's koha of 150 coins."] },
         { h: "First, light the furnace",
           t: ["A cold furnace smelts nothing — every fire on this isle burns REAL fuel. So take my working KNIFE and this piece of FLINT — keep both in your pack. Stand at the furnace, STRIKE a spark, then STOKE the fire with logs. LIGHTING MY FURNACE is the first mark of your lesson — and every stoke feeds your FIREMAKING; even a fizzled spark is practice.",
               "Plain logs burn hot enough to smelt copper and bronze — but IRON wants a fiercer fire. Fell a MĀNUKA when your Woodcutting reaches 3 and stoke with its rākau, and keep striking until your Firemaking can hold that heat. The flint never wears out; it lights every fire you'll ever lay."] },
@@ -1339,7 +1378,7 @@ const Tutorial = (() => {
               "Your task: bring in TWENTY of each crop — a good picking of every row. And learn the marvel while you're at it: crops grow in REAL time. REPLANT a row after you clear it (sowing takes five seeds; most harvested crops drop one back) and it ripens again in minutes whether you watch or wander. The world doesn't pause for anyone — it works alongside you."] },
         { h: "Mill & tend",
           t: ["Grain becomes food at the MILLSTONE: mill TEN wheat into flour (bran comes off with it) — you'll bake with it up the path. Keep your flax too; it spins into linen for candle wicks later.",
-              "Livestock roam the pasture — TEND them for wool, milk, feathers and eggs. Tend my QUAIL and hens for TEN eggs (save some for the fritters!) and TEN FEATHERS — that's the exact fletching budget for {wood}'s thirty arrows, so every feather counts. Watch for GIANT animals — one in six is born big and gives double."] },
+              "Livestock roam the pasture — TEND them for wool, milk, feathers and eggs. Tend my QUAIL and hens for TEN eggs (save some for the fritters!) and TEN FEATHERS — that's the exact fletching budget for {wood}'s thirty arrows, so every feather counts. Watch for GIANT animals — one in six is born big and gives double. And that grey mountain out in the pasture? A KURANUI — the biggest bird that ever walked this world. She minds her own business; mind yours around her feet."] },
         { h: "Be in two places at once",
           t: ["Now the vale's deepest secret, and my favourite: while the rows regrow, DON'T STAND WAITING. Press X and SPLIT — you will tear into TWO SELVES, each with hands, a pack, a will. Leave one here to reap, replant and mill (queue the rows with Option+click and it works the list alone!), and walk the other wherever it's needed. Tab hops between them; your strength divides while you're apart and flows back whole when you rejoin. Keep BOTH selves busy at once — that's my mark.",
               "And here is my gift for the road: see the little gate in the chamber wall to the NORTH-EAST, out through my east arch? MY SHORTCUT. It unbars the moment my stage is done — a straight lane from the bank chamber into {wood}'s camp. Send your free self round to wait there; when the last crop falls, both your roads open at once: one self through the crown's south gate, one through the shortcut — and you meet again at Torra's benches."] },
@@ -1461,9 +1500,30 @@ const Tutorial = (() => {
   // makes — it just tears down any stray bar element (defensive: legacy saves /
   // hot reload) and flags the UI dirty so an open Goals tab repaints at once.
   let barEl = null;
+  // per-pod respawn (softened 2026-09-16): dying anywhere on a live isle used
+  // to send you clear back to wherever player.respawn was last set (pod 0,
+  // effectively) — the harshest death penalty landing in the first 15
+  // minutes. Every progress event funnels through refreshBar(), so this
+  // keeps player.respawn pinned to the CURRENT pod's keeper (frontier()'s
+  // tutor — the pod you're free to roam but haven't cleared yet) without
+  // needing its own hook on every individual req/finish call site.
+  let _respawnFrontier = -1;
+  function _respawnSync() {
+    if (!active()) return;
+    const f = Math.min(frontier(), TUT_TUTORS.length - 1);
+    if (f === _respawnFrontier) return;
+    _respawnFrontier = f;
+    const tu = TUT_TUTORS[f];
+    const [px, py] = podXY(tu.pod);
+    // "name" feeds combat.js's generic "wake up by the fountain in {name}"
+    // wake message — a place-flavoured phrase reads fine there, a person's
+    // full name+title wouldn't
+    player.respawn = { x: px + tu.dx, y: py + tu.dy, name: tu.role + "'s camp" };
+  }
   function refreshBar() {
     if (barEl) { barEl.remove(); barEl = null; }
     if (typeof uiDirty !== "undefined") uiDirty = true;
+    _respawnSync();
     // every progress event funnels through here — settle the keepers' evening
     // village move whenever the frontier or the staged clock has advanced
     _villageSync();
@@ -1674,6 +1734,10 @@ const Tutorial = (() => {
     // Sigrid reached ahead of the journey's end (the open village shore
     // makes that a one-minute stroll from the Landing): host, don't ferry
     cur._early = def.id === "ferry" && frontier() < TUT_TUTORS.length - 1;
+    // openGrant tutors (the Bushman's axe) hand their tool over the instant
+    // the dialogue opens, not after every page is read — grant() is
+    // idempotent (t.given[tid]), so finish()'s later call is a no-op
+    if (!cur._remind && !cur._early && DLG[def.id].openGrant) grant(def.id, DLG[def.id].reward);
     page = 0;
     el.style.display = "flex";
     render();

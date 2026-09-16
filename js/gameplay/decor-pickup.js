@@ -54,10 +54,19 @@ function pickUpDecor(x, y, key) {
   const raw = key || (world.getDecor && world.getDecor(x, y));
   const k = raw && raw.split("#")[0];
   if (!decorPickable(k)) { log("There's nothing to pick up there.", "warn"); return; }
+  // Dream Forest waystone glades (gameplay/dream.js): every glade shares one
+  // identical stamp, and a Taken mushroom would let two glades drift apart —
+  // the silent relocations stay invisible only while the stamps agree
+  if (typeof Dream !== "undefined" && Dream.inGladeZone && Dream.inGladeZone(x, y)) {
+    log("It won't come away — as if it's only half here.", "sys");
+    return;
+  }
   if (decorPicked(x, y)) { log("It's already been taken — give it time to return.", "warn"); return; }
   const item = decorPickItem(k);
   if (!addItem(item, 1)) { log("Your inventory is full.", "warn"); return; }
   pickedDecor.set(x + "," + y, now + DECOR_RESPAWN_MS);
+  // Phase-2 shared world: the gap you left is real for everyone (regionsync.js)
+  if (typeof RegionSync !== "undefined") RegionSync.noteDecor(x, y, now + DECOR_RESPAWN_MS);
   log(`You pick up the ${(typeof decorName === "function") ? decorName(k) : k}.`);
   uiDirty = true;
 }

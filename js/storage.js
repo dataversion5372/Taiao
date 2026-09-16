@@ -172,6 +172,8 @@ function buildSaveData() {
     respawn: player.respawn || null, // chosen respawn city fountain {x,y,name}; null = Newhaven
     timeShiftMs: player.timeShiftMs || 0, // persisted world-clock shift (graduation morning)
     tutorial: player.tutorial || null, // Tūhura Isle progress (gameplay/tutorial.js): seen/given/welcomed/graduated
+    wizard: player.wizard || null, // the Weaver's lessons (gameplay/wizard.js): gifted/taught
+    dream: player.dream || null, // Dream Forest interior state (gameplay/dream.js): { lvl, entry }
     // player-placed furniture & vessels (gameplay/placing.js)
     // persist only permanent placed objects (furniture/vessels); temporary
     // set-down decorations (entry.expireAt) are transient and not saved
@@ -324,6 +326,8 @@ function loadGame() {
       // Tūhura Isle tutorial progress; pre-tutorial saves (null) are veterans
       // and never get re-schooled — the isle simply sits on their map
       player.tutorial = (d.tutorial && typeof d.tutorial === "object") ? d.tutorial : null;
+      player.wizard = (d.wizard && typeof d.wizard === "object") ? d.wizard : null;
+      player.dream = (d.dream && typeof d.dream === "object") ? d.dream : null;
       player.reputation = d.reputation | 0;
       player.contractsDone = Array.isArray(d.contractsDone) ? d.contractsDone : [];
       player.portals = (d.portals && typeof d.portals === "object") ? d.portals : {};

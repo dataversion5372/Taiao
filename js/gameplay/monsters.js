@@ -151,9 +151,11 @@ function updateMonsters(dt) {
     }
   }
   // ambient nature audio: nearby birds sing (inverse-square by distance to
-  // the current body) and the rain/wind/sea beds track the live weather
+  // the current body) and the rain/wind/sea beds track the live weather;
+  // the generative music layer breathes off the same signals
   if (typeof birdsongTick === "function") birdsongTick();
   if (typeof ambienceTick === "function") ambienceTick();
+  if (typeof musicTick === "function") musicTick();
 }
 // Callers (3):
 //  gameplay/monsters.js:42,61,63

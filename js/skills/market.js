@@ -116,15 +116,19 @@ function reputation() { return (player.reputation | 0); }
 function repMult() { return 1 + Math.min(0.5, reputation() * 0.0008); }
 function demandMult(profile, id) { return profile.demand[itemTag(id)] || 0.85; }
 // what the town pays you for one unit (base value ×0.5, lifted by demand,
-// quality and your reputation)
+// quality and your reputation, softened by a glut of player-sold stock —
+// the Phase-2 supply term, js/net/shopsync.js; 1 when logged out)
 function marketSellPrice(profile, id, q) {
   const qMult = q != null ? 0.6 + 0.8 * (q / 100) : 1;
-  return Math.max(1, Math.round((ITEMS[id].value || 1) * 0.5 * demandMult(profile, id) * qMult * repMult()));
+  const glut = (typeof ShopSync !== "undefined" && activeMarket) ? ShopSync.sellMult(activeMarket.townKey, id) : 1;
+  return Math.max(1, Math.round((ITEMS[id].value || 1) * 0.5 * demandMult(profile, id) * qMult * repMult() * glut));
 }
-// what the town charges you to buy one unit (cheaper if it's a local surplus)
+// what the town charges you to buy one unit (cheaper if it's a local
+// surplus, cheaper again when players have stocked the shelf)
 function marketBuyPrice(profile, id) {
   const surplus = profile.surplusTags.includes(itemTag(id)) || (profile.stock || []).includes(id);
-  return Math.max(1, Math.round((ITEMS[id].value || 1) * (surplus ? 0.9 : 1.15)));
+  const supply = (typeof ShopSync !== "undefined" && activeMarket) ? ShopSync.buyMult(activeMarket.townKey, id) : 1;
+  return Math.max(1, Math.round((ITEMS[id].value || 1) * (surplus ? 0.9 : 1.15) * supply));
 }
 // Merchants only stock the early seed tiers; higher-level seeds must be found
 // or grown up to, not bought outright.
@@ -357,6 +361,8 @@ function openMarket(npc) {
   const profile = marketProfileForBiome(biome);
   const typeKey = SHOP_TYPES[npc.shopType] ? npc.shopType : "general";
   activeMarket = { profile, npc, townKey: townKeyOf(npc.x, npc.y), typeKey };
+  // Phase 2: pull this town's player-stocked shelf (async; repaints on arrival)
+  if (typeof ShopSync !== "undefined") ShopSync.ensureStock(activeMarket.townKey);
   const t = SHOP_TYPES[typeKey];
   log(`${npc.name}: ${npc.line || t.line}`, "sys");
   openTrade("shop", t.name, npc.x, npc.y);
@@ -373,16 +379,42 @@ function renderMarket() {
   // BUY
   const grid = document.getElementById("shopgrid");
   grid.innerHTML = "";
-  for (const id of (general ? marketStock(profile) : shopStockFor(typeKey))) {
+  const buyNote = (id, got) => {   // Phase-2 ledger: purchases decrement player stock
+    if (got && typeof ShopSync !== "undefined") ShopSync.noteBuy(townKey, id, got);
+  };
+  const baseIds = general ? marketStock(profile) : shopStockFor(typeKey);
+  for (const id of baseIds) {
     const def = ITEMS[id], price = marketBuyPrice(profile, id);
     const reqNote = def.wieldReq ? ` (Melee ${def.wieldReq})`
       : def.wearReq ? ` (Defence ${def.wearReq})`
       : def.rangeReq ? ` (Archery ${def.rangeReq})` : "";
-    const d = slotEl(def.icon, undefined, `${def.name}${reqNote} — ${price} coins`);
+    // player-stocked units of a staple ride on top of the standing floor
+    const ps = typeof ShopSync !== "undefined" ? ShopSync.qty(townKey, id) : 0;
+    const psNote = ps ? ` — ${ps} restocked by players` : "";
+    const d = slotEl(def.icon, undefined, `${def.name}${reqNote} — ${price} coins${psNote}`);
     const pr = document.createElement("span"); pr.className = "price"; pr.textContent = price; d.appendChild(pr);
-    d.onclick = e => { tradeBuy(id, price, e.shiftKey ? 5 : 1); renderMarket(); };
-    d.oncontextmenu = e => amountMenu(e, "Buy", "max", n => { tradeBuy(id, price, n); renderMarket(); });
+    d.onclick = e => { buyNote(id, tradeBuy(id, price, e.shiftKey ? 5 : 1)); renderMarket(); };
+    d.oncontextmenu = e => amountMenu(e, "Buy", "max", n => { buyNote(id, tradeBuy(id, price, n)); renderMarket(); });
     grid.appendChild(d);
+  }
+  // Phase 2, the no-trading economy on the shelf: goods OTHER PLAYERS sold
+  // here, beyond the computed base stock, buyable while they last — with the
+  // maker's name attached. Only what this shop would deal in appears.
+  if (typeof ShopSync !== "undefined") {
+    const listed = new Set(baseIds);
+    for (const [id, info] of Object.entries(ShopSync.items(townKey))) {
+      const def = ITEMS[id];
+      if (listed.has(id) || !def || !(info.qty > 0) || !type.buys(id, def)) continue;
+      const price = marketBuyPrice(profile, id);
+      const makers = (info.units || []).map(u => u.maker).filter(Boolean);
+      const by = makers.length ? `stocked by ${makers[0]}${makers.length > 1 ? " and others" : ""}` : "player-stocked";
+      const d = slotEl(def.icon, info.qty, `${def.name} — ${price} coins — ${by}, ${info.qty} left`);
+      const pr = document.createElement("span"); pr.className = "price demand"; pr.textContent = price; d.appendChild(pr);
+      const buyLtd = n => { buyNote(id, tradeBuy(id, price, Math.min(n, info.qty))); renderMarket(); };
+      d.onclick = e => buyLtd(e.shiftKey ? 5 : 1);
+      d.oncontextmenu = e => amountMenu(e, "Buy", "max", buyLtd);
+      grid.appendChild(d);
+    }
   }
   // CONTRACTS — only the general store posts town contracts
   let cbox = document.getElementById("contractlist");
@@ -422,6 +454,13 @@ function renderMarket() {
       n = Math.min(n, s.qty);
       if (n <= 0) return;
       removeItem(s.id, n); addItem("coins", price * n);
+      // Phase-2 ledger: the goods go onto this town's shelf, provenance
+      // attached, for other players to find (js/net/shopsync.js)
+      if (typeof ShopSync !== "undefined") {
+        const ev = s.prov && typeof provRegistry !== "undefined" ? provRegistry[s.prov] : null;
+        ShopSync.noteSell(townKey, s.id, n, s.q != null ? s.q : null,
+          ev && ev.producer || null, ev && ev.skill || null);
+      }
       sfx("coins", 0.7);
       log(`You sell ${n} × ${def.name} for ${price * n} coins.`);
       uiDirty = true;

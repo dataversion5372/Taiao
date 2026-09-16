@@ -64,6 +64,12 @@ var Split = (() => {
   function doSplit() {
     if (player.character == null) { log("You need a body before you can divide it — take a form first.", "warn"); return; }
     if (player.dying || player.forced) return;
+    // the Dream Forest holds a soul singly (gameplay/dream.js): a second body
+    // could stand on-screen at a waystone crossing and shatter the illusion
+    if (typeof Dream !== "undefined" && Dream.blocksSplit && Dream.blocksSplit()) {
+      log(Dream.blocksSplit(), "warn");
+      return;
+    }
     if (count() >= MAX_BODIES) { log(`Five of you is as thin as a self can be stretched.`, "warn"); return; }
     const spot = freeTileBeside();
     if (!spot) { log("No room beside you for another self to step out.", "warn"); return; }
@@ -611,6 +617,7 @@ var Split = (() => {
 
   return {
     MAX_BODIES,
+    count, // live body count (gameplay/dream.js gates the dream on a whole soul)
     splitOrMerge, cycle, cycleTo, tick, onDeath, mergeAll, share: shareWithAdjacent,
     capture, tryQueueClick, queuedTiles,
     // is a SECOND self currently busy (acting / queued / walking)? — the

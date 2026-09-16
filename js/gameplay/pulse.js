@@ -60,6 +60,7 @@
       kinds: {},        // monster kind -> kills (combat texture for evidence)
       deathsBy: {},     // killer name -> count
       events: { eat: 0, buys: 0, deposits: 0, questsDone: 0 },
+      eggs: {},         // easter-egg id -> first-found ms (gameplay/eggs.js)
       cells: [],        // visited explore cells ("cx,cy")
       sessLog: [],      // finalized sessions: {at, dur, top:[[key,sec]..], note}
       insights: [],     // dated journal: {at, msg}
@@ -110,6 +111,9 @@
 
   // ---------- session ----------
   // Finalize a session snapshot: EMA trend update + session journal entry.
+  // Returns the built summary line (or undefined if the snapshot was too
+  // short to score) so the boot-time call below can reuse it verbatim for
+  // the "while you were away" toast instead of re-deriving it.
   function finalizeSnapshot(snap, note) {
     if (!snap || snap.activeSec < 120) return; // ignore sub-2-min blips
     const keys = new Set([...Object.keys(S.act), ...Object.keys(snap.share)]);
@@ -124,8 +128,14 @@
     S.sessLog.push({ at: snap.startAt, dur: Math.round(snap.activeSec), top, note: note || "" });
     if (S.sessLog.length > 60) S.sessLog.splice(0, S.sessLog.length - 60);
     const parts = top.map(([k, s]) => `${label(k)} ${fmtDur(s)}`).join(", ");
-    insight(`Session ${snap.id} (${fmtDur(snap.activeSec)} attentive): ${parts || "mostly idle"}.${note ? " " + note : ""}`);
+    const msg = `Session ${snap.id} (${fmtDur(snap.activeSec)} attentive): ${parts || "mostly idle"}.${note ? " " + note : ""}`;
+    insight(msg);
+    return msg;
   }
+
+  // the just-finalized previous session, for Pulse.awaySummary() — null
+  // until a real (quick-reload-resumed or too-short) previous session exists
+  let lastAway = null;
 
   let ses;
   {
@@ -135,7 +145,10 @@
       ses = { id: prev.id, startAt: prev.startAt, activeSec: prev.activeSec || 0,
               share: prev.share || {}, firstKey: prev.firstKey || null };
     } else {
-      if (prev) finalizeSnapshot(prev, prev.clean ? "" : "(session ended without a clean quit)");
+      if (prev) {
+        const msg = finalizeSnapshot(prev, prev.clean ? "" : "(session ended without a clean quit)");
+        if (msg) lastAway = { text: msg, awayMs: Math.max(0, Date.now() - (prev.endAt || Date.now())) };
+      }
       S.sessions++;
       ses = { id: S.sessions, startAt: Date.now(), activeSec: 0, share: {}, firstKey: null };
     }
@@ -546,6 +559,17 @@
     if (r.untouched.length)
       html += `<div style="margin:10px 0 4px;color:#7d90a8;font-weight:bold;font-size:13px;letter-spacing:1px;">Never tried</div>
         <div style="color:#a99cc4;">${esc(r.untouched.join(", "))}</div>`;
+    // easter eggs — found ones by name, the rest only as a count (no spoilers)
+    {
+      const eggIds = Object.keys(S.eggs || {});
+      const tot = (typeof Eggs !== "undefined" && Eggs.total) ? Eggs.total() : null;
+      if (eggIds.length || tot) {
+        html += `<div style="margin:14px 0 4px;color:#7fe3c7;font-weight:bold;font-size:13px;letter-spacing:1px;">Secrets found${tot ? ` · ${eggIds.length}/${tot}` : ""}</div>`;
+        html += eggIds.length
+          ? `<div style="color:#a99cc4;">${esc(eggIds.sort().map(k => k.replace(/_/g, " ")).join(", "))}</div>`
+          : `<div style="color:#7d90a8;">None yet — the world keeps its secrets until you trip over them.</div>`;
+      }
+    }
     const recent = r.insights.slice(-12).reverse();
     if (recent.length) {
       html += `<div style="margin:14px 0 4px;color:#ffe97a;font-weight:bold;font-size:13px;letter-spacing:1px;">Recent observations</div>`;
@@ -590,6 +614,73 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire);
   else wire();
 
+  // ---------- "while you were away" boot toast ----------
+  // lastAway (set above, boot-eval time) already holds the previous
+  // session's finalized summary line — this just surfaces it once, right
+  // after boot, instead of leaving it buried in the I-key viewer.
+  let toastEl = null, toastTimer = null;
+  function ensureToast() {
+    if (toastEl) return toastEl;
+    toastEl = document.createElement("div");
+    toastEl.id = "pulse-away-toast";
+    toastEl.style.cssText = "position:fixed;top:14px;left:50%;z-index:8000;max-width:min(480px,90vw);" +
+      "background:#161a26;border:1px solid #3a4a6a;border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.5);" +
+      "padding:10px 12px 10px 16px;color:#dfe6f2;font:13px/1.4 inherit;display:flex;align-items:flex-start;gap:10px;" +
+      "opacity:0;transform:translate(-50%,-8px);transition:opacity .3s ease, transform .3s ease;";
+    const body = document.createElement("div");
+    body.style.flex = "1";
+    const title = document.createElement("div");
+    title.style.cssText = "color:#ffd75e;font-weight:bold;";
+    title.textContent = "While you were away";
+    const line = document.createElement("div");
+    line.style.cssText = "margin-top:3px;color:#b8c4dd;";
+    const x = document.createElement("button");
+    x.textContent = "✕";
+    x.style.cssText = "background:none;border:none;color:#8fa3c8;cursor:pointer;font-size:15px;line-height:1;padding:0;";
+    x.onclick = hideToast;
+    body.appendChild(title); body.appendChild(line);
+    toastEl.appendChild(body); toastEl.appendChild(x);
+    toastEl._line = line;
+    document.body.appendChild(toastEl);
+    return toastEl;
+  }
+  function hideToast() {
+    if (!toastEl) return;
+    toastEl.style.opacity = "0";
+    toastEl.style.transform = "translate(-50%,-8px)";
+    clearTimeout(toastTimer);
+  }
+  function showToast(text) {
+    const el = ensureToast();
+    el._line.textContent = text;
+    requestAnimationFrame(() => { el.style.opacity = "1"; el.style.transform = "translate(-50%,0)"; });
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 12000);
+  }
+  // only worth a toast for a real gap — back-to-back reloads/dev refreshes
+  // shouldn't nag with "while you were away" every time
+  const AWAY_TOAST_MIN_MS = 5 * 60 * 1000;
+  function maybeAwayToast() {
+    if (!lastAway || lastAway.awayMs < AWAY_TOAST_MIN_MS) return;
+    const h = Math.floor(lastAway.awayMs / 3600000), m = Math.round((lastAway.awayMs % 3600000) / 60000) % 60;
+    const dur = h > 0 ? `${h}h ${m}m` : `${Math.max(1, m)}m`;
+    showToast(`Away ${dur} — ${lastAway.text}`);
+  }
+
+  // ---------- discrete-event intake (goals-arc.js, eggs.js) ----------
+  // noteEvent bumps a named counter in S.events; noteEgg records an easter
+  // egg's FIRST discovery (id -> ms) and drops an insight line so it shows
+  // up in "Recent observations" too. Both persist on the normal cadence.
+  function noteEvent(k) { S.events[k] = (S.events[k] || 0) + 1; }
+  function noteEgg(id) {
+    if (!S.eggs) S.eggs = {}; // stores from before the eggs field existed
+    if (S.eggs[id]) return;
+    S.eggs[id] = Date.now();
+    insight(`Secret found: ${id.replace(/_/g, " ")}.`);
+    persist();
+  }
+
   window.Pulse = { report, log: consoleLog, open, close, toggle: () => (isOpen() ? close() : open()),
+                   awaySummary: () => lastAway, maybeAwayToast, noteEvent, noteEgg,
                    _store: () => S, _session: () => ses, _sample: sample };
 })();

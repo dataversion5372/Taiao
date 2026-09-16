@@ -86,6 +86,14 @@ const R3D = (() => {
   // smoothed follow point (separate from the orbit so rotation is a clean arc,
   // never a chord that dips toward the player) and the shared billboard orientation
   let followX = null, followZ = null, followY = 0;
+  // Dream Forest (gameplay/dream.js): a silent relocation translates the
+  // player AND this follow point by the same delta, so the camera never
+  // notices the world moved underneath it. (WX(px) = tile + 0.5, so the
+  // shift is in plain tile units.)
+  if (typeof window !== "undefined")
+    window.__r3dShiftFollow = (dx, dz) => {
+      if (followX !== null) { followX += dx; followZ += dz; }
+    };
   // nearest of the 8 sprite directions to the *smoothed* camera angle, so directional
   // frames flip in sync with the visible rotation instead of snapping to the target
   // step the instant a key is pressed (which read as billboards lagging the ground).
@@ -95,7 +103,8 @@ const R3D = (() => {
   const _qYaw = new THREE.Quaternion(), _qTilt = new THREE.Quaternion(), _bbQuat = new THREE.Quaternion();
   const SKY = 0x87b5d4;
   const CELL = 33, CSZ = 32; // atlas cell pitch / drawable size (32px for painted tiles)
-  const FLAT_DECOR = new Set(["lily", "lily2", "lily3", "stepstone", "tilled_soil"]);
+  const FLAT_DECOR = new Set(["lily", "lily2", "lily3", "stepstone", "tilled_soil",
+    "footprint_moa"]); // the easter-egg trail (chunks.js) — a flat pressed print, never a billboard
   // pixellab masonry props that happen to start with "wall_" but are free-standing
   // billboards (rubble piles, brick/plaster sections, a wall bracket) — not the
   // structural wall_wood/wall_stone blocks the maze/ruins bake flat. Let these
@@ -1517,11 +1526,6 @@ const R3D = (() => {
     return m;
   }
   function place(m, wx, wz, h, scale = 1, flip = false, flat = false, baseY = 0) {
-    // Dream Forest: billboards shrink as the dream deepens — gently near the
-    // player, hard toward the screen edges (js/gameplay/dream.js), so the warp
-    // stays at the periphery/off-screen and doesn't induce nausea.
-    if (typeof DREAM !== "undefined" && DREAM.active)
-      scale *= DREAM.scaleAt(Math.hypot(wx - WX(player.px), wz - WX(player.py)));
     m.position.set(wx, baseY + (flat ? 0.02 : (h * scale) / 2 + (m.userData.lift || 0)), wz);
     // flat decor lies down; upright billboards share one orientation that faces the
     // orbiting camera and leans by TILT about the camera-right axis (computed in frame()).
@@ -4718,7 +4722,7 @@ const R3D = (() => {
     // sizes AND their above-the-head pixel offsets by this so they keep a
     // constant size and position relative to the character at any zoom
     // (1 at the default zoom; Dream Forest's magnifier counts as zooming in)
-    const uiK = ((typeof DREAM !== "undefined" && DREAM.active) ? DREAM.zoomIn : 1) / camZoom;
+    const uiK = 1 / camZoom;
     const nameFont = `bold ${(11 * uiK).toFixed(1)}px OpenDyslexic, Verdana`;
     // the player's overhead anchors (hp bar, bubbles, speech, weave) were tuned
     // for a build-1.0 sprite — multiply by the character's height so they ride
@@ -5286,10 +5290,7 @@ const R3D = (() => {
     syncFlow();
     sweep();
     // --- place the camera exactly on its orbit circle (no chord dip = no nausea) ---
-    // Dream Forest magnifies the ground as you sink deeper (eased DREAM.zoomIn) so
-    // tiles interpolate into a dreamy smear and more detail packs in; the ease is
-    // slow (no lurch) and manual zoom-out is clamped (see updateZoom).
-    const _cz = camZoom / ((typeof DREAM !== "undefined" && DREAM.active) ? DREAM.zoomIn : 1);
+    const _cz = camZoom;
     const dist = 9.6 * _cz, hgt = 9.2 * _cz, fb = 0.5 * _cz;
     camera.position.set(followX + sy * dist, hgt + followY, followZ + cyw * dist);
     camPos.copy(camera.position);

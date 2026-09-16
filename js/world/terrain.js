@@ -392,6 +392,69 @@ function tutIsleAtMap(x, y) {
   return !!q && q.D < 130;
 }
 
+// ---------- The Dream Forest interior: many doors, one forest ----------
+// Every Dream Forest patch in the wide world is a DOOR into the same hidden
+// interior (gameplay/dream.js): a column of six forest discs — five "depth
+// levels" and the Heart — carved far off in the tutorial isle's world block
+// (already named at boot, so no world-naming freeze on entry; same longitude
+// for every level, so the sun never jumps between them). Players are moved
+// between the discs by SILENT relocations that only ever fire at a waystone
+// glade — an identical stamped clearing (chunks.js) present at every door and
+// level — so the screen shows the same pixels before and after every swap:
+// all of the magic happens off-screen. Level discs are ringed by impassable
+// bramble (Dream.barred), and the walk between a level's IN and OUT glades
+// grows by ~110 game tiles per level, so the forest is quadratically bigger
+// inside than its little door patch could ever hold.
+// All values here in MAP units (= game tiles / 2).
+var DREAM_WORLD = (() => {
+  const CX = -3800;                     // column x — block (-1,0), far from the isle
+  const Y0 = 2300, DY = 500;            // level-0 centre y, centre-to-centre spacing
+  const D2R = Math.PI / 180;
+  // per-level secret bearing IN → OUT (degrees); nothing on screen encodes it —
+  // only the waystone's moss whisper (dream.js) names the true direction
+  const PSI = [61, 198, 335, 112, 249];
+  const LVL = [];
+  for (let i = 0; i < 5; i++) {
+    const D = 55 * (i + 1);             // IN↔OUT separation (map units)
+    const cx = CX, cy = Y0 + DY * i;
+    const ux = Math.cos(PSI[i] * D2R), uy = Math.sin(PSI[i] * D2R);
+    LVL.push({
+      cx, cy, R: D / 2 + 65, psi: PSI[i],
+      IN:  { x: cx - ux * D / 2, y: cy - uy * D / 2 },
+      OUT: { x: cx + ux * D / 2, y: cy + uy * D / 2 },
+    });
+  }
+  // the Heart: the reward glade-village at the bottom of the dream
+  const HEART = { cx: CX, cy: Y0 + DY * 5, R: 75, IN: { x: CX, y: Y0 + DY * 5 - 48 } };
+  // region rect: every disc + blend margin. Kept well inside block (-1,0).
+  const RECT = { x0: CX - 260, x1: CX + 260, y0: Y0 - 260, y1: HEART.cy + 260 };
+  const GLADE_R = 26;                   // identical-stamp radius (map units; 52 game)
+  return { CX, Y0, DY, LVL, HEART, RECT, GLADE_R };
+})();
+// signed sample of the interior at MAP (x,y): null outside the region rect
+// (hot-path early-out — every terrain field calls this per tile), else
+// { lvl (0-4, 5 = Heart), cx, cy, R, r (distance to the level centre), w
+// (override weight, fading to natural terrain over the rect's outer 20) }.
+function dreamSD(x, y) {
+  const R = DREAM_WORLD.RECT;
+  if (x < R.x0 || x > R.x1 || y < R.y0 || y > R.y1) return null;
+  const idx = Math.max(0, Math.min(5, Math.round((y - DREAM_WORLD.Y0) / DREAM_WORLD.DY)));
+  const L = idx === 5 ? DREAM_WORLD.HEART : DREAM_WORLD.LVL[idx];
+  const edge = Math.min(x - R.x0, R.x1 - x, y - R.y0, R.y1 - y);
+  return {
+    lvl: idx, cx: L.cx, cy: L.cy, R: L.R,
+    r: Math.hypot(x - L.cx, y - L.cy),
+    w: Math.min(1, edge / 20),
+  };
+}
+// inside the interior's influence? (features.js exclusions + road costing +
+// gameplay/world.js seenBounds — the region never seeds villages/POIs/portals
+// and never counts toward the explored world-map view)
+function dreamZoneAtMap(x, y) {
+  const R = DREAM_WORLD.RECT;
+  return x >= R.x0 - 10 && x <= R.x1 + 10 && y >= R.y0 - 10 && y <= R.y1 + 10;
+}
+
 // Callers (1):
 //  world.js:22
 function createWorldTerrain() {
@@ -525,7 +588,13 @@ function createWorldTerrain() {
     if (isl > 0.60) e += (isl - 0.60) * 0.55;
     const v = originBlend(x, y, Math.max(0, Math.min(1, e)), 0.565);
     const q = tutIsleSD(x, y);
-    return q && q.D < 130 ? tutMix(q, v, tutElev(x, y, q)) : v;
+    if (q && q.D < 130) return tutMix(q, v, tutElev(x, y, q));
+    // Dream Forest interior (DREAM_WORLD, top of file): gentle dry rolls —
+    // never a beach (>0.497), never highlands (<0.615), so the whole region
+    // classifies B.DREAM and no water ever cuts a level disc
+    const dq = dreamSD(x, y);
+    if (dq) return v + (0.525 + (fbm(x * 0.05, y * 0.05, S + 911, 2) - 0.5) * 0.035 - v) * dq.w;
+    return v;
   }
 
   // Latitude: triangle wave maps Y → 0 (equatorial/warm) to 1 (polar/cold),
@@ -556,7 +625,10 @@ function createWorldTerrain() {
     // Tūhura Isle: forced climate whatever the latitude says — per-POD now
     // (each zone's unique biome needs its own temperature band)
     const q = tutIsleSD(x, y);
-    return q && q.D < 130 ? tutMix(q, v, TUT_ISLE.pods[q.i].tmp || 0.52) : v;
+    if (q && q.D < 130) return tutMix(q, v, TUT_ISLE.pods[q.i].tmp || 0.52);
+    const dq = dreamSD(x, y);          // Dream interior: the temperate DREAM band
+    if (dq) return v + (0.50 - v) * dq.w;
+    return v;
   }
 
   // Humidity: latitude bands + valley drainage + basin flow (SimpleHydrology-inspired)
@@ -605,13 +677,18 @@ function createWorldTerrain() {
       const wob = (fbm(x * 0.07, y * 0.07, S + 883, 2) - 0.5) * 0.08;
       return tutMix(q, v, (TUT_ISLE.pods[q.i].hum || 0.50) + wob);
     }
+    const dq = dreamSD(x, y);          // Dream interior: forest-wet
+    if (dq) return v + (0.64 - v) * dq.w;
     return v;
   }
 
   const civField = (x, y) => {
     const v = originBlend(x, y, fbm(x * 0.0012, y * 0.0012, S + 601, 2), 0.72);
     const q = tutIsleSD(x, y);
-    return q && q.D < 130 ? tutMix(q, v, TUT_ISLE.pods[q.i].civ || 0.35) : v;
+    if (q && q.D < 130) return tutMix(q, v, TUT_ISLE.pods[q.i].civ || 0.35);
+    const dq = dreamSD(x, y);
+    if (dq) return v + (0.30 - v) * dq.w;
+    return v;
   };
   const weirdField = (x, y) => {
     const v = originBlend(x, y, fbm(x * 0.002, y * 0.002, S + 901, 2), 0.5);
@@ -619,12 +696,18 @@ function createWorldTerrain() {
     // no fantasy biomes on the isle — but the Portal Crown runs LOW weird
     // (wrd 0.18 → the Ruins biome) for its ancient-stones look
     const p = q && q.D < 130 ? TUT_ISLE.pods[q.i] : null;
-    return p ? tutMix(q, v, p.wrd != null ? p.wrd : 0.45) : v;
+    if (p) return tutMix(q, v, p.wrd != null ? p.wrd : 0.45);
+    const dq = dreamSD(x, y);          // Dream interior: deep in the weird band
+    if (dq) return v + (0.90 - v) * dq.w;
+    return v;
   };
   const farmField = (x, y) => {
     const v = fbm(x * 0.025, y * 0.025, S + 501, 3);
     const q = tutIsleSD(x, y);
-    return q && q.D < 130 ? tutMix(q, v, TUT_ISLE.pods[q.i].farm || 0.35) : v;
+    if (q && q.D < 130) return tutMix(q, v, TUT_ISLE.pods[q.i].farm || 0.35);
+    const dq = dreamSD(x, y);
+    if (dq) return v + (0.30 - v) * dq.w;
+    return v;
   };
 
   // Biome classifier: Whittaker latitude × altitude × humidity matrix

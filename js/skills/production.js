@@ -217,7 +217,8 @@ function computeQuality(recipe, station, inputAvgQ) {
   const stDef = station && station.type && typeof STATIONS !== "undefined" ? STATIONS[station.type] : null;
   const stationC = (stDef && stDef.quality) || 50;
   const toolC = toolQualityFor(recipe);
-  const rnd = Math.random() * 100;
+  // quality is economy-bearing: seeded server-side when logged in (seedroll.js)
+  const rnd = (typeof SeedRoll !== "undefined" ? SeedRoll.random() : Math.random()) * 100;
   const q = M.input * inputAvgQ + M.skill * skillC + M.mastery * masteryC +
             M.station * stationC + M.tool * toolC + M.random * rnd;
   return Math.max(0, Math.min(100, Math.round(q)));
@@ -275,7 +276,7 @@ function craftOnce(recipe, station) {
     names.push(ITEMS[o.id].name + (o.qty > 1 ? " x" + o.qty : ""));
   }
   for (const b of recipe.byproducts || []) {
-    if (b.chance != null && Math.random() > b.chance) continue;
+    if (b.chance != null && (typeof SeedRoll !== "undefined" ? SeedRoll.random() : Math.random()) > b.chance) continue;
     if (addProduced(b.id, b.qty || 1, Math.round(quality * 0.85), meta.refs, recipe))
       names.push(ITEMS[b.id].name + (b.qty > 1 ? " x" + b.qty : ""));
   }
@@ -342,7 +343,7 @@ function collectReadyJobs(stationType) {
       if (invFull(outs[0].id)) break; // no room — leave the rest queued
       for (const o of outs) addProduced(o.id, o.qty, quality, job.inRefs, r);
       for (const b of r.byproducts || []) {
-        if (b.chance != null && Math.random() > b.chance) continue;
+        if (b.chance != null && (typeof SeedRoll !== "undefined" ? SeedRoll.random() : Math.random()) > b.chance) continue;
         addProduced(b.id, b.qty || 1, Math.round(quality * 0.85), job.inRefs, r);
       }
       addXp(r.skill, r.xp, true);

@@ -8,6 +8,9 @@
 
 // ---- curated one-liners (atlas decor + named civic / natural props) ----
 const DECOR_EXAMINE = {
+  // the moa-trail easter egg (chunks.js lays the trail; eggs.js credits the
+  // discovery when this is examined) — the text carries the whole mystery
+  footprint_moa: "A great three-toed print pressed deep into the turf — longer than your forearm, the stride enormous. It runs on ahead… and then, mid-field, it simply stops. The grass beyond is unbroken.",
   // flora
   flower_white: "A little white blossom, nodding in the breeze.",
   flower_blue: "A blue wildflower.",
@@ -182,6 +185,7 @@ function _humanize(key) {
 
 // ---- short display names, for the "Examine <name>" menu label ----
 const DECOR_NAME = {
+  footprint_moa: "giant footprints",
   flower_white: "white flower", flower_blue: "blue flower", flower_orange: "orange flower", flower_purple: "purple flower",
   bush: "bush", bush2: "bush", berrybush: "berry bush", leaflitter: "fallen leaves", fallen_log: "fallen log",
   mushroom: "mushrooms", mushroom_big: "giant toadstool", mushroom_big2: "giant mushroom",

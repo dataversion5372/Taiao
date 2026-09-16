@@ -1,0 +1,13 @@
+Taiao music — sources & licenses
+================================
+
+bifrost_theme: "Frozen Star" Kevin MacLeod (incompetech.com)
+  Licensed under Creative Commons: By Attribution 4.0
+  http://creativecommons.org/licenses/by/4.0/
+  https://incompetech.com/music/royalty-free/mp3-royaltyfree/Frozen%20Star.mp3
+  (trimmed to the first 46s with fade in/out, re-encoded Opus — from the
+  "Scoring: Wonder" collection; plays over the Bifrost crossing cinematic)
+
+The exploration-music layer has no recorded tracks to credit: it is
+generated live by js/gameplay/music.js from the world's weather, latitude
+and daylight (original synthesis, CC BY-SA like the rest of the assets).

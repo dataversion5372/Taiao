@@ -19,6 +19,7 @@
 		  <div id="bl-sub">the living world</div>
 		  <div id="bl-track"><div id="bl-fill"></div></div>
 		  <div id="bl-stage">Loading game code…</div>
+		  <div id="bl-names"></div>
 		</div>
 		<style>
 		  #bootload { position: fixed; inset: 0; z-index: 9999; background: #14161f;
@@ -34,13 +35,33 @@
 		    background: linear-gradient(90deg, #b98a2e, #ffd75e);
 		    transition: width .15s linear; }
 		  #bl-stage { color: #8f96ad; font-size: 13px; min-height: 1.4em; }
+		  /* town/POI names streamed past during the cold "Naming the world…"
+		     stage (the ~9s that stage takes IS thousands of real names being
+		     generated — this makes that wait watchable instead of a dead bar) */
+		  #bl-names { color: #6c7690; font-size: 12px; font-style: italic; min-height: 1.2em;
+		    opacity: 0; transform: translateY(3px); transition: opacity .25s ease, transform .25s ease; }
+		  #bl-names.show { opacity: 1; transform: translateY(0); }
 		</style>
 		<script>
 		(() => {
 		  "use strict";
 		  const fill = document.getElementById("bl-fill");
 		  const stageEl = document.getElementById("bl-stage");
+		  const namesEl = document.getElementById("bl-names");
 		  const box = document.getElementById("bootload");
+		  // throttled so a warm/instant pass shows nothing and a cold ~9s pass
+		  // reads as a stream, not a flicker (real yields can fire every ~40ms)
+		  let nameLast = 0, namePending = "";
+		  const showName = name => {
+		    if (!name || name === namePending) return;
+		    namePending = name;
+		    if (performance.now() - nameLast < 160) return;
+		    nameLast = performance.now();
+		    namesEl.classList.remove("show");
+		    namesEl.textContent = "Naming " + name + "…";
+		    void namesEl.offsetWidth; // force reflow so the fade-in replays
+		    namesEl.classList.add("show");
+		  };
 		  // one segment per ef:* mark, in firing order; each ENDS at its mark.
 		  // Widths: [cold-default, warm-default] ms — cold = first-ever visit
 		  // (world naming dominates), warm = a refresh with a save + caches.
@@ -106,10 +127,14 @@
 		      const i = SEGS.findIndex(s => s[0] === n);
 		      if (i < 0 || i < idx) return;
 		      idx = i + 1; segT0 = performance.now(); sub = -1;
+		      if (n === "nameGen") namesEl.classList.remove("show");
 		      setLabel(); draw();
 		    },
-		    sub(n, f) {
-		      if (SEGS[idx] && SEGS[idx][0] === n) { sub = Math.max(0, Math.min(1, f)); draw(); }
+		    sub(n, f, name) {
+		      if (SEGS[idx] && SEGS[idx][0] === n) {
+		        sub = Math.max(0, Math.min(1, f)); draw();
+		        if (n === "nameGen") showName(name);
+		      }
 		    },
 		    fail(msg) {
 		      stageEl.textContent = msg || "Something went wrong — check the browser console.";
@@ -286,6 +311,7 @@
 			  <button class="tab" data-tab="equip">Equip</button>
 			  <button class="tab" data-tab="skills">Skills</button>
 			  <button class="tab" data-tab="goals">Goals</button>
+			  <button class="tab" data-tab="account" id="accounttab" style="display:none" title="Optional account: cloud save vault, community workshop, leaderboards. The game never requires one.">Account</button>
 			  <button class="tab" data-tab="help">?</button>
 			  <button class="tab" data-tab="cheats" id="cheattab" style="display:none" title="Developer overrides: time, weather, snow, flood (DEV_MODE builds only)">Dev</button>
 			</div>
@@ -298,6 +324,7 @@
 			</div>
 			<div id="panel-skills" class="panel"></div>
 			<div id="panel-goals" class="panel"><!-- built by js/main/ui.js renderGoals from the Tūhura Isle tutorial --></div>
+			<div id="panel-account" class="panel"><!-- built by js/net/account-ui.js in server-enabled builds --></div>
 			<div id="panel-cheats" class="panel"><!-- built by js/gameplay/cheats.js in DEV_MODE builds --></div>
 			<div id="panel-help" class="panel">
 			  <h3>Taiao</h3>
@@ -321,12 +348,24 @@
 				<li>Trade at the <b>general store</b>. Bank at the <b>chest</b>. Eat food to heal. Autosaves.</li>
 				<li>Resources get richer with distance: 32 tiers each of trees, ores, fish, herbs, crops, runes and more.</li>
 			  </ul>
+				  <h4 style="margin:10px 0 4px">Accessibility</h4>
+				  <label style="display:flex;align-items:center;gap:8px;margin:4px 0">UI text size
+				    <input type="range" id="fontscale" min="70" max="200" step="5" style="flex:1"></label>
+				  <label style="display:flex;align-items:center;gap:8px;margin:4px 0">Motion
+				    <select id="motionsel" style="flex:1">
+				      <option value="auto">Follow system setting</option>
+				      <option value="reduce">Reduced — static Bifrost crossing, no shakes or eased zooms</option>
+				      <option value="full">Full</option>
+				    </select></label>
+				  <p class="hint">Reduced motion swaps the graduation cinematic for a still crossing and turns continuous zooms and rotations into single cuts. UI text size scales the sidebar, log and menus — the world itself is untouched.</p>
 				  <h4 style="margin:10px 0 4px">Sound</h4>
 				  <label style="display:flex;align-items:center;gap:8px;margin:4px 0">Game sounds
 				    <input type="range" id="gamevol" min="0" max="100" step="1" style="flex:1"></label>
 				  <label style="display:flex;align-items:center;gap:8px;margin:4px 0">Nature sounds
 				    <input type="range" id="naturevol" min="0" max="100" step="1" style="flex:1"></label>
-				  <p class="hint">Nature covers birdsong and the rain.</p>
+				  <label style="display:flex;align-items:center;gap:8px;margin:4px 0">Music
+				    <input type="range" id="musicvol" min="0" max="100" step="1" style="flex:1"></label>
+				  <p class="hint">Nature covers birdsong and the weather beds. Music is generated live from where you're standing — latitude, daylight and the weather shape it.</p>
 				  <p class="hint">Hear something odd in a bird recording — a voice, a siren, a car? Press <b>N</b> the moment you hear it (or the button below): the playing clips and their positions are logged so the stray sounds can be cut out of the recordings.</p>
 				  <button id="soundflagbtn">Flag odd bird sound (N)</button>
 				  <button id="soundflagexport">Export sound flags…</button>
@@ -339,7 +378,7 @@
 				  <p class="hint">Save/load a real <code>.json</code> file on disk, independent of browser storage — use it as a backup or to move your character between browsers/computers.</p>
 				  <p class="hint">3D needs WebGL: hard-refresh (Cmd+Shift+R), enable hardware acceleration in your browser's performance settings, and allow this page in any canvas/fingerprint-blocking extension.</p>
 			  <h4 style="margin:10px 0 4px">Credits &amp; licences</h4>
-			  <p class="credits">Art: Kenney.nl roguelike packs (CC0) · "Tiny Creatures" by Clint Bellanger (CC0) · custom sprites made for Taiao (PixelLab + hand-drawn, CC BY-SA). Sounds: CC0 from Kenney.nl &amp; OpenGameArt — every file credited in <code>assets/sfx/CREDITS.txt</code>. Birdsong: real xeno-canto recordings (CC BY-NC-SA), each recordist credited in <code>assets/birdsong/CREDITS.txt</code>. Font: OpenDyslexic (SIL OFL). Engines: three.js (MIT) · XaoS.js fractal zoomer (GPL). Code: GPL-3.0-or-later — Taiao is free and licensed to stay that way, forever.</p>
+			  <p class="credits">Art: Kenney.nl roguelike packs (CC0) · "Tiny Creatures" by Clint Bellanger (CC0) · custom sprites made for Taiao (PixelLab + hand-drawn, CC BY-SA). Sounds: CC0 from Kenney.nl &amp; OpenGameArt — every file credited in <code>assets/sfx/CREDITS.txt</code>. Birdsong: real xeno-canto recordings (CC BY-NC-SA), each recordist credited in <code>assets/birdsong/CREDITS.txt</code>. Music: Bifrost theme "Frozen Star" by Kevin MacLeod, incompetech.com (CC BY 4.0, <code>assets/music/CREDITS.txt</code>); exploration music is generated live by the game itself. Font: OpenDyslexic (SIL OFL). Engines: three.js (MIT) · XaoS.js fractal zoomer (GPL). Code: GPL-3.0-or-later — Taiao is free and licensed to stay that way, forever.</p>
 				  <h4 style="margin:10px 0 4px">Community &amp; contributing</h4>
 				  <p class="credits">Source, issues and the object workshop's submission path: <a href="https://github.com/dataversion5372/Taiao" target="_blank" rel="noopener">github.com/dataversion5372/Taiao</a>. Questions, ideas, or just want to talk about the world — <a href="https://github.com/dataversion5372/Taiao/discussions" target="_blank" rel="noopener">GitHub Discussions</a> is the one community channel.</p>
 			</div>

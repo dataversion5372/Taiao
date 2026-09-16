@@ -29,6 +29,16 @@ behave, propose changes to its drop table, generation rules, or upload your
 own sprite set. Everything you do there is saved locally first — it never
 touches the shipped game by itself.
 
+**Worn looks are a community project.** The game once auto-warped a single
+generic armour decal onto every body — it looked bad and is parked. Instead,
+the Edit panel for your character (and for any equippable item) now carries a
+**"Worn look"** section per equipped piece: upload an 8-direction sprite set
+of a character actually *wearing* the helm/chest/garment/weapon (name the
+character in the label — worn art is per-body), and vote on the looks you
+like. The parked auto-warp is shown alongside as the look to beat. Winning
+sets get packed into real per-character outfit states, piece by piece, as
+proposals come in.
+
 When you have something you're happy with, click **"Export my proposal"**
 in the workshop panel's header. That bundles your votes, suggestions and any
 uploaded art for *that object* into a single `taiao-proposal-<type>-<key>.json`

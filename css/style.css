@@ -525,3 +525,14 @@ html, body { height: 100%; background: #1a1620; color: #ddd; font-family: "OpenD
 #banksignup .bsbtns button { flex: 1; padding: 8px 6px; background: #453a58; color: #fff; border: 1px solid #6b5c8a; cursor: pointer; font-size: 13px; }
 #banksignup .bsbtns button:hover { background: #574870; }
 #banksignup .bsbtns button.bsno { background: #2a2335; color: #a99cc4; }
+
+/* ---- accessibility: UI text scale (js/main/settings.js) ----------------
+   zoom reflows text, padding and layout together. Applied to the sidebar
+   and to the DOM text overlays that share #gamecol with the canvases —
+   NEVER to #gamecol/#game/#overlay themselves (the world canvas must stay
+   native-resolution; in-world labels are canvas-drawn and scale with
+   camZoom instead). #worldmap stays out too: its labels are canvas-drawn. */
+#sidebar, #log, #ctxmenu, #hovertext,
+#charselect, #skillguide, #bestiary, #questlog, #trade {
+  zoom: var(--ui-scale, 1);
+}

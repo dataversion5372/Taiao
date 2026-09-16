@@ -170,6 +170,8 @@ function stokeFire(node, invIndex, alreadySparked) {
   const key = heatKey(node);
   const cur = stationHeatNow(node);                  // don't let a weak stoke cool a hot fire
   stationHeat.set(key, { peak: Math.max(cur, f.peak), stokedAt: now, burnMs: f.burnMs, tier: f.tier });
+  // Phase-2 shared world: a stoked forge stays hot for the next player (regionsync.js)
+  if (typeof RegionSync !== "undefined") RegionSync.noteHeat(key);
   if (node.expireAt != null) node.expireAt = now + f.burnMs;   // keep a re-stoked campfire alive as long as it's hot
   s.qty -= 1;
   if (s.qty <= 0) player.inv[invIndex] = null;
@@ -211,6 +213,7 @@ function lightPlacedFire(node) {
   node.type = "campfire"; node.station = true; node.dyn = true;
   node.expireAt = now + f.burnMs;
   stationHeat.set(heatKey(node), { peak: f.peak, stokedAt: now, burnMs: f.burnMs, tier: f.tier });
+  if (typeof RegionSync !== "undefined") RegionSync.noteHeat(heatKey(node));
   addXp("Firemaking", Math.round(30 * (1 + Math.min(MAX_LEVEL - 1, f.tier) * 0.55) * (f.premium ? 1.4 : 1)));
   log("The fire catches and burns merrily.");
   uiDirty = true;

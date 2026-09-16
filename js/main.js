@@ -154,7 +154,7 @@ async function init() {
   // above) resolve instantly.
   if (world.genWorldNames)
     await world.genWorldNames(player.x, player.y,
-      f => { if (typeof window !== "undefined" && window.__boot) __boot.sub("nameGen", f); });
+      (f, name) => { if (typeof window !== "undefined" && window.__boot) __boot.sub("nameGen", f, name); });
   M("nameGen");
   await world.preloadSeen(bootNear);
   M("preloadSeen");
@@ -267,6 +267,9 @@ async function init() {
   uiDirty = true;
   // first boot of a fresh character on Tūhura Isle: the Guide's welcome
   if (typeof Tutorial !== "undefined") Tutorial.maybeWelcome();
+  // "while you were away" — Pulse already finalized the previous session's
+  // summary at boot-eval time; surface it once, right as the world paints
+  if (typeof Pulse !== "undefined" && Pulse.maybeAwayToast) Pulse.maybeAwayToast();
   M("gameReady");
   // record this boot's real per-stage durations — the loading bar's segment
   // widths next time. Cold (fresh save) and warm boots have wildly different
@@ -318,6 +321,8 @@ async function init() {
       if (typeof tickPlaced === "function") tickPlaced(); // temporary placed decor withers
       if (!cine && typeof Quests !== "undefined") Quests.tick(); // quest collect/reach objectives
       if (!cine && typeof Tutorial !== "undefined" && Tutorial.tick) Tutorial.tick(); // Tūhura source-reach reward
+      if (!cine && typeof GoalsArc !== "undefined") GoalsArc.tick(dt); // post-Bifrost "First days in Newhaven" arc
+      if (!cine && typeof Eggs !== "undefined") Eggs.tick(dt); // easter-egg condition watchers (1 Hz inside)
       render();
     } catch (e) {
       console.error("frame error:", e);

@@ -323,6 +323,9 @@ function genWorld() {
     mainBranchFor: features.mainBranchFor,
     _roadNetTrace: features._roadNetTrace, // debug: BFS trace with custom budget
     _edgeSeaSpans: features._edgeSeaSpans, // debug: per-edge water spans
+    // Dream Forest doors (features.js lattice; MAP units in/out) — consumed by
+    // gameplay/dream.js for entry detection and weather calm-blending
+    dreamGatesNear: features.dreamGatesNear,
     // WORLD partition: [wx,wy] of the 15000²-tile block holding GAME tile (x,y);
     // named locations carry a matching `world: "wx,wy"` tie — features.js
     worldOf: features.worldOf,

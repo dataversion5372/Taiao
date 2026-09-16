@@ -15,6 +15,9 @@ js/character-stats.js
 js/decor-examine.js
 js/content.js
 js/audio.js
+# user settings (font scale, motion preference) — early so reducedMotion()
+# exists for every later module; UI binds itself at DOMContentLoaded
+js/main/settings.js
 js/skills/economy.js
 js/skills/textiles.js
 js/skills/husbandry.js
@@ -81,7 +84,9 @@ js/gameplay/monsters.js
 js/gameplay/birdflight.js
 js/gameplay/birdsong.js
 js/gameplay/ambience.js
+js/gameplay/music.js
 js/gameplay/portals.js
+js/gameplay/wizard.js
 js/gameplay/locks.js
 js/gameplay/world.js
 js/gameplay/input.js
@@ -176,5 +181,21 @@ js/gameplay/dream.js
 js/gameplay/split.js
 js/gameplay/bifrost.js
 js/gameplay/pulse.js
+# Phase-1 server layer (js/net/): all of it no-ops unless the build sets
+# TAIAO_SERVER_URL. Order: api core first; actionlog wraps the choke points
+# (after pulse.js so both wrap chains stack); UI last.
+js/net/serverapi.js
+js/net/actionlog.js
+js/net/savesync.js
+js/net/worksync.js
+# Phase-2 shared-world layer: region mutation ledger, shop stock ledger,
+# server-issued seeds. Same rule: inert without SERVER_URL + a login.
+js/net/regionsync.js
+js/net/shopsync.js
+js/net/seedroll.js
+js/net/account-ui.js
+js/gameplay/koha.js
+js/gameplay/goals-arc.js
+js/gameplay/eggs.js
 js/gameplay/postcard.js
 js/main.js

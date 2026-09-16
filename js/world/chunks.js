@@ -10,6 +10,7 @@ function createWorldChunks(ctx) {
     waterBody, riversNear, roadsNear, nearPoly, ROAD_W, villagesNear, roadNear, riverNear,
     solidDoorX, riverDoors,
     poiInfo, wildIcon, atlasVariantAt, biomeGround, BIOME_VEG,
+    dreamGatesNear,
     bankNetAt, bankNetInfo, mainBranchFor,
     GRASS_LIKE_B, FOREST_LIKE_B, SWAMP_LIKE_B, WATER_LIKE_B, ROCK_LIKE_B,
     localTierCap, rollTier,
@@ -432,6 +433,112 @@ function createWorldChunks(ctx) {
         });
       }
     }
+    // Te Kairaranga, the Weaver — the chant-magic teacher (gameplay/wizard.js).
+    // Two rooted bodies, same soul: one across the plaza from the Registrar,
+    // one inside their own tower (stamped by this file's POI pass at
+    // Wizard.towerPos(), a cheap deterministic spot outside Newhaven).
+    if (typeof MIX_NPCS !== "undefined" && MIX_NPCS && MIX_NPCS.list && MIX_NPCS.list.length) {
+      const wdef = MIX_NPCS.list[7 % MIX_NPCS.list.length];
+      const weaver = (x, y, mid, line) => ({
+        name: (wdef && wdef.name ? wdef.name : "The") + " the Weaver",
+        x, y, px: PX(x), py: PX(y),
+        look: -1, mix: wdef && wdef.key, mixTitle: "Weaver",
+        dir8: "south",
+        _mid: mid, _home: [x, y], _r: 0, // rooted
+        _wanderAt: (typeof performance !== "undefined" ? performance.now() : 0) + 9e9,
+        _mt: 0,
+        wizard: true,
+        line,
+      });
+      const WX = -2, WY = 2, wkey = "newhaven:weaver";
+      if (WX >= ch.cx * CHUNK && WX < (ch.cx + 1) * CHUNK &&
+          WY >= ch.cy * CHUNK && WY < (ch.cy + 1) * CHUNK && !npcDerived.has(wkey)) {
+        npcDerived.add(wkey);
+        npcs.push(weaver(WX, WY, "newhavenWeaver",
+          `"You hear the hum too, eh? Come — the weave wants speaking to."`));
+      }
+      const wt = (typeof Wizard !== "undefined" && Wizard.towerPos) ? Wizard.towerPos() : null;
+      if (wt) {
+        const tkey = "weaver:tower";
+        if (wt.x >= ch.cx * CHUNK && wt.x < (ch.cx + 1) * CHUNK &&
+            wt.y >= ch.cy * CHUNK && wt.y < (ch.cy + 1) * CHUNK && !npcDerived.has(tkey)) {
+          npcDerived.add(tkey);
+          npcs.push(weaver(wt.x, wt.y, "towerWeaver",
+            `"Mind the bookshelves — some of them bite."`));
+        }
+      }
+    }
+    // Easter-egg dwellers (gameplay/eggs.js): every hermitage POI keeps its
+    // Hermit (he names your split selves) and every graveyard POI its
+    // gravedigger, Kurt, who ends every line the same way. Derived like the
+    // Registrar — pure position data off the POI lattice, so hydrated chunks
+    // keep them; npc-chat.js routes their Enter-chat through Eggs.npcReply.
+    // PCELL is world.js's POI-grid const (initialized long before any chunk
+    // derives); poiInfo seats are MAP coords, NPCs live in GAME coords (×2).
+    {
+      const mX0 = ch.cx * CHUNK / 2, mY0 = ch.cy * CHUNK / 2;
+      for (let pcy = Math.floor(mY0 / PCELL); pcy * PCELL < mY0 + CHUNK / 2; pcy++)
+        for (let pcx = Math.floor(mX0 / PCELL); pcx * PCELL < mX0 + CHUNK / 2; pcx++) {
+          const p = poiInfo(pcx, pcy);
+          if (!p || (p.type !== "hermitage" && p.type !== "graveyard")) continue;
+          const gx = p.x * 2 + 2, gy = p.y * 2 + 2;
+          if (gx < ch.cx * CHUNK || gx >= (ch.cx + 1) * CHUNK ||
+              gy < ch.cy * CHUNK || gy >= (ch.cy + 1) * CHUNK) continue;
+          const ekey = "egg:" + p.type + ":" + pcx + "," + pcy;
+          if (npcDerived.has(ekey)) continue;
+          npcDerived.add(ekey);
+          const herm = p.type === "hermitage";
+          const lk = hash2i(pcx, pcy, S ^ 0xe661) % VILLAGER_LOOKS.length;
+          npcs.push({
+            name: herm ? "the Hermit" : "Kurt the Gravedigger",
+            x: gx, y: gy, px: PX(gx), py: PX(gy),
+            look: lk, spr: VILLAGER_LOOKS[lk],
+            dir8: "south",
+            _mid: ekey, _home: [gx, gy], _r: herm ? 2 : 4,
+            _mt: 0,
+            _egg: herm ? "hermit" : "soitgoes",
+            talksFirst: true,
+            line: herm
+              ? `"Come closer. I name things — it's the one habit the silence never asked me to give up."`
+              : `"Busy trade, mine. So it goes."`,
+          });
+        }
+    }
+    // the Heart of the Dream's villagers (gameplay/dream.js): the Matron (a
+    // one-time gift + the sung way home) and the Somnolent Pedlar (the dream
+    // shop, npc.alwaysOpen — no closing hours at the bottom of a dream).
+    // Derived like the Registrar: pure fixed positions off DREAM_WORLD, so
+    // hydrated Heart chunks keep them.
+    if (typeof DREAM_WORLD !== "undefined" && typeof MIX_NPCS !== "undefined" &&
+        MIX_NPCS && MIX_NPCS.list && MIX_NPCS.list.length) {
+      const HCx = Math.round(DREAM_WORLD.HEART.cx * 2), HCy = Math.round(DREAM_WORLD.HEART.cy * 2);
+      const face = (want, fb) => MIX_NPCS.list.find(m => m.title && m.title.includes(want)) ||
+        MIX_NPCS.list[fb % MIX_NPCS.list.length];
+      const seatDream = (dx, dy, key, mid, def, name, title, extra, line) => {
+        const x = HCx + dx, y = HCy + dy;
+        if (x < ch.cx * CHUNK || x >= (ch.cx + 1) * CHUNK ||
+            y < ch.cy * CHUNK || y >= (ch.cy + 1) * CHUNK || npcDerived.has(key)) return;
+        npcDerived.add(key);
+        npcs.push({
+          name, x, y, px: PX(x), py: PX(y),
+          look: -1, mix: def && def.key, mixTitle: title,
+          dir8: "south",
+          _mid: mid, _home: [x, y], _r: 0, // rooted — the Heart keeps its people
+          _wanderAt: (typeof performance !== "undefined" ? performance.now() : 0) + 9e9,
+          _mt: 0,
+          ...extra,
+          line,
+        });
+      };
+      const mdef = face("Wisp Bard", 11);
+      seatDream(1, -1, "dream:matron", "dreamMatron", mdef,
+        "the Matron of the Heart", "Matron", { dreamNpc: "matron" },
+        `"Welcome, walker. Few find the way down — fewer still by accident."`);
+      const pdef = face("Owlin Wizard", 23);
+      seatDream(7, 2, "dream:pedlar", "dreamPedlar", pdef,
+        "the Somnolent Pedlar", "Pedlar", { dreamNpc: "pedlar", trader: true, shopType: "dream", alwaysOpen: true },
+        `"Open at all hours. There is only one hour here, and it is always it."`);
+    }
     for (const b of ch.buildings || []) {
       const bkey = b.x0 + "," + b.y0;
       if (npcDerived.has(bkey)) continue;
@@ -585,6 +692,10 @@ function createWorldChunks(ctx) {
     const chRoads = roadsNear(bxM - 8, byM - 8, bxM + csM + 8, byM + csM + 8);
     const riverAt = (wx, wy) => {
       const mx = wx * 0.5, my = wy * 0.5;
+      // the Dream Forest interior is dry by carve (terrain.js DREAM_WORLD) —
+      // a lattice river polyline crossing the region must not paint water
+      // through a level disc or a waystone glade
+      if (typeof dreamZoneAtMap === "function" && dreamZoneAtMap(mx, my)) return false;
       for (const rv of chRivs)
         for (const pts of rv.polys)
           if (nearPoly(pts, mx, my, 0)) return true;
@@ -1102,6 +1213,15 @@ function createWorldChunks(ctx) {
         if (p.x < bx - 16 || p.x >= bx + CHUNK + 16 || p.y < by - 16 || p.y >= by + CHUNK + 16) continue;
         stampPoi(p);
       }
+    // Te Kairaranga's own tower (gameplay/wizard.js): a dedicated spire at a
+    // cheap deterministic spot outside Newhaven — pure elevation math, not
+    // the POI lattice, so it costs nothing to locate and survives POI-table
+    // changes. Same wide stamp margin as the loop above.
+    if (typeof Wizard !== "undefined" && Wizard.towerPos) {
+      const wt = Wizard.towerPos();
+      if (wt && wt.x >= bx - 16 && wt.x < bx + CHUNK + 16 && wt.y >= by - 16 && wt.y < by + CHUNK + 16)
+        stampPoi({ x: wt.x, y: wt.y, type: "wizardtower", name: "The Weaver's Tower" });
+    }
     function stampPoi(p) {
       const { x, y, type } = p;
       if (inCh(x, y - 2)) labels.push({ x, y: y - 2, label: p.name, c: "#9ecbff" });
@@ -1573,9 +1693,11 @@ function createWorldChunks(ctx) {
     const treeCap = localTierCap(bx + 16, by + 16, TREES.length);
     const rockCap = localTierCap(bx + 16, by + 16, METALS.length);
     const nTiles = CHUNK * CHUNK;
-    // (Dream Forest illusion parked 2026-09-06 — normal vegetation density. Set
-    // this back to 2.6 for B.DREAM when the effect is revived, see dream.js.)
-    const dreamLush = 1;
+    // Dream Forest runs LUSH (revived 2026-09-16 with the pocket-interior
+    // rewrite, see gameplay/dream.js): dense enough that the sky is crowns and
+    // any two places in it look like the same place — cover for the interior's
+    // silent glade-to-glade relocations.
+    const dreamLush = centerB === B.DREAM ? 2.6 : 1;
     let tTrees = Math.round(treeDens * nTiles * (0.7 + rng() * 0.6) * dreamLush);
     let tRocks = Math.round(rockDens * nTiles * (0.7 + rng() * 0.6));
     for (let t2 = 0; t2 < 300 && (tTrees > 0 || tRocks > 0); t2++) {
@@ -1657,6 +1779,28 @@ function createWorldChunks(ctx) {
             if (rng() < 0.12) deco(x, y, PADS[Math.floor(rng() * PADS.length)]);
           }
       }
+    }
+    // --- moa footprint trails (easter egg — eggs.js "moa_prints"): roughly
+    // one open-grassland chunk in 150 carries a line of giant three-toed
+    // prints striding across the field at a 2-tile gait… and then stopping,
+    // mid-stride, with the grass beyond unbroken. Deterministic per chunk
+    // (position hash, not the order-sensitive rng), rendered flat
+    // (render3d FLAT_DECOR), non-pickable (no OBJ_MAP entry), examine text
+    // in decor-examine.js. A trail that runs out of clean grass truncates —
+    // trails shorter than 4 prints are dropped rather than half-laid.
+    if (GRASS_LIKE_B.has(centerB) && hash2i(bx, by, S ^ 0x40a0) % 150 === 0) {
+      const DIRS = [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
+      const [fdx, fdy] = DIRS[hash2i(bx, by, S ^ 0x40a1) % 8];
+      const steps = 5 + hash2i(bx, by, S ^ 0x40a2) % 4;
+      let fx2 = bx + 2 + hash2i(bx, by, S ^ 0x40a3) % (CHUNK - 4);
+      let fy2 = by + 2 + hash2i(bx, by, S ^ 0x40a4) % (CHUNK - 4);
+      const trail = [];
+      for (let i = 0; i < steps; i++) {
+        if (!openTile(fx2, fy2) || !GRASS_LIKE_B.has(bG[G(fx2 - bx, fy2 - by)])) break;
+        trail.push([fx2, fy2]);
+        fx2 += fdx * 2; fy2 += fdy * 2;
+      }
+      if (trail.length >= 4) for (const [tx2, ty2] of trail) deco(tx2, ty2, "footprint_moa");
     }
     // --- naturally-generated farm fields: a fenced rectangle of plantable soil
     // in Farmland biome, one agriculture skill per field, a gate for access.
@@ -2096,6 +2240,158 @@ function createWorldChunks(ctx) {
           nodes.splice(i, 1);
           if (inCh(n.x, n.y)) blocked[li(n.x, n.y)] = 0;
         }
+      }
+    }
+
+    // --- The Dream Forest (gameplay/dream.js): waystone glades, the interior
+    // levels' bramble rims, and the Heart village -----------------------------
+    // Every glade — the door in each wild Dream Forest patch, each level's IN
+    // and OUT, the Heart's arrival — is stamped from ONE deterministic local
+    // pattern (hashes of the tile's OFFSET from the glade centre, never world
+    // coords), so all of them are pixel-identical out to GLADE_RG tiles. That
+    // identity is what makes dream.js's silent relocations invisible: at the
+    // moment of a swap the whole screen (zoom is clamped inside the dream) is
+    // stamp, and the stamp is the same on both sides. Stamp flora is DECOR,
+    // never nodes — chopping/Taking would let two glades drift apart
+    // (decor-pickup.js refuses inside a glade for the same reason).
+    if (typeof DREAM_WORLD !== "undefined" && typeof dreamSD === "function") {
+      const GLADE_RG = 52;
+      const dropNodes2 = (x, y) => {
+        for (let i = nodes.length - 1; i >= 0; i--)
+          if (nodes[i].x === x && nodes[i].y === y) nodes.splice(i, 1);
+      };
+      const nearCh = (gx, gy, pad) => gx + pad >= bx && gx - pad < bx + CHUNK &&
+                                      gy + pad >= by && gy - pad < by + CHUNK;
+      // every glade whose stamp could touch this chunk
+      const glades = [];
+      for (const L of DREAM_WORLD.LVL)
+        for (const g of [L.IN, L.OUT]) {
+          const gx = Math.round(g.x * 2), gy = Math.round(g.y * 2);
+          if (nearCh(gx, gy, GLADE_RG + 8)) glades.push({ x: gx, y: gy });
+        }
+      {
+        const H = DREAM_WORLD.HEART.IN;
+        const gx = Math.round(H.x * 2), gy = Math.round(H.y * 2);
+        if (nearCh(gx, gy, GLADE_RG + 8)) glades.push({ x: gx, y: gy });
+      }
+      if (typeof dreamGatesNear === "function")
+        for (const g of dreamGatesNear(bxM - 34, byM - 34, bxM + csM + 34, byM + csM + 34)) {
+          const gx = Math.round(g.x * 2), gy = Math.round(g.y * 2);
+          if (nearCh(gx, gy, GLADE_RG + 8)) glades.push({ x: gx, y: gy });
+        }
+      if (glades.length) {
+        for (const g of glades) {
+          for (let ty2 = 0; ty2 < CHUNK; ty2++)
+            for (let tx2 = 0; tx2 < CHUNK; tx2++) {
+              const x = bx + tx2, y = by + ty2;
+              const dx = x - g.x, dy = y - g.y, d2 = dx * dx + dy * dy;
+              if (d2 > GLADE_RG * GLADE_RG) continue;
+              const idx = ty2 * CHUNK + tx2;
+              // standardized floor: fixed dream atlas column, LOCAL-hash variant
+              // (biomeGround's world-coord dither would differ between glades)
+              ground[idx] = "at_30_" + (hash2i(dx + 97, dy + 97, 0xd0d0) % 4) + "_6";
+              dropNodes2(x, y); decor[idx] = null; blocked[idx] = 0;
+              if (d2 > 9.5 * 9.5) {   // forest ring; the clearing stays open
+                const r = hash2i(dx + 97, dy + 97, 0xd0d1) % 1000;
+                if (r < 170) { decor[idx] = "tree_dreamwood"; blocked[idx] = 1; }
+                else if (r < 210) { decor[idx] = "tree_duskwood"; blocked[idx] = 1; }
+                else if (r < 245) decor[idx] = "mushroom";
+                else if (r < 268) decor[idx] = "flower_purple";
+              }
+            }
+          // the clearing's fixed furniture — identical at every glade, and the
+          // exact props the whispers talk about (dream.js): the waystone, and
+          // the one twisted dreamwood you could swear you have passed before
+          const put = (dx, dy, key, blk) => {
+            const x = g.x + dx, y = g.y + dy;
+            if (!inCh(x, y)) return;
+            dropNodes2(x, y);
+            decor[li(x, y)] = key;
+            blocked[li(x, y)] = blk ? 1 : 0;
+          };
+          put(0, 0, "pillar_stone", true);
+          put(3, -2, "tree_dreamwood", true);
+          put(-4, 3, "mushroom_big2", false);
+          put(2, 4, "flower_purple", false);
+          put(-2, -3, "mushroom", false);
+        }
+        // no creature may stand in a stamp: a bird or beast visible at the
+        // moment of a relocation would pop in or out of existence
+        for (let i = spawnDefs.length - 1; i >= 0; i--) {
+          const sx = spawnDefs[i][1], sy = spawnDefs[i][2];
+          if (glades.some(g => Math.abs(sx - g.x) <= 60 && Math.abs(sy - g.y) <= 60))
+            spawnDefs.splice(i, 1);
+        }
+      }
+      // interior chunks: the bramble rim — a near-solid thicket band just
+      // inside each level disc's edge. Dream.barred is the true wall; this
+      // makes the wall READ as forest, not magic.
+      if (dreamSD(bxM + csM / 2, byM + csM / 2)) {
+        for (let ty2 = 0; ty2 < CHUNK; ty2++)
+          for (let tx2 = 0; tx2 < CHUNK; tx2++) {
+            const x = bx + tx2, y = by + ty2;
+            const dq = dreamSD(x * 0.5, y * 0.5);
+            if (!dq) continue;
+            const over = dq.r - (dq.R - 4);      // map units into the rim band
+            if (over <= 0 || over >= 14) continue;
+            const idx = ty2 * CHUNK + tx2;
+            if (String(decor[idx] || "").startsWith("stone_bridge")) continue;
+            const r = hash2i(x, y, 0xd0d2) % 1000;
+            if (r < 800) {
+              dropNodes2(x, y);
+              decor[idx] = r < 430 ? "tree_duskwood" : "bush#1";
+              blocked[idx] = 1;
+            }
+          }
+      }
+      // the HEART: a lamp-lit glade village no map will ever hold — the reward
+      // at the very centre of the dream. Houses go through the real settlement
+      // pipeline (stampBuilding, job-less so deriveNpcs adds no shopkeeper);
+      // the Matron and the Pedlar are derived in deriveNpcs like the Registrar.
+      const HC = { x: Math.round(DREAM_WORLD.HEART.cx * 2), y: Math.round(DREAM_WORLD.HEART.cy * 2) };
+      if (nearCh(HC.x, HC.y, 26)) {
+        const clear = (x, y) => {
+          if (!inCh(x, y)) return;
+          dropNodes2(x, y); decor[li(x, y)] = null; blocked[li(x, y)] = 0;
+        };
+        for (let dy = -8; dy <= 11; dy++)
+          for (let dx = -13; dx <= 13; dx++) {
+            if (dx * dx * 0.6 + dy * dy > 118) continue;   // a soft meadow ellipse
+            const x = HC.x + dx, y = HC.y + dy;
+            if (!inCh(x, y)) continue;
+            ground[li(x, y)] = "at_30_" + (hash2i(dx + 31, dy + 31, 0xd0d4) % 4) + "_6";
+            clear(x, y);
+          }
+        for (const hb of [{ x0: HC.x - 10, y0: HC.y - 4, w: 6, h: 5 },
+                          { x0: HC.x + 5, y0: HC.y - 5, w: 6, h: 5 }]) {
+          if (hb.x0 + hb.w < bx || hb.x0 >= bx + CHUNK ||
+              hb.y0 + hb.h < by || hb.y0 >= by + CHUNK) continue;
+          if (stampBuilding(hb))
+            furnishInterior(hb, [["bed", 1, 1], ["stool", hb.w - 2, 1]]);
+        }
+        const putH = (dx, dy, key, blk) => {
+          const x = HC.x + dx, y = HC.y + dy;
+          if (!inCh(x, y)) return;
+          dropNodes2(x, y);
+          decor[li(x, y)] = key;
+          blocked[li(x, y)] = blk ? 1 : 0;
+        };
+        putH(0, 1, "well_roofed", true);
+        putH(-3, 3, "candle_altar", true);
+        putH(3, 4, "candle_altar", true);
+        putH(-6, -1, "candle_altar", true);
+        putH(8, 2, "candle_altar", true);
+        // moonflax: the Heart's exclusive gatherable (NODE_TYPES.dream_moonflax,
+        // registered by gameplay/dream.js)
+        if (typeof NODE_TYPES !== "undefined" && NODE_TYPES.dream_moonflax)
+          for (const [mdx, mdy] of [[-7, 6], [-4, 8], [0, 7], [4, 8], [7, 6], [2, 9]]) {
+            const x = HC.x + mdx, y = HC.y + mdy;
+            if (!inCh(x, y)) continue;
+            clear(x, y);
+            addNode("dream_moonflax", x, y, false);
+          }
+        if (inCh(HC.x, HC.y - 7))
+          labels.push({ x: HC.x, y: HC.y - 7, label: "The Heart of the Dream", c: "#c9a7ff" });
       }
     }
 

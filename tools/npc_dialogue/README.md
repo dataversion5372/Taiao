@@ -61,7 +61,12 @@ At 100k+ lines consider sharding bank.emb.bin by role if the single-blob scan
 ## Provenance & licensing
 
 The dialogue corpora and the built banks are **not distributed** in this
-repository (see .gitignore) — only these pipeline scripts are.
+repository (see .gitignore) — only these pipeline scripts are. The built
+runtime set (embedded bank + MiniLM model + ONNX runtime) is published to
+the companion **Taiao-cdn** repo by `tools/publish_cdn_assets.sh`, and the
+game's service worker (sw.js) lazily streams it in when the served tree
+lacks it — so players get full semantic chat without this repo carrying
+the ~150 MB.
 
 - The seed lines in `generated/*.jsonl` are produced by `distill_bank.py`
   self-play against a **Llama-3.1-8B-Instruct** teacher. If you build and

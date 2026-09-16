@@ -79,22 +79,27 @@ keepers — and leave it by a crossing you'll want to see for yourself.
 ## What's in this repo — and what isn't
 
 Everything needed to play is tracked: code, sprite atlases, sound effects,
-fonts. Three **optional local layers** are *not* distributed here, and the
-game runs fine without them — quiet skies, and villagers who speak from a
-small built-in starter pool instead of the full semantic dialogue bank:
+ambience beds, music, fonts. Two heavier layers live in the companion
+**[Taiao-cdn](https://github.com/dataversion5372/Taiao-cdn)** repo instead of
+this one — and you don't need to do anything about that: when the game runs
+from a tree that lacks them, its service worker **streams each file in
+lazily** from Taiao-cdn the first time it's wanted, then caches it for good.
+Fully offline (or with the fetch blocked), the game still runs fine — quiet
+skies, and villagers who speak from a small built-in starter pool baked into
+`js/gameplay/npc-chat.js`:
 
-- **Bird recordings** — fetched from [xeno-canto](https://xeno-canto.org) with
-  `tools/fetch_birdsong.py`. The recordings are **CC BY-NC-SA**
-  (non-commercial) and so are kept out of this repository's CC BY-SA asset
-  grant; the per-clip attribution text the script writes alongside them
-  *does* ship (`assets/birdsong/CREDITS.txt`) even without the audio.
-- **Ambience beds** (rain/wind/ocean) — fully original synthesized noise;
-  regenerate with `tools/make_ambience.py` (needs ffmpeg).
-- **NPC dialogue bank + embedding model** — build pipeline in
+- **Bird recordings** — originally from [xeno-canto](https://xeno-canto.org)
+  via `tools/fetch_birdsong.py`. The recordings are **CC BY-NC-SA**
+  (non-commercial) and so are distributed from Taiao-cdn rather than inside
+  this repository's CC BY-SA asset grant; the per-clip attribution text
+  ships both here (`assets/birdsong/CREDITS.txt`) and beside the audio.
+- **NPC dialogue bank + embedding model + ONNX runtime** (~150 MB, fetched
+  only when an NPC is actually in earshot) — build pipeline in
   `tools/npc_dialogue/` (see its README for provenance and licensing notes).
-  Without it, NPCs (including the Sky Knoll's Skywatcher) fall back to a
-  small hand-written starter line pool baked into `js/gameplay/npc-chat.js`
-  — no download, no ML runtime required.
+  The starter pool remains the offline fallback, so chat (including the Sky
+  Knoll's Skywatcher) always works.
+
+Maintainers refresh Taiao-cdn with `tools/publish_cdn_assets.sh`.
 
 ## Building & hacking
 

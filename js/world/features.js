@@ -273,7 +273,10 @@ function createWorldFeatures(ctx) {
 
   // Roads route on elevation alone (the original network) — they may run
   // beside or weave across rivers; every road∧river tile becomes a bridge.
-  function roadCost(e) {
+  // The one place they may never go is the Dream Forest interior (terrain.js
+  // DREAM_WORLD): its flat carve would otherwise read as prime road country.
+  function roadCost(e, x, y) {
+    if (x != null && dreamZoneAtMap(x, y)) return Infinity;
     if (e < DEEP_E || e > 0.78) return Infinity;
     if (e < LAND_E) return WATER_COST;
     return 1 + Math.max(0, e - 0.60) * 2.2;
@@ -588,7 +591,8 @@ function createWorldFeatures(ctx) {
   const netCache = new Map();          // "cx,cy" (COARSE_STEP cell) → network id
   function bankNetId(gx, gy) {
     let c0x = Math.round(gx * 0.5 / COARSE_STEP), c0y = Math.round(gy * 0.5 / COARSE_STEP);
-    const pass = (cx, cy) => roadCost(elevation(cx * COARSE_STEP, cy * COARSE_STEP)) !== Infinity;
+    const pass = (cx, cy) => roadCost(elevation(cx * COARSE_STEP, cy * COARSE_STEP),
+      cx * COARSE_STEP, cy * COARSE_STEP) !== Infinity;
     // a chest can sit on a pier / cliff edge whose coarse sample is impassable:
     // nudge to the nearest passable cell so the flood has somewhere to start
     if (!pass(c0x, c0y)) {
@@ -978,16 +982,17 @@ function createWorldFeatures(ctx) {
     const mx0 = wx * WORLD_M - WORLD_M / 2, my0 = wy * WORLD_M - WORLD_M / 2;
     const c0x = Math.floor((mx0 - VCELL) / VCELL), c1x = Math.floor((mx0 + WORLD_M + VCELL) / VCELL);
     const c0y = Math.floor((my0 - VCELL) / VCELL), c1y = Math.floor((my0 + WORLD_M + VCELL) / VCELL);
-    let k = 0;
+    let k = 0, lastName = null;
     for (let cy = c0y; cy <= c1y; cy++) {
       for (let cx = c0x; cx <= c1x; cx++) {
         if (cx === 0 && cy === 0) continue;
         const s2 = villageSeat(cx, cy);
         if (!s2 || s2.x < mx0 || s2.x >= mx0 + WORLD_M || s2.y < my0 || s2.y >= my0 + WORLD_M) continue;
-        m.set(cx + "," + cy, namer());
+        lastName = namer();
+        m.set(cx + "," + cy, lastName);
         k++;
       }
-      yield [cy - c0y + 1, c1y - c0y + 1];
+      yield [cy - c0y + 1, c1y - c0y + 1, lastName];
     }
     // publish only if a concurrent sync pass didn't get there first (the
     // async boot run yields to rAF, and a map-label lookup mid-yield can
@@ -1014,6 +1019,7 @@ function createWorldFeatures(ctx) {
     const mx0 = wx * WORLD_M - WORLD_M / 2, my0 = wy * WORLD_M - WORLD_M / 2;
     const p0x = Math.floor((mx0 - PCELL) / PCELL), p1x = Math.floor((mx0 + WORLD_M + PCELL) / PCELL);
     const p0y = Math.floor((my0 - PCELL) / PCELL), p1y = Math.floor((my0 + WORLD_M + PCELL) / PCELL);
+    let lastName = null;
     for (let py2 = p0y; py2 <= p1y; py2++) {
       for (let px2 = p0x; px2 <= p1x; px2++) {
         const s2 = poiSeat(px2, py2);
@@ -1022,9 +1028,10 @@ function createWorldFeatures(ctx) {
         const bucket = s2.rawType === "portal" ? " Portal" : (POI_SUFFIX[s2.rawType] || "");
         let nb = buckets.get(bucket);
         if (!nb) { nb = worldBucketNamer(wx, wy, bucket, reg.used); buckets.set(bucket, nb); }
-        m.set(px2 + "," + py2, nb());
+        lastName = nb();
+        m.set(px2 + "," + py2, lastName);
       }
-      yield [py2 - p0y + 1, p1y - p0y + 1];
+      yield [py2 - p0y + 1, p1y - p0y + 1, lastName];
     }
     if (!reg.pNames) { // see _settleSteps' publish guard
       reg.pNames = m;
@@ -1048,15 +1055,15 @@ function createWorldFeatures(ctx) {
     const paint = typeof _bootYield === "function" ? _bootYield
       : () => new Promise(r => setTimeout(r, 0));
     let last = performance.now();
-    for (const [row, rows] of _settleSteps(wx, wy, reg))
+    for (const [row, rows, name] of _settleSteps(wx, wy, reg))
       if (performance.now() - last > 40) {
-        if (tick) tick(0.5 * (row / rows));
+        if (tick) tick(0.5 * (row / rows), name);
         await paint();
         last = performance.now();
       }
-    for (const [row, rows] of _poiSteps(wx, wy, reg))
+    for (const [row, rows, name] of _poiSteps(wx, wy, reg))
       if (performance.now() - last > 40) {
-        if (tick) tick(0.5 + 0.5 * (row / rows));
+        if (tick) tick(0.5 + 0.5 * (row / rows), name);
         await paint();
         last = performance.now();
       }
@@ -1695,6 +1702,8 @@ function createWorldFeatures(ctx) {
       const y = pgy * PORTAL_CELL + 10 + Math.floor(rand2(pgx, pgy * 7 + i, S ^ 0x7a02) * (PORTAL_CELL - 20));
       if (elevation(x, y) < LAND_E || riverNearPt(x, y, 2)) continue;
       if (tutIsleAtMap(x, y)) continue; // the isle stamps its own portal (chunks.js)
+      // the Dream interior seeds nothing; door glades keep their stamp clear
+      if (dreamZoneAtMap(x, y) || !dreamGateClearAt(x, y, 8)) continue;
       if (villageClearMapAt(x, y)) c = { x, y, pri: rand2(pgx, pgy, S ^ 0x7a03) };
     }
     portalCandCache.set(key, c);
@@ -1711,6 +1720,73 @@ function createWorldFeatures(ctx) {
             (o.pri < c.pri || (o.pri === c.pri && (dx < 0 || (dx === 0 && dy < 0))))) return null;
       }
     return c;
+  }
+
+  // ---------- Dream Forest doors: waystone glades in the strange old woods ----------
+  // A sparse lattice (same Poisson-lite pattern as portals) rolls one
+  // candidate per 400-unit cell. True wild B.DREAM patches are vanishingly
+  // rare (the weird>0.76 band barely intersects the hum/temp window), so a
+  // door stands wherever an old FOREST-family wood grows strange — weirdField
+  // ≥ 0.62 — with solid dry land across the glade stamp's whole footprint
+  // (the stamp brings its own darkening ring of dreamwood, chunks.js, so the
+  // approach reads as the forest turning toward the stone). Roughly one door
+  // per few thousand tiles of weird-leaning forest: rare enough to be a
+  // legend, common enough to be found. Crossing the glade's waystone is the
+  // door into the shared interior (terrain.js DREAM_WORLD, gameplay/dream.js).
+  // NOTE: this path is reachable from the seat probes (poiSeat/portal
+  // exclusion) — it must never touch ROADS or NAMING.
+  const DREAMGATE_CELL = 400;
+  const DREAMGATE_B = new Set([B.FOREST, B.TAIGA, B.JUNGLE, B.CHERRY, B.MUSHROOM, B.DREAM]);
+  const dreamGateCache = new Map();
+  function dreamGateSite(dgx, dgy) {
+    const key = dgx + "," + dgy;
+    if (dreamGateCache.has(key)) return dreamGateCache.get(key);
+    let c = null;
+    for (let i = 0; i < 8 && !c; i++) {
+      const x = dgx * DREAMGATE_CELL + 40 + Math.floor(rand2(dgx * 7 + i, dgy, S ^ 0xd201) * (DREAMGATE_CELL - 80));
+      const y = dgy * DREAMGATE_CELL + 40 + Math.floor(rand2(dgx, dgy * 7 + i, S ^ 0xd202) * (DREAMGATE_CELL - 80));
+      if (dreamZoneAtMap(x, y) || tutIsleAtMap(x, y)) continue;   // interior/isle never seed doors
+      if (!DREAMGATE_B.has(biomeAtTile(x, y)) || weirdField(x, y) < 0.62) continue;
+      let ok = true;
+      // woods on every near side, dry land across the whole stamp + margin
+      for (let a = 0; a < 8 && ok; a++) {
+        const c15 = biomeAtTile(Math.round(x + Math.cos(a * Math.PI / 4) * 15),
+                                Math.round(y + Math.sin(a * Math.PI / 4) * 15));
+        if (!DREAMGATE_B.has(c15) && c15 !== B.MEADOW && c15 !== B.GRASS) ok = false;
+        if (elevation(Math.round(x + Math.cos(a * Math.PI / 4) * 27),
+                      Math.round(y + Math.sin(a * Math.PI / 4) * 27)) < LAND_E + 0.004) ok = false;
+      }
+      if (!ok || elevation(x, y) < LAND_E + 0.004) continue;
+      if (riverNearPt(x, y, 28) || !villageClearMapAt(x, y)) continue;
+      c = { x, y };
+    }
+    dreamGateCache.set(key, c);
+    return c;
+  }
+  // every door glade in a MAP-unit rect (chunk stamping + gameplay/dream.js)
+  function dreamGatesNear(x0, y0, x1, y1) {
+    const out = [];
+    const c0x = Math.floor(x0 / DREAMGATE_CELL), c1x = Math.floor(x1 / DREAMGATE_CELL);
+    const c0y = Math.floor(y0 / DREAMGATE_CELL), c1y = Math.floor(y1 / DREAMGATE_CELL);
+    for (let cy = c0y; cy <= c1y; cy++)
+      for (let cx = c0x; cx <= c1x; cx++) {
+        const g = dreamGateSite(cx, cy);
+        if (g && g.x >= x0 && g.x <= x1 && g.y >= y0 && g.y <= y1) out.push(g);
+      }
+    return out;
+  }
+  // clear of every door glade's stamp (+pad map units)? POIs/portals must not
+  // collide with the standardized clearing
+  function dreamGateClearAt(x, y, pad) {
+    const r = 26 + (pad || 8);
+    const c0x = Math.floor((x - r) / DREAMGATE_CELL), c1x = Math.floor((x + r) / DREAMGATE_CELL);
+    const c0y = Math.floor((y - r) / DREAMGATE_CELL), c1y = Math.floor((y + r) / DREAMGATE_CELL);
+    for (let cy = c0y; cy <= c1y; cy++)
+      for (let cx = c0x; cx <= c1x; cx++) {
+        const g = dreamGateSite(cx, cy);
+        if (g && Math.hypot(g.x - x, g.y - y) < r) return false;
+      }
+    return true;
   }
 
   // Nameless POI probe: existence, anchor, RAW type and coast direction —
@@ -1740,7 +1816,8 @@ function createWorldFeatures(ctx) {
       const e = elevation(x, y);
       if (rand2(pcx, pcy, S ^ 0x9103) < 0.30 + civField(x, y) * 0.30 &&
           e >= LAND_E && !riverNearPt(x, y, 2) && villageClearMapAt(x, y) &&
-          !tutIsleAtMap(x, y)) { // the tutorial isle is hand-built (terrain.js)
+          !tutIsleAtMap(x, y) && // the tutorial isle is hand-built (terrain.js)
+          !dreamZoneAtMap(x, y) && dreamGateClearAt(x, y, 8)) { // so is the Dream interior + its door glades
         const b = biomeAtTile(x, y);
         const pick = rand2(pcx, pcy, S ^ 0x9104);
         const pick2 = rand2(pcx, pcy, S ^ 0x9109);
@@ -1992,7 +2069,11 @@ function createWorldFeatures(ctx) {
     [B.REDDESERT]: [0.002, null, 0.015, [["boulder", 0.02], ["skull", 0.005]]],
     [B.MUSHROOM]: [0.22, ["mushroom_big", "mushroom_big2", "mush_brown", "mush_purple", "mush_amber", "mush_teal"], 0, [["mush_amber", 0.03], ["mushroom_big2", 0.03], ["mush_teal", 0.02], ["mushroom", 0.04]]],
     [B.BONE]: [0.004, null, 0, [["skull", 0.05], ["gravestone", 0.02, 1], ["boulder", 0.008]]],
-    [B.DREAM]: [0.20, null, 0, [["flower_purple", 0.03], ["mushroom_big2", 0.02]]],
+    // Dream Forest wears its own trees (dreamwood-dominant pool — the twisted
+    // silhouettes are the biome's signature and the interior's landmark), with
+    // glowcaps and ghost-pale flora on the floor (gameplay/dream.js)
+    [B.DREAM]: [0.20, ["tree_dreamwood", "tree_dreamwood", "tree_duskwood", "tree_silverleaf"], 0,
+      [["flower_purple", 0.03], ["mushroom_big2", 0.02], ["forage_glowcap", 0.012], ["herb_ghostflower", 0.006], ["mushroom", 0.015]]],
     [B.ASH]: [0.18, null, 0.006, [["skull", 0.01], ["campfire", 0.002, 1]]],
     [B.MOOR]: [0.015, null, 0.006, [["flower_purple", 0.05], ["bush", 0.01, 1], ["nz_wharariki", 0.02]]],
     [B.GLACIER]: [0, null, 0.008, [["boulder", 0.02]]],
@@ -2214,6 +2295,7 @@ function createWorldFeatures(ctx) {
     riverAtPt, solidDoorX, riverDoors, riverFlowAt, _roadWarm, _roadCellInject,
     roadNearPt, riverNear, roadNear, bankNetId, bankNetAt, bankNetInfo, roadNetId, mainBranchFor, _roadNetTrace, _edgeSeaSpans, worldOf, _worldNameDump, preloadWorldNames, genWorldNamesAsync, macroPixels, genName, villageInfo, villagesNear,
     poiInfo, wildIcon, atlasVariantAt, personalityAt, biomeGround, BIOME_VEG,
+    dreamGateSite, dreamGatesNear, dreamGateClearAt,
     GRASS_LIKE_B, FOREST_LIKE_B, DESERT_LIKE_B, ROCK_LIKE_B, SWAMP_LIKE_B,
     WATER_LIKE_B, localTierCap, rollTier, villageForMap, villagesNearForMap,
     poisNearForMap, iconsNearForMap,

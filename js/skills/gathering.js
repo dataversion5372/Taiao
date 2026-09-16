@@ -116,6 +116,8 @@ function tickGather(act) {
     // Fishing spots + tutorial/probabilistic nodes keep their flat respawn.
     node.respawnAt = now + nt.respawn * (charged ? (node.leftMax || 1) : 1);
     if (nt.respawn) depletedNodes.push(node);
+    // Phase-2 shared world: other players see this node spent (js/net/regionsync.js)
+    if (typeof RegionSync !== "undefined") RegionSync.noteNode(node);
     player.act = null;
     return;
   }

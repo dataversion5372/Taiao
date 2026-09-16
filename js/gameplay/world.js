@@ -60,7 +60,7 @@ function updateWorldStuff() {
     return true;
   });
   if (typeof growBabies === "function") growBabies(); // husbandry: babies mature into adults
-  if (typeof DREAM !== "undefined") DREAM.update(); // Dream Forest shrinking illusion
+  if (typeof Dream !== "undefined") Dream.update(); // Dream Forest pocket interior (gameplay/dream.js)
   // activate monster spawns of chunks near the player — radius grows with
   // zoom-out (matching render3d viewRadius) so far chunks that come into view
   // when zoomed out get their monsters activated instead of standing empty.
@@ -168,13 +168,19 @@ const seenChunks = new Set(); // chunk keys the player has been near
 function seenBounds() {
   // Returns game-tile bounding box of all explored chunks, or null if nothing explored.
   if (!seenChunks.size) return null;
+  const CS = world.CHUNK;
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const k of seenChunks) {
     const [cx, cy] = k.split(',').map(Number);
+    // the Dream Forest interior never counts as explored world — the frozen
+    // in-dream map (wmDraw) must not let the pannable view reach the far-off
+    // region and give the trick away (gameplay/dream.js)
+    if (typeof dreamZoneAtMap === "function" &&
+        dreamZoneAtMap((cx * CS + CS / 2) * 0.5, (cy * CS + CS / 2) * 0.5)) continue;
     if (cx < x0) x0 = cx; if (cx > x1) x1 = cx;
     if (cy < y0) y0 = cy; if (cy > y1) y1 = cy;
   }
-  const CS = world.CHUNK;
+  if (x0 === Infinity) return null;
   return { x0: x0 * CS, y0: y0 * CS, x1: (x1 + 1) * CS, y1: (y1 + 1) * CS };
 }
 // Callers (2):
@@ -1709,8 +1715,11 @@ function wmDraw() {
     }
     wmCtx.textAlign = "left";
   }
-  // Player marker
-  const [px2, py2] = toScreen(player.x, player.y);
+  // Player marker — while dreaming, the map swears you are still standing at
+  // the door you entered by. It barely moves for as long as you walk. That is
+  // the point (gameplay/dream.js: the picture looks normal, and it is wrong).
+  const _wmP = (typeof Dream !== "undefined" && Dream.mapPos && Dream.mapPos()) || player;
+  const [px2, py2] = toScreen(_wmP.x, _wmP.y);
   wmCtx.strokeStyle = "#fff"; wmCtx.lineWidth = 2;
   wmCtx.beginPath(); wmCtx.arc(px2, py2, 6, 0, 7); wmCtx.stroke();
   wmCtx.fillStyle = "#fff";
@@ -1764,7 +1773,9 @@ function openWorldMap() {
   populateBiomeDropdown();
   wm.open = true;
   wmSyncOverlayToggles();   // browser form-state restore doesn't fire change
-  wm.cx = player.x; wm.cy = player.y;
+  // while dreaming, the map opens on the door you entered by (dream.js)
+  const _wmC = (typeof Dream !== "undefined" && Dream.mapPos && Dream.mapPos()) || player;
+  wm.cx = _wmC.x; wm.cy = _wmC.y;
   wmEl.style.display = "block";
   if (world.prewarmMacros) world.prewarmMacros();   // top up the zoomed-out macro set
   wmDraw();
@@ -1957,9 +1968,10 @@ function updateZoom(dt) {
   if (typeof LC3D !== "undefined" && REN === LC3D) return;
   if (keys.ArrowUp) camZoom = Math.max(ZOOM_MIN, camZoom - dt * 0.0012);
   if (keys.ArrowDown) camZoom = Math.min(ZOOM_MAX, camZoom + dt * 0.0012);
-  // Dream Forest pins the camera from pulling back — you can't step outside the
-  // illusion to see the whole trick (would break the dream / feel dizzy).
-  if (typeof DREAM !== "undefined" && DREAM.active && camZoom > DREAM.zoomMax) camZoom = DREAM.zoomMax;
+  // Dream Forest pins the camera from pulling back: the interior's silent
+  // glade swaps are invisible only while the identical stamp covers the whole
+  // screen (gameplay/dream.js — the invisibility contract).
+  if (typeof Dream !== "undefined" && Dream.inside() != null && camZoom > Dream.zoomMax) camZoom = Dream.zoomMax;
 }
 gamecol.addEventListener("wheel", e => {
   // let the character selector, skill guide and trade window scroll natively
@@ -1990,7 +2002,11 @@ function updateTerrainBar() {
     const hum = world.humidityAt(px, py);
     _tbTmp = world.temperatureAt(px, py);
     _tbBiome = world.biomeNameAt(px, py);
-    document.getElementById('t-xy').textContent    = `${px}, ${py}`;
+    // while dreaming, X,Y reports the position the world BELIEVES you're at
+    // (near the door you entered by — gameplay/dream.js mapPos); the raw
+    // interior coordinates would give the whole trick away in one glance
+    const _ap = (typeof Dream !== "undefined" && Dream.mapPos && Dream.mapPos()) || null;
+    document.getElementById('t-xy').textContent    = _ap ? `${_ap.x}, ${_ap.y}` : `${px}, ${py}`;
     document.getElementById('t-biome').textContent = _tbBiome;
     // Altitude: 0% at sea level (LAND_E), +100% at max peak; negative = depth
     const LE = world.LAND_ELEVATION;
@@ -2041,8 +2057,11 @@ function updateTerrainBar() {
   if (timeEl && typeof clockTime === 'function') timeEl.textContent = clockTime();
   const tzEl = document.getElementById('t-tz');
   if (tzEl && typeof tzZone === 'function') {
+    // dreaming: the zone follows the door, agreeing with the held clock (dream.js)
+    let _tzx = player.x;
+    if (typeof Dream !== "undefined" && Dream.fxX) { const fx = Dream.fxX(_tzx); if (fx != null) _tzx = fx; }
     // wrap the zone into [-11, +12] hours (past the date line +12 rolls to -11)
-    const wz = ((tzZone(player.x) + 11) % 24 + 24) % 24 - 11;
+    const wz = ((tzZone(_tzx) + 11) % 24 + 24) % 24 - 11;
     const sign = (wz > 0 && wz < 12) ? '+' : wz < 0 ? '−' : '±';   // ±12 at the date line, ±0 at Newhaven
     const offStr = `${sign}${Math.abs(wz)}:00`;   // offset vs Newhaven, whole hours
     tzEl.textContent = offStr;
@@ -2104,7 +2123,10 @@ function renderCompass() {
   compassCtx.clearRect(0, 0, w, h);
   compassCtx.save();
   compassCtx.translate(cx, cy);
-  compassCtx.rotate(camYaw || 0);
+  // the Dream Forest's quarter-turn lie rides on top of the camera yaw — the
+  // dial still looks perfectly ordinary, it just isn't telling the truth
+  // (gameplay/dream.js; eased so slowly the turn itself is unwatchable)
+  compassCtx.rotate((camYaw || 0) + ((typeof Dream !== "undefined" && Dream.yawLie) ? Dream.yawLie() : 0));
   compassCtx.font = "bold 11px OpenDyslexic, Arial, sans-serif";
   compassCtx.textAlign = "center";
   compassCtx.textBaseline = "middle";
@@ -2325,7 +2347,9 @@ function renderMinimap() {
   // their shared centre (the player). The camera only snaps to 90° steps, so a
   // square layer always covers the cropped viewport — no empty corners. Kept in
   // sync with the compass, which rotates its dial by the same camYaw.
-  const yaw = (typeof camYaw === "number") ? camYaw : 0;
+  // (+ the Dream Forest's compass lie, so minimap and dial agree on the fib)
+  const yaw = ((typeof camYaw === "number") ? camYaw : 0) +
+    ((typeof Dream !== "undefined" && Dream.yawLie) ? Dream.yawLie() : 0);
   if (_mmYaw !== yaw) {
     _mmYaw = yaw;
     const tf = `translate(-50%,-50%) rotate(${yaw}rad)`;

@@ -127,13 +127,17 @@ function birdObstacleTop(x, y) {
 // default rhythm is roost → hop to another crown → roost, with the odd
 // fence/wall/roof/ground stop. `away` (a {x,y}) biases the fan directly away
 // from a threat — a flushed bird flees, it doesn't circle its attacker.
-function birdPickPerch(m, cfg, away) {
+function birdPickPerch(m, cfg, away, near) {
   let best = null, bestScore = -1;
   for (let i = 0; i < 60; i++) {
     let ang = Math.random() * Math.PI * 2;
     if (away) ang = Math.atan2(m.y - away.y, m.x - away.x) + (Math.random() - 0.5) * 1.6;
-    const r = (cfg.ground ? 4 : 7) + Math.random() * (cfg.ground ? 10 : 20) + (away ? 8 : 0);
-    const x = Math.round(m.x + Math.cos(ang) * r), y = Math.round(m.y + Math.sin(ang) * r);
+    // `near` (a {x,y}) recentres the whole sample fan on that point at close
+    // range — the pīwakawaka escort picks its perches AROUND the player
+    const cx0 = near ? near.x : m.x, cy0 = near ? near.y : m.y;
+    const r = near ? 1.5 + Math.random() * 4.5
+      : (cfg.ground ? 4 : 7) + Math.random() * (cfg.ground ? 10 : 20) + (away ? 8 : 0);
+    const x = Math.round(cx0 + Math.cos(ang) * r), y = Math.round(cy0 + Math.sin(ang) * r);
     if (x === m.x && y === m.y) continue;
     const p = birdPerchAt(x, y);
     if (!p) continue;
@@ -153,7 +157,14 @@ function birdSetTarget(fl, tgt) {
 }
 
 function birdLaunch(m, cfg, away) {
-  const tgt = birdPickPerch(m, cfg, away);
+  // the after-rain fantail escort (easter egg — eggs.js maintains the
+  // __eggRainUntil window): an unflushed pīwakawaka near the player keeps
+  // choosing perches around them, so it flits along wherever you walk
+  const escort = !away && typeof player !== "undefined" &&
+    (m.kind || "").replace(/_v$/, "") === "piwakawaka" &&
+    typeof window !== "undefined" && window.__eggRainUntil > Date.now() &&
+    Math.hypot(player.x - m.x, player.y - m.y) < 14;
+  const tgt = birdPickPerch(m, cfg, away, escort ? player : null);
   if (!tgt) { m.takeoffAt = now + 3000 + Math.random() * 5000; return; }
   // current float position: px is authoritative whether walking, mid-step or
   // already aloft (PX-space / (TILE*SCALE) is the tile-float the renderer uses)

@@ -36,19 +36,24 @@ function npcRetrievalWarm() {
   if (NPCR.state !== "cold") return;
   NPCR.state = "loading";
   const boot = (async () => {
-    const T = await import("/libs/npcml/transformers.bundle.mjs");
+    // BASE-RELATIVE, not root-absolute: the game may be served from a
+    // subdirectory (itch.io), where "/libs/…" points outside the game
+    // entirely — and on a first visit the service worker doesn't control
+    // the page yet, so its CDN fallback can't rescue a bad absolute path.
+    const base = p => new URL(p, document.baseURI).href;
+    const T = await import(base("libs/npcml/transformers.bundle.mjs"));
     T.env.allowRemoteModels = false;
     T.env.allowLocalModels = true;
-    T.env.localModelPath = "/assets/models/";
+    T.env.localModelPath = base("assets/models/");
     if (T.env.backends && T.env.backends.onnx && T.env.backends.onnx.wasm)
-      T.env.backends.onnx.wasm.wasmPaths = "/libs/npcml/";
+      T.env.backends.onnx.wasm.wasmPaths = base("libs/npcml/");
     const [pipe, embBuf, scaleBuf, meta, rembBuf, rscaleBuf] = await Promise.all([
       T.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", { dtype: "q8" }),
-      fetch("/assets/npc_dialogue/bank.emb.bin").then(r => r.arrayBuffer()),
-      fetch("/assets/npc_dialogue/bank.scale.bin").then(r => r.arrayBuffer()),
-      fetch("/assets/npc_dialogue/bank.meta.json").then(r => r.json()),
-      fetch("/assets/npc_dialogue/bank.remb.bin").then(r => r.arrayBuffer()),
-      fetch("/assets/npc_dialogue/bank.rscale.bin").then(r => r.arrayBuffer()),
+      fetch(base("assets/npc_dialogue/bank.emb.bin")).then(r => r.arrayBuffer()),
+      fetch(base("assets/npc_dialogue/bank.scale.bin")).then(r => r.arrayBuffer()),
+      fetch(base("assets/npc_dialogue/bank.meta.json")).then(r => r.json()),
+      fetch(base("assets/npc_dialogue/bank.remb.bin")).then(r => r.arrayBuffer()),
+      fetch(base("assets/npc_dialogue/bank.rscale.bin")).then(r => r.arrayBuffer()),
     ]);
     NPCR.embedder = pipe;
     NPCR.emb = new Int8Array(embBuf);

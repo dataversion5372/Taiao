@@ -30,6 +30,8 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const GEN_FILES = [
   "js/world.js", "js/world/terrain.js", "js/world/erosion.js",
   "js/world/chunks.js", "js/world/features.js", "js/gameplay/tutorial.js",
+  "js/gameplay/dream.js", // Dream Forest interior + glade stamps feed chunk gen
+  "js/gameplay/wizard.js", // Wizard.towerPos() decides where chunks stamp the Weaver's tower
   "js/biome-tiles.js", "js/nz-extra-trees.js",
 ];
 // MAP bakes additionally depend on the map painter itself.
@@ -51,10 +53,20 @@ const VENDOR = new Set(["libs/three.min.js"]);
 
 const bundleFiles = srcs.filter(s => !VENDOR.has(s));
 
+// ---- Phase-1 server (server/) ---------------------------------------------
+// SERVER_URL wires the client to the Taiao worker (accounts / save vault /
+// workshop tallies / koha transparency). Empty (the default) = every net
+// feature no-ops and the game is the same fully-offline build as before.
+// TURNSTILE_SITEKEY pairs with the worker's TURNSTILE_SECRET (bot checks on
+// register/login); leave both unset in dev.
+const SERVER_URL = (process.env.TAIAO_SERVER_URL || "").replace(/\/+$/, "");
+const TURNSTILE_SITEKEY = process.env.TAIAO_TURNSTILE_SITEKEY || "";
+
 // the signature prelude must precede every bundled file (chunks.js, map.js
 // and features.js read the globals when they evaluate)
-let combined = `/* world-cache signatures (tools/build.mjs) */\n` +
-  `var WORLDGEN_SIG = "${WORLDGEN_SIG}", MAPBAKE_SIG = "${MAPBAKE_SIG}";\n;\n`;
+let combined = `/* world-cache signatures + server config (tools/build.mjs) */\n` +
+  `var WORLDGEN_SIG = "${WORLDGEN_SIG}", MAPBAKE_SIG = "${MAPBAKE_SIG}";\n` +
+  `var SERVER_URL = ${JSON.stringify(SERVER_URL)}, TURNSTILE_SITEKEY = ${JSON.stringify(TURNSTILE_SITEKEY)};\n;\n`;
 let rawBytes = 0;
 for (const rel of bundleFiles) {
   const p = path.join(ROOT, rel);
@@ -87,4 +99,5 @@ console.log(`\nBundled ${bundleFiles.length} files from tools/bundle.list`);
 console.log(`Raw code:   ${K(rawBytes)}`);
 console.log(`Minified:   ${K(Buffer.byteLength(out))}  ->  dist/bundle.js`);
 console.log(`World-gen signature: ${WORLDGEN_SIG}   map-bake signature: ${MAPBAKE_SIG}`);
+console.log(SERVER_URL ? `Server: ${SERVER_URL}` : `Server: disabled (set TAIAO_SERVER_URL to enable accounts/sync)`);
 console.log(`(persisted chunk/map/name caches re-key automatically when these change)`);

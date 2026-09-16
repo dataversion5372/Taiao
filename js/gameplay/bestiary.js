@@ -133,7 +133,19 @@
       const sc = mkIcon(sprKeyOf(MONSTERS[e.kind]), 40); if (sc) tdS.appendChild(sc);
       tr.appendChild(tdS);
       const tdL = document.createElement("td"); tdL.className = "blvl"; tdL.textContent = e.lvl || "—"; tr.appendChild(tdL);
-      const tdN = document.createElement("td"); tdN.className = "bname"; tdN.textContent = e.name; tr.appendChild(tdN);
+      const tdN = document.createElement("td"); tdN.className = "bname"; tdN.textContent = e.name;
+      // lore lines (the extinct birds carry them — see nz-extra-birds.js):
+      // shown under the name once the creature is discovered; reading one
+      // the first time quietly credits the bestiary_lore easter egg
+      const lore = MONSTERS[e.kind] && MONSTERS[e.kind].lore;
+      if (lore && e.kills > 0) {
+        const lv = document.createElement("div");
+        lv.style.cssText = "margin-top:2px;font-size:11px;font-style:italic;color:#8fa3c8;font-weight:normal;";
+        lv.textContent = lore;
+        tdN.appendChild(lv);
+        if (typeof Eggs !== "undefined" && Eggs.found) Eggs.found("bestiary_lore", null);
+      }
+      tr.appendChild(tdN);
       // slain count
       const tdK = document.createElement("td"); tdK.className = "bslain"; tdK.textContent = e.kills > 0 ? "×" + e.kills : "—"; tr.appendChild(tdK);
       const tdB = document.createElement("td"); tdB.className = "bbiome"; tdB.textContent = e.biomes.length ? e.biomes.join(", ") : "—"; tr.appendChild(tdB);

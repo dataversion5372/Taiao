@@ -1,0 +1,42 @@
+# Taiao Phase-1 server — Cloudflare Worker + D1 + R2 + Turnstile.
+# See server/README.md for first-deploy steps (create the D1 db + R2 bucket,
+# paste their ids below, apply schema.sql, set secrets).
+
+name = "taiao-server"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# Weekly workshop digest — Monday 09:00 UTC (Monday evening NZT) — plus the
+# Phase-2 daily tick: rank recompute, envelope sweep, stale-stock sweep.
+[triggers]
+crons = ["0 9 * * 1", "30 14 * * *"]
+
+# Phase 2: one Durable Object per world region holds the shared mutation
+# ledger (node depletion, picked decor, station heat).
+[durable_objects]
+bindings = [{ name = "REGION", class_name = "RegionLedger" }]
+
+[[migrations]]
+tag = "v2-region-ledger"
+new_sqlite_classes = ["RegionLedger"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "taiao"
+database_id = "REPLACE-AFTER-wrangler-d1-create"
+
+[[r2_buckets]]
+binding = "VAULT"
+bucket_name = "taiao-vault"
+
+[vars]
+# Comma-separated origins allowed to call the API (no trailing slashes).
+ALLOWED_ORIGINS = "http://localhost:8899,http://127.0.0.1:8899"
+# WebAuthn relying-party id (the domain the GAME is served from, not the API).
+RP_ID = "localhost"
+
+# Secrets (set with `wrangler secret put NAME`), all optional:
+#   TURNSTILE_SECRET  — enables Turnstile verification on register/login
+#   ADMIN_TOKEN       — enables /api/admin/* (costs, flag queue, proposal status)
+#   GITHUB_TOKEN      — with GITHUB_REPO, posts the weekly digest to Discussions
+# Optional vars: GITHUB_REPO ("owner/name"), DIGEST_CATEGORY ("Workshop digest")

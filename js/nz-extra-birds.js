@@ -88,6 +88,23 @@ for (const [key, name, lvl, aggro, meat, qty] of NZ_EXTRA_BIRDS) {
   MONSTER_THEME[key] = "m";
 }
 
+// Bestiary lore for the EXTINCT birds (easter egg: bestiary.js renders these
+// under the name and credits "bestiary_lore" the first time one is read).
+// Natural history + the birdsong proxy-voice story only — the recordings
+// really are borrowed from each bird's closest living relative (birdsong.js /
+// assets/birdsong/CREDITS.txt), and the lore says so out loud.
+const NZ_BIRD_LORE = {
+  moaiti: "Gone three hundred years. Her song here is borrowed from the tinamou — her closest living cousin, an ocean away. A voice on loan until the silence gives the real one back.",
+  moauta: "The upland moa, walker of the high tussock. She speaks here with an emu's drumming: kin lending a voice to kin.",
+  moanui: "The tallest bird that ever walked. Nothing alive remembers her true call — a cassowary's boom stands in, the deepest voice the family still owns.",
+  huia: "Prized to death for a white-tipped tail feather. Her song is sung here by the kōkako, the nearest voice left in the forest.",
+  hakawai: "Heard at night, almost never seen: a roar of air through stiff tail-feathers, pulled out of a dive. The snipe still makes that exact sound, and lends it here.",
+  pouakai: "The great eagle that struck moa from the high ridges. When the moa went, so did she. A smaller eagle lends her cry.",
+  kuihinui: "The great flightless goose of the southern flats. Her honk is borrowed from the Cape Barren goose — the last of her near kin.",
+  koreke: "The New Zealand quail — common as grass, then gone within a generation. A brown quail speaks for her here.",
+};
+for (const k in NZ_BIRD_LORE) if (MONSTERS[k]) MONSTERS[k].lore = NZ_BIRD_LORE[k];
+
 // Add into the existing biome spawn lists (push, not replace) so NZ birds
 // mix into the current fantasy world instead of taking it over. Keyed by
 // internal bird key directly (not display name) — safe since slugify()

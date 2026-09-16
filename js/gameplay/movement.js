@@ -378,6 +378,16 @@ function moveTo(nx, ny) {
       return;
     }
   }
+  // Dream Forest interior (gameplay/dream.js): each level disc is ringed by
+  // bramble — the painted thicket is the look, this is the wall
+  if (typeof Dream !== "undefined") {
+    const b = Dream.barred(nx, ny);
+    if (b) {
+      player.path = []; player.goal = null;
+      log(b, "sys");
+      return;
+    }
+  }
   // stepping into a doorway swings the closed door/gate open on the way through
   if (world.structAt) {
     const s = world.structAt(nx, ny);
@@ -391,10 +401,8 @@ function moveTo(nx, ny) {
   // per-character move speed (character-stats.js): faster races cover a tile in
   // less time, slower ones take longer.
   let dur = (diag ? 270 : 190) / (typeof charSpeedMul === "function" ? charSpeedMul() : 1);
-  // Dream Forest: each tile takes `mag`× longer to cross (mag grows with depth),
-  // so escaping the biome costs time ∝ depth² — the deeper you're lured, the more
-  // hopelessly stuck you are (js/gameplay/dream.js).
-  if (typeof DREAM !== "undefined" && DREAM.active) dur *= DREAM.mag;
+  // (the old Dream Forest per-tile slowdown is gone — the 2026-09-16 rewrite
+  // keeps movement honest and does its magic off-screen, js/gameplay/dream.js)
   // deck/under bookkeeping for two-level tiles (bridge decks and river
   // buildings): stepping INTO the system picks a level by comparing the entry
   // tile's ground height with the deck height (enter from the bank top → on

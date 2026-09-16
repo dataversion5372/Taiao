@@ -1,0 +1,126 @@
+/* index.js — the Taiao Phase-1 worker: router, CORS, cron.
+ * One Worker, three bindings (DB=D1, VAULT=R2, Turnstile via secret).
+ * Everything the game needs when logged out is public GET; every write
+ * needs a session. GPL-3.0-or-later, same repo as the game — the server
+ * being open is part of the trust story. */
+
+import { err, json, now } from "./util.js";
+import * as auth from "./auth.js";
+import * as passkeys from "./passkeys.js";
+import * as saves from "./saves.js";
+import * as xp from "./xp.js";
+import * as workshop from "./workshop.js";
+import * as koha from "./koha.js";
+import * as admin from "./admin.js";
+import { buildAndPostDigest } from "./digest.js";
+import * as region from "./region.js";
+import * as shops from "./shops.js";
+import * as seeds from "./seeds.js";
+import * as envelope from "./envelope.js";
+import * as ranks from "./ranks.js";
+
+export { RegionLedger } from "./region.js";
+
+const ROUTES = {
+  "POST /api/register":                 auth.register,
+  "POST /api/login":                    auth.login,
+  "POST /api/logout":                   auth.logout,
+  "GET /api/me":                        auth.me,
+  "POST /api/password":                 auth.changePassword,
+
+  "POST /api/passkey/register/options": passkeys.registerOptions,
+  "POST /api/passkey/register":         passkeys.registerFinish,
+  "POST /api/passkey/login/options":    passkeys.loginOptions,
+  "POST /api/passkey/login":            passkeys.loginFinish,
+  "POST /api/passkey/remove":           passkeys.removePasskey,
+
+  "PUT /api/save":                      saves.putSave,
+  "GET /api/save/list":                 saves.listSaves,
+  "GET /api/save/blob":                 saves.getSaveBlob,
+
+  "GET /api/xp/dist":                   xp.distribution,
+  "GET /api/xp/leaderboard":            xp.leaderboard,
+
+  "POST /api/workshop/votes":           workshop.pushVotes,
+  "GET /api/workshop/tally":            workshop.tally,
+  "POST /api/workshop/proposal":        workshop.submitProposal,
+  "GET /api/workshop/proposals":        workshop.listProposals,
+  "GET /api/workshop/proposal":         workshop.getProposal,
+  "POST /api/workshop/endorse":         workshop.endorse,
+  "POST /api/workshop/flag":            workshop.flag,
+  "GET /api/workshop/digest/latest":    workshop.latestDigest,
+
+  "GET /api/koha/transparency":         koha.transparency,
+
+  "POST /api/region/push":              region.pushDeltas,
+  "GET /api/region/pull":               region.pullDeltas,
+  "GET /api/shop/stock":                shops.stock,
+  "POST /api/shop/trade":               shops.trade,
+  "POST /api/seeds/next":               seeds.next,
+  "GET /api/xp/validated":              envelope.mine,
+  "GET /api/ranks/skill":               ranks.skillMeta,
+  "GET /api/ranks/me":                  ranks.mine,
+
+  "POST /api/admin/cost":               admin.setCost,
+  "GET /api/admin/flagged":             admin.flaggedQueue,
+  "POST /api/admin/proposal":           admin.setProposalStatus,
+};
+
+function corsHeaders(req, env) {
+  const origin = req.headers.get("origin") || "";
+  const allowed = (env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim());
+  if (!allowed.includes(origin)) return null;
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-methods": "GET, POST, PUT, OPTIONS",
+    "access-control-allow-headers": "authorization, content-type",
+    "access-control-max-age": "86400",
+    "vary": "origin",
+  };
+}
+
+export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    const cors = corsHeaders(req, env);
+    if (req.method === "OPTIONS")
+      return new Response(null, { status: cors ? 204 : 403, headers: cors || {} });
+    // Same-origin tools (curl, health checks) carry no Origin header —
+    // allowed. A browser origin outside the allowlist is refused.
+    if (req.headers.get("origin") && !cors) return err("Origin not allowed.", 403);
+
+    // health goes through the normal path so CORS headers attach — the
+    // Phase-2 client reads it cross-origin to measure the clock offset
+    const handler = url.pathname === "/api/health"
+      ? () => json({ ok: true, t: now() })
+      : ROUTES[`${req.method} ${url.pathname}`];
+    if (!handler) return err("Not found.", 404);
+
+    let res;
+    try { res = await handler(req, env, url); }
+    catch (e) {
+      console.log("unhandled:", url.pathname, e && e.stack || e);
+      res = err("Something broke on our side.", 500);
+    }
+    if (cors) for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
+    return res;
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil((async () => {
+      if (event.cron === "30 14 * * *") {
+        // Phase-2 daily tick (~2:30 am NZT): validate stray summaries,
+        // recompute percentile standings, sweep stale shop stock.
+        await envelope.sweep(env);
+        await ranks.recomputeAll(env);
+        await shops.sweepStale(env);
+        return;
+      }
+      await buildAndPostDigest(env);
+      // Housekeeping: expired sessions + challenges, stale rate windows.
+      await env.DB.prepare("DELETE FROM sessions WHERE expires_at < ?").bind(now()).run();
+      await env.DB.prepare("DELETE FROM webauthn_challenges WHERE expires_at < ?").bind(now()).run();
+      await env.DB.prepare("DELETE FROM rate_limits WHERE win_start < ?").bind(now() - 864e5).run();
+    })());
+  },
+};

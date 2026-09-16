@@ -1,0 +1,20 @@
+{
+  "name": "taiao-server",
+  "version": "0.1.0",
+  "description": "Taiao Phase-1 server: accounts, save vault, workshop tallies, XP snapshots, koha transparency",
+  "license": "GPL-3.0-or-later",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "schema": "wrangler d1 execute taiao --file=schema.sql",
+    "schema:remote": "wrangler d1 execute taiao --remote --file=schema.sql"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.5.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

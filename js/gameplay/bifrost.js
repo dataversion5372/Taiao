@@ -106,6 +106,7 @@ const Bifrost = (function () {
   let t0 = 0, raf = 0, opts = null;
   let teleported = false, doneCalled = false, skipping = false, restored = false;
   let zoomer = null, frac = null, xaosReady = false, xaosFailed = false;
+  let reducedRun = false; // this crossing ran the reduced-motion static path
   let savedZoom = 1.6, sidebarDisp = null;
   let stars = null, prewarmAt = 0, charDrawn = false, charH0 = 48;
   // the static-frame stack (all freed in finish())
@@ -793,10 +794,16 @@ const Bifrost = (function () {
     if (root) { root.remove(); root = null; }
     window.removeEventListener("keydown", keyGate, true);
     ACTIVE = false; camZoom = savedZoom;
-    landShake(); play("step_stone", 1);
+    if (typeof MUSIC !== "undefined") MUSIC.stopCinematic(1.4);
+    // the touchdown shake is a discrete vestibular hit — skipped under
+    // reduced motion (the arrival sounds still land the moment)
+    if (!(typeof reducedMotion === "function" && reducedMotion())) landShake();
+    play("step_stone", 1);
     setTimeout(() => play("levelup", 0.8), 480);
     try { opts && opts.onDone && opts.onDone(); } catch (e) {}
-    try { if (typeof Postcard !== "undefined" && Postcard.offerBifrostKeepsake) Postcard.offerBifrostKeepsake(); } catch (e) {}
+    // no keepsake after the reduced-motion crossing: the offer captures the
+    // crossing's imagery (capB/worldCv), none of which was ever painted
+    try { if (!reducedRun && typeof Postcard !== "undefined" && Postcard.offerBifrostKeepsake) Postcard.offerBifrostKeepsake(); } catch (e) {}
     try { if (vid) { vid.pause(); vid.removeAttribute("src"); } } catch (e) {}
     vid = null; vidMode = null;
     zoomer = null; frac = null; stars = null; opts = null; charCv = null;
@@ -806,6 +813,7 @@ const Bifrost = (function () {
   function skip() {
     if (!ACTIVE || skipping) return;
     skipping = true; doTeleport(); restoreUI();
+    if (typeof MUSIC !== "undefined") MUSIC.stopCinematic(0.6); // fade with the visual
     if (root) { root.style.transition = "opacity 0.6s"; root.style.opacity = "0"; }
     setTimeout(finish, 620);
   }
@@ -856,8 +864,49 @@ const Bifrost = (function () {
 
   function start(o) {
     if (ACTIVE) return;
+    // ── reduced-motion crossing (settings.js reducedMotion(): the OS
+    // prefers-reduced-motion signal, overridable in the help tab) ────────
+    // The full crossing is ~30 s of continuous zoom, fractal melt and dive
+    // — precisely the content the preference asks us not to play. This
+    // static alternative keeps the MEANING: a held black beat, one line of
+    // text, the same sounds of arrival, and the identical onTeleport →
+    // onDone sequencing via doTeleport()/finish(). No RAF loop ever
+    // starts, so none of the paint* motion runs; finish() skips landShake.
+    if (typeof reducedMotion === "function" && reducedMotion()) {
+      opts = o || {};
+      ACTIVE = true;
+      teleported = doneCalled = skipping = restored = false;
+      savedZoom = (typeof camZoom === "number" && camZoom > 0) ? Math.min(camZoom, 3) : 1.6;
+      if (typeof cancelAction === "function") { try { cancelAction(); } catch (e) {} }
+      try { if (typeof camStep !== "undefined") camStep = 0; } catch (e) {}
+      try {
+        const sb = document.getElementById("sidebar");
+        if (sb) { sidebarDisp = sb.style.display; sb.style.display = "none"; }
+        if (typeof resizeCanvas === "function") resizeCanvas();
+      } catch (e) {}
+      root = document.createElement("div");
+      root.id = "bifrost";
+      root.style.cssText = "position:fixed;inset:0;z-index:9500;background:#000;" +
+        "display:flex;align-items:center;justify-content:center;" +
+        "opacity:0;transition:opacity .5s ease;";
+      const cap = document.createElement("div");
+      cap.style.cssText = "color:#cfd8ee;font-size:16px;font-style:italic;" +
+        "max-width:70%;text-align:center;line-height:1.5;";
+      cap.textContent = "The Bifrost takes you. The isle falls away behind you — and the wide world rises to meet your feet.";
+      root.appendChild(cap);
+      document.body.appendChild(root);
+      requestAnimationFrame(() => { if (root) root.style.opacity = "1"; });
+      reducedRun = true;
+      t0 = Date.now();
+      play("attune", 0.9);
+      setTimeout(doTeleport, 700);
+      setTimeout(() => { if (root) root.style.opacity = "0"; }, 2600);
+      setTimeout(finish, 3150);
+      return;
+    }
     opts = o || {};
     ACTIVE = true;
+    reducedRun = false;
     teleported = doneCalled = skipping = restored = false;
     capA = capB = null; capTried = false; isleCv = isleShow = null; isleDone = false; isleAt = 0;
     farCv = null; farCells = null; farPend = null; farAt = 0; stars = null;
@@ -917,6 +966,9 @@ const Bifrost = (function () {
 
     play("attune", 0.9);
     setTimeout(() => play("spellcast", 0.8), 850);
+    // the crossing's theme (assets/music/, credits there) — the generative
+    // exploration layer ducks itself while a cinematic theme is up
+    if (typeof MUSIC !== "undefined") MUSIC.cinematic("bifrost_theme");
     t0 = Date.now();
     raf = requestAnimationFrame(tick);
   }

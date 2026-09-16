@@ -4,7 +4,7 @@
 // ---------- UI ----------
 // Callers (4):
 //  main/ui.js:1,7,14,233
-const panels = ["inv", "equip", "skills", "goals", "help", "cheats"];
+const panels = ["inv", "equip", "skills", "goals", "account", "help", "cheats"];
 // Callers (11):
 //  main/ui.js:11,12,15,139,189,259,264,277,282,297,303
 function showPanel(name) {
@@ -379,12 +379,6 @@ function renderGoals() {
     `<div style="font-weight:bold;color:#8fa3c8;margin-bottom:4px">Tūhura Isle — the journey · ${gs.doneN}/${gs.total}</div>` +
     `<div style="height:6px;background:#232a3d;border-radius:3px;overflow:hidden">` +
     `<div style="height:100%;width:${gs.pct}%;background:linear-gradient(90deg,#7fe3c7,#ffd75e)"></div></div>`;
-  if (gs.graduated || !gs.cur) {
-    p.innerHTML = bar +
-      `<div class="sgintro" style="padding:16px 4px 4px;color:#9ecfb2;font-size:13px">` +
-      `✦ No tutorial goals remain — the wide world is yours to explore.</div>`;
-    return;
-  }
   // one pill per requirement — tick medallion, label (struck through when done),
   // a right-hand count badge for multi-step counters, and a teal progress wash
   const row = (on, label, num, need) => {
@@ -404,6 +398,31 @@ function renderGoals() {
     return `<div style="display:flex;align-items:center;gap:8px;margin-top:5px;padding:6px 9px;border:1px solid ${on ? "#3d5a4a" : "#2c374f"};border-radius:8px;background:${fill}">` +
       `${tick}<span style="flex:1;text-align:left;color:${on ? "#9ecfb2" : "#cdd7ea"};font-size:13px">${text}</span>${count}</div>`;
   };
+  if (gs.graduated || !gs.cur) {
+    // post-Bifrost: the authored "First days in Newhaven" arc (goals-arc.js)
+    // takes over the tab; the bare "no goals" note survives only for the
+    // (pre-arc) case where the arc module has nothing for this save
+    const as = (typeof GoalsArc !== "undefined" && GoalsArc.state) ? GoalsArc.state() : null;
+    if (as) {
+      const head =
+        `<div style="font-weight:bold;color:#8fa3c8;margin-top:14px;margin-bottom:4px">First days in Newhaven · ${as.doneN}/${as.total}</div>` +
+        `<div style="height:6px;background:#232a3d;border-radius:3px;overflow:hidden">` +
+        `<div style="height:100%;width:${Math.round(100 * as.doneN / as.total)}%;background:linear-gradient(90deg,#7fe3c7,#ffd75e)"></div></div>`;
+      const arcRows = as.rows.map(r => row(r.on, r.label, r.num, r.need)).join("");
+      const now = as.cur
+        ? `<div style="color:#7fe3c7;margin-top:10px;font-size:13px;font-weight:bold">Now: ${as.cur.label}</div>`
+        : `<div style="color:#9ecfb2;margin-top:10px;font-size:13px">✦ Newhaven is home. The wide world is yours to explore.</div>`;
+      const hint = as.cur && as.cur.hint
+        ? `<div style="color:#8f96ad;margin-top:8px;font-size:12px;font-style:italic;line-height:1.45">${as.cur.hint}</div>`
+        : "";
+      p.innerHTML = bar + head + now + `<div>${arcRows}</div>` + hint;
+      return;
+    }
+    p.innerHTML = bar +
+      `<div class="sgintro" style="padding:16px 4px 4px;color:#9ecfb2;font-size:13px">` +
+      `✦ No tutorial goals remain — the wide world is yours to explore.</div>`;
+    return;
+  }
   const rows = gs.cur.rows.map(r => row(r.on, r.label, r.num, r.need)).join("");
   p.innerHTML = bar +
     `<div style="color:#7fe3c7;margin-top:12px;font-size:13px;font-weight:bold">Now: ${gs.cur.full}</div>` +
@@ -673,6 +692,11 @@ document.addEventListener("keydown", e => {
 function talkTo(npc) {
   // Tūhura Isle tutors open their tutorial dialogue (gameplay/tutorial.js)
   if (npc.tutor && typeof Tutorial !== "undefined" && Tutorial.talk(npc)) return;
+  // the Weaver: chant-magic lessons + the veil-ride to his tower (gameplay/wizard.js)
+  if (npc.wizard && typeof Wizard !== "undefined") { Wizard.talk(npc); return; }
+  // the Heart of the Dream's villagers (gameplay/dream.js): the Matron speaks
+  // for herself; the Pedlar returns false and falls through to their shop
+  if (npc.dreamNpc && typeof Dream !== "undefined" && Dream.talk(npc)) return;
   // Newhaven's Registrar: the wide-world way back into the character/appearance
   // chooser (the C key and sidebar button no longer open it at will)
   if (npc.charselect && typeof CharSelect !== "undefined") {
@@ -680,8 +704,9 @@ function talkTo(npc) {
     CharSelect.open();
     return;
   }
-  // shopkeepers: no trading once the shop is shut for the night
-  if (npc.trader && typeof shopClosed === "function" && shopClosed(npc)) {
+  // shopkeepers: no trading once the shop is shut for the night — except the
+  // few who never sleep (npc.alwaysOpen: the Dream's Pedlar keeps no hours)
+  if (npc.trader && !npc.alwaysOpen && typeof shopClosed === "function" && shopClosed(npc)) {
     log(`${npc.name}'s shop is closed for the night. Come back in the morning.`, "warn");
     return;
   }

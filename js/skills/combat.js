@@ -819,9 +819,12 @@ function killMonster(mon) {
     if (b.meat) dropOnGround(b.item || "raw_meat", b.meat * gm, mon.x, mon.y);
     if (b.hide && b.hideItem) dropOnGround(b.hideItem, b.hide * gm, mon.x, mon.y);
   }
+  // rank-bearing rolls come from server-issued seeds when logged in
+  // (js/net/seedroll.js) — a drop-in Math.random elsewhere
+  const roll = typeof SeedRoll !== "undefined" ? SeedRoll.random : Math.random;
   for (const d of def.drops) {
-    if (Math.random() < d.ch) {
-      const q = (d.min + Math.floor(Math.random() * (d.max - d.min + 1))) * gm;
+    if (roll() < d.ch) {
+      const q = (d.min + Math.floor(roll() * (d.max - d.min + 1))) * gm;
       // the plain `gem` drop is folded into the tiered system → a rough gem
       const id = (d.id === "gem" && typeof rollGemId === "function") ? rollGemId() : d.id;
       dropOnGround(id, q, mon.x, mon.y);

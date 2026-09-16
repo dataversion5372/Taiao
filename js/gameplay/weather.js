@@ -146,6 +146,20 @@ function weatherAt(x, y, tMs) {
     ? 1 - daylightAt(y, sunPhase(x)) : 0;
   const w = weatherCore(x, y, tMs, hum, temp, altFrac, night);
   w.wind = windAt(x, y, tMs);
+  // Dream Forest (gameplay/dream.js): dead calm over the whole interior and
+  // blended calm around every door's waystone glade — so no downpour can pop
+  // out of existence across a silent glade swap. Walking toward a stone, the
+  // rain thins and stops; villagers would tell you it never rains there.
+  if (typeof Dream !== "undefined" && Dream.calmAt) {
+    const cw = Dream.calmAt(x, y);
+    if (cw > 0) {
+      const k = 1 - cw;
+      w.precip *= k; w.storm *= k; w.front *= k;
+      w.cloud = w.cloud * k + 0.30 * cw;          // a high, still haze
+      if (w.precip <= 0) { w.precip = 0; w.kind = null; }
+      w.wind = { x: w.wind.x * k + 0.15 * cw, y: w.wind.y * k };
+    }
+  }
   return w;
 }
 // the player's weather right now, sampled at most ~2×/s (the field moves at
@@ -250,7 +264,10 @@ function snowCoverAt(x, y, tMs) {
     sum += (wx.kind === "snow" ? Math.max(0, (wx.precip - 0.15) / 0.85) : 0) * w;
     wsum += w;
   }
-  return Math.max(0, Math.min(1, (sum / wsum) * 1.35));
+  let cover = Math.max(0, Math.min(1, (sum / wsum) * 1.35));
+  // Dream Forest calm (see weatherAt): snow can't lie where rain never falls
+  if (typeof Dream !== "undefined" && Dream.calmAt) cover *= 1 - Dream.calmAt(x, y);
+  return cover;
 }
 let _snCache = 0, _snAt = 0, _snKey = "";
 function snowNow() {

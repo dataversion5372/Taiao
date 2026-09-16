@@ -51,6 +51,10 @@ function tzOffsetMin(x) { return tzZone(x) * 60; }              // minutes ahead
 function _px() { return (typeof player !== "undefined" && player) ? player.x : 0; }
 function localPhase(x) {
   if (x == null) x = _px();
+  // Dream Forest (gameplay/dream.js): while dreaming, clock queries about the
+  // far-off interior answer for the DOOR the player entered by — the wall
+  // clock never jumps four timezones the instant they cross a waystone
+  if (typeof Dream !== "undefined" && Dream.fxX) { const fx = Dream.fxX(x); if (fx != null) x = fx; }
   const p = dayPhase() + tzZone(x) / 24;                        // 1 hour = 1/24 of a day
   return p - Math.floor(p);                                     // wrap to 0..1
 }
@@ -58,6 +62,9 @@ function localPhase(x) {
 // no rounding to zones), so daylight slides smoothly as you travel east/west.
 function sunPhase(x) {
   if (x == null) x = _px();
+  // Dream Forest: the interior keeps the door's sun (see localPhase above) —
+  // light stays continuous across the silent entry swap
+  if (typeof Dream !== "undefined" && Dream.fxX) { const fx = Dream.fxX(x); if (fx != null) x = fx; }
   const p = dayPhase() + (x || 0) / (TZ_TILES * 24);
   return p - Math.floor(p);                                     // wrap to 0..1
 }
@@ -83,6 +90,8 @@ function dayFraction(y) {
   // tutorial is live and the player stands on the isle (nothing else is
   // on screen there, so the global override is safe)
   if (typeof Tutorial !== "undefined" && Tutorial.flatSky()) return 0.5;
+  // Dream Forest interior: day length answers for the entry door's latitude
+  if (typeof Dream !== "undefined" && Dream.fxY) { const fy = Dream.fxY(y); if (fy != null) y = fy; }
   const u = ((y + LAT_HALFDAY) / (2 * LAT_HALFDAY)) % 2;
   const uu = u < 0 ? u + 2 : u;
   return Math.abs(1 - uu);          // 0 (endless night) … 1 (endless day)

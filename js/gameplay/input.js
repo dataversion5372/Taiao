@@ -417,9 +417,21 @@ function buildTileMenu(t) {
         if (!here) items.push({ label: "Set respawn point", fn: () => setRespawnAt(t.x, t.y) });
         else items.push({ label: "Clear respawn point (back to Newhaven)", fn: () => { player.respawn = null; log("Respawn point cleared — you'll wake in Newhaven again.", "sys"); saveGame(); } });
       }
+      // wells & fountains take wishes — one coin a real day, and they
+      // remember (gameplay/eggs.js owns the tally + the responses)
+      if (typeof Eggs !== "undefined" && Eggs.wellMenu) {
+        const wm = Eggs.wellMenu(dk, t.x, t.y);
+        if (wm) items.push(wm);
+      }
       if (!items.some(it => it.label.startsWith("Examine "))) {
-        const dex = decorExamine(dk);
-        if (dex) items.push({ label: `Examine ${decorName(dk)}`, fn: () => log(dex, "sys") });
+        // a handful of hashed tiles carry secret examine texts (eggs.js);
+        // Eggs.onExamine credits the discovery on the actual click
+        const dex = (typeof Eggs !== "undefined" && Eggs.examineOverride && Eggs.examineOverride(dk, t.x, t.y))
+          || decorExamine(dk);
+        if (dex) items.push({ label: `Examine ${decorName(dk)}`, fn: () => {
+          log(dex, "sys");
+          if (typeof Eggs !== "undefined" && Eggs.onExamine) Eggs.onExamine(dk, t.x, t.y);
+        } });
       }
       pushEdit(items, { type: "decor", key: dk.split("#")[0], name: decorName(dk), exam: decorExamine(dk), x: t.x, y: t.y });
     }

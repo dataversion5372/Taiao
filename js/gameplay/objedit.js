@@ -33,7 +33,12 @@
   //                     sprites:[{id,label,variant,imgs:[dataURL…]}] } }
   function loadStore() { try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch (e) { return {}; } }
   const store = loadStore();
-  function saveStore() { try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch (e) { if (typeof log === "function") log("Couldn't save your workshop votes (storage full?).", "warn"); } }
+  function saveStore() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch (e) { if (typeof log === "function") log("Couldn't save your workshop votes (storage full?).", "warn"); }
+    // ballot box (net/worksync.js): when logged in, this object's votes sync
+    // to the community tally a few seconds after the last change
+    if (cur && typeof WorkSync !== "undefined") WorkSync.noteChange(cur.type + ":" + cur.key);
+  }
   function recFor(desc) {
     const k = desc.type + ":" + desc.key;
     return store[k] || (store[k] = { votes: {}, props: {}, sprites: [] });
@@ -64,6 +69,39 @@
     setTimeout(() => URL.revokeObjectURL(url), 4000);
     if (typeof log === "function")
       log("Proposal saved — see CONTRIBUTING.md for how to submit it.", "gold");
+  }
+
+  // Build the same bundle exportProposal downloads. Shared by both exit paths.
+  function proposalBundle() {
+    if (!cur) return null;
+    const rec = recFor(cur);
+    const n = Object.keys(rec.votes).length + Object.keys(rec.props).length + rec.sprites.length;
+    if (!n) { if (typeof log === "function") log("Nothing to submit yet — vote, suggest, or upload something first.", "warn"); return null; }
+    return {
+      schema: "taiao-workshop-proposal/1",
+      object: { type: cur.type, key: cur.key, name: cur.name },
+      votes: rec.votes, props: rec.props, sprites: rec.sprites,
+      exportedAt: new Date().toISOString(),
+    };
+  }
+
+  // ---- "Submit proposal" — the logged-in exit path (audit §10 rung 1):
+  // same bundle as the export, sent straight to the curator queue with an
+  // explicit licence grant. The grant sentence is what makes accepted work
+  // belong to everyone forever (CONTRIBUTING.md).
+  async function submitProposal() {
+    const bundle = proposalBundle();
+    if (!bundle) return;
+    if (!confirm(
+      "Submit this proposal to the community workshop?\n\n" +
+      "By submitting, you licence your suggested values and any uploaded art " +
+      "under CC BY-SA 4.0 (the game's asset licence) — if accepted, it belongs " +
+      "to everyone, forever, with your name on it.")) return;
+    const r = await WorkSync.submit(bundle, "CC-BY-SA-4.0");
+    if (typeof log === "function") {
+      if (r.ok) log("Proposal submitted — a curator reads every one (GOVERNANCE.md). Kia ora!", "gold");
+      else log("Couldn't submit: " + (r.error || "server error") + " (Export still works.)", "warn");
+    }
   }
 
   // ---- sprite drawing (same sheet math as icon() in main/assets.js, at panel size) ----
@@ -394,6 +432,77 @@
         pfs.note = "Where the wall carries battlements (city walls, tower tops), the merlons are small 3D blocks textured with this same tile — there's no dedicated parapet art yet, so a proposed set could give it its own.";
         out.push({ vid: "parapet", title: "Parapet (top)", voteId: "sprite_set_parapet", fs: pfs,
           blurb: "The crenellated parapet running along the top of the wall." });
+      }
+    }
+    // ---- worn looks: the community path that replaces the parked auto-warp ----
+    // armour-overlay.js is parked because one generic decal, affine-warped to
+    // 180 different bodies, reads as a smear. The replacement is voted,
+    // per-character worn art: every equipped piece (and any equippable item's
+    // own Edit panel) gets a "worn look" section — upload 8-direction art of
+    // a character WEARING the piece, vote on the looks you like, and export
+    // the winning proposal like any other workshop change.
+    if (desc.type === "player" && typeof ITEMS !== "undefined" && player.equip && std.fs.draw.length === 8) {
+      // render the parked auto-warp ONCE as a reference card: proposals
+      // should know the look they're beating
+      let overlayCard = null;
+      if (typeof ArmourOverlay !== "undefined") {
+        const was = window.__armourOverlay;
+        window.__armourOverlay = true;
+        let ov = null;
+        try { ov = ArmourOverlay.playerCanvas(); } catch (e) {}
+        window.__armourOverlay = was;
+        if (ov) overlayCard = {
+          id: "autowarp", title: "Auto-warped overlay (parked)", tag: "the look to beat",
+          fs: { labels: std.fs.labels,
+            draw: CHAR_DIRS.map((_, di) => cv => {
+              drawPlayerFrame(cv, di, PX);
+              const c2 = cv.getContext("2d");
+              c2.imageSmoothingEnabled = false;
+              c2.drawImage(ov.canvas, di * ov.cell, 0, ov.cell, ov.cell, 0, 0, PX, PX);
+            }),
+            note: "The parked generic-decal warp over your current body — judged too rough to ship, kept here so worn-look proposals have something to beat." },
+        };
+      }
+      const seenIds = new Set();
+      for (const sl in player.equip) {
+        const s = player.equip[sl];
+        // regular slots hold a plain item-id string; only the rune pouch and
+        // quiver hold {id, qty} stacks
+        const id = typeof s === "string" ? s : s && s.id;
+        if (!id || seenIds.has(id)) continue;
+        const def = ITEMS[id];
+        if (!def || !def.equip || def.equip === "rune" || def.equip === "quiver") continue;
+        seenIds.add(id);
+        const warped = /^(helm|chest|legs|chainbody|gloves|boots)_/.test(id);
+        out.push({
+          vid: "worn_" + id, voteId: "worn:" + id,
+          title: "Worn look — " + def.name,
+          fs: { labels: std.fs.labels, draw: std.fs.draw,
+            note: "No worn art exists for this piece yet — the body is drawn bare of it. Upload an 8-direction set of THIS character wearing the " +
+              def.name.toLowerCase() + " (put the character's name in the label) and vote on the looks you like." },
+          canonTitle: "Current in-game look (piece not drawn)",
+          altCards: warped && overlayCard ? [overlayCard] : [],
+          blurb: "You have the " + def.name + " equipped: how should it look on the body? " +
+            "Community-voted worn art is the path that replaces the parked auto-warp overlay.",
+        });
+      }
+    }
+    if (desc.type === "item" && typeof ITEMS !== "undefined") {
+      const idef = ITEMS[desc.key];
+      if (idef && idef.equip && idef.equip !== "rune" && idef.equip !== "quiver") {
+        const bodyFs = frameSet({ type: "player" });
+        if (bodyFs.draw.length === 8) {
+          bodyFs.note = "Your current character, drawn without the piece — the blank canvas. " +
+            "Upload an 8-direction set of a character wearing the " + idef.name.toLowerCase() +
+            " (name the character in the label); per-character sets are welcome.";
+          out.push({
+            vid: "worn", voteId: "worn",
+            title: "Worn look — on the body",
+            fs: bodyFs,
+            canonTitle: "Current in-game look (piece not drawn)",
+            blurb: "How the " + idef.name + " should look when worn. Community-voted worn art replaces the parked auto-warp overlay.",
+          });
+        }
       }
     }
     if (desc.type !== "monster" || typeof MONSTERS === "undefined") return out;
@@ -801,10 +910,13 @@
 #objedit { position: absolute; inset: 0; display: none; z-index: 64; background: rgba(16,12,22,0.96); flex-direction: column; color: #d8d2e8; }
 #objedit.open { display: flex; }
 #objedit-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; color: #ffe97a; font-size: 16px; font-weight: bold; border-bottom: 1px solid #3a3050; letter-spacing: 1px; }
-#objedit-head .oe-type { font-size: 11px; font-weight: normal; letter-spacing: 0; color: #a99ec9; border: 1px solid #3a3050; border-radius: 9px; padding: 1px 8px; text-transform: capitalize; }
-#objedit-head button { margin-left: auto; background: none; border: 1px solid #3a3050; color: #d8d2e8; border-radius: 4px; cursor: pointer; font-size: 14px; padding: 2px 8px; }
+#objedit-head .oe-type { font-size: 11px; font-weight: normal; letter-spacing: 0; color: #a99ec9; border: 1px solid #3a3050; border-radius: 9px; padding: 1px 8px; text-transform: capitalize; margin-right: auto; }
+#objedit-head button { background: none; border: 1px solid #3a3050; color: #d8d2e8; border-radius: 4px; cursor: pointer; font-size: 14px; padding: 2px 8px; }
 #objedit-export { font-size: 11px !important; color: #a99cc4 !important; white-space: nowrap; }
 #objedit-export:hover { background: #453a58 !important; color: #fff !important; }
+#objedit-submit { font-size: 11px !important; color: #ffd75e !important; border-color: #6a5a2a !important; white-space: nowrap; }
+#objedit-submit:hover { background: #4a3f22 !important; color: #fff !important; }
+.oe-count { font-size: 9px; color: #100c18; background: #8fd18f; border-radius: 8px; padding: 0 5px; margin-left: 5px; font-weight: bold; vertical-align: 1px; }
 #objedit-body { overflow-y: auto; padding: 12px 16px 24px; flex: 1; }
 #objedit-body h3 { color: #ffe97a; font-size: 13px; letter-spacing: 1px; margin: 18px 0 8px; text-transform: uppercase; }
 #objedit-body .oe-intro { color: #a99ec9; font-size: 12px; margin: 2px 0 6px; }
@@ -863,10 +975,11 @@
     document.head.appendChild(st);
     panel = document.createElement("div");
     panel.id = "objedit";
-    panel.innerHTML = `<div id="objedit-head"><span id="objedit-title"></span><span class="oe-type" id="objedit-type"></span><button id="objedit-export" title="Bundle your votes and proposals for this object into a file you can submit">Export my proposal</button><button id="objedit-close" title="Close (Esc)">✕</button></div><div id="objedit-body"></div>`;
+    panel.innerHTML = `<div id="objedit-head"><span id="objedit-title"></span><span class="oe-type" id="objedit-type"></span><button id="objedit-submit" style="display:none" title="Send your votes, suggestions and art for this object straight to the community workshop (CC BY-SA 4.0)">Submit proposal</button><button id="objedit-export" title="Bundle your votes and proposals for this object into a file you can submit">Export my proposal</button><button id="objedit-close" title="Close (Esc)">✕</button></div><div id="objedit-body"></div>`;
     (document.getElementById("gamecol") || document.body).appendChild(panel);
     panel.querySelector("#objedit-close").onclick = close;
     panel.querySelector("#objedit-export").onclick = exportProposal;
+    panel.querySelector("#objedit-submit").onclick = submitProposal;
     document.addEventListener("keydown", e => {
       if (e.key === "Escape" && isOpen()) {
         // Escape while typing in one of the panel's fields cancels that edit —
@@ -923,9 +1036,20 @@
   // accepted values are rewritten to the poll's canonical label form.
   function chipStrip(rec, pid, opts, ph, num) {
     const wrap = el("div", "oe-chips");
+    // community tally for this object (net/worksync.js): player-made options
+    // count under "custom:<label>" so identical suggestions pool together
+    const tallied = cur && typeof WorkSync !== "undefined"
+      ? WorkSync.getCached(cur.type + ":" + cur.key) : null;
+    const fieldTally = tallied && tallied[pid];
     for (const o of opts) {
       const voted = rec.votes[pid] === o.id;
       const c = el("span", "oe-chip" + (voted ? " voted" : ""), o.label);
+      const nVotes = fieldTally && fieldTally[o.mine ? "custom:" + o.label : o.id];
+      if (nVotes) {
+        const badge = el("span", "oe-count", String(nVotes));
+        badge.title = nVotes + (nVotes === 1 ? " community vote" : " community votes");
+        c.appendChild(badge);
+      }
       if (o.canon) c.appendChild(el("span", "oe-cur", "current"));
       if (o.mine) {
         const x = el("span", "oe-x", "✕");
@@ -972,7 +1096,16 @@
     const body = panel.querySelector("#objedit-body");
     const keepScroll = body.scrollTop;
     body.innerHTML = "";
-    body.appendChild(el("div", "oe-intro", "The community workshop: vote on how this object should look, behave and generate, or propose your own take. Votes are saved locally for now and can be changed at any time. Proposed art shows only here — the in-game sprites don't change."));
+    const logged = typeof Server !== "undefined" && Server.logged();
+    panel.querySelector("#objedit-submit").style.display = logged ? "" : "none";
+    body.appendChild(el("div", "oe-intro",
+      "The community workshop: vote on how this object should look, behave and generate, or propose your own take. " +
+      (logged
+        ? "Your votes count into the community tally — the small numbers are everyone's votes so far. Votes can be changed at any time."
+        : typeof Server !== "undefined" && Server.enabled()
+          ? "Votes are saved on this device; log in on the Account tab to have them counted with everyone else's."
+          : "Votes are saved locally for now and can be changed at any time.") +
+      " Proposed art shows only here — the in-game sprites don't change."));
 
     // ---- sprite variant sections (standard / tended / baby) ----
     for (const variant of variantsFor(desc)) {
@@ -983,6 +1116,13 @@
         const card = el("div", "oe-card" + (rec.votes[vId] === id ? " voted" : ""));
         const top = el("div", "oe-card-top");
         top.appendChild(el("b", null, title));
+        const tallied = typeof WorkSync !== "undefined" ? WorkSync.getCached(desc.type + ":" + desc.key) : null;
+        const nVotes = tallied && tallied[vId] && tallied[vId][removable ? "upload:" + title : id];
+        if (nVotes) {
+          const badge = el("span", "oe-count", String(nVotes));
+          badge.title = nVotes + (nVotes === 1 ? " community vote" : " community votes");
+          top.appendChild(badge);
+        }
         if (tag) top.appendChild(el("span", "oe-tag", tag));
         if (removable) {
           const del = el("button", "oe-del", "✕ remove");
@@ -1249,6 +1389,9 @@
     panel.classList.add("open");
     panel.querySelector("#objedit-body").scrollTop = 0;
     render();
+    // fetch the community tally in the background; re-render when it lands
+    if (typeof WorkSync !== "undefined")
+      WorkSync.ensure(desc.type + ":" + desc.key, () => { if (isOpen() && cur === desc) render(); });
   }
   function close() { if (panel) panel.classList.remove("open"); cur = null; }
   function isOpen() { return !!panel && panel.classList.contains("open"); }

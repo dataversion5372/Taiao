@@ -474,6 +474,15 @@ async function npcAskStream(npc, path, payload) {
 }
 
 function npcGreet(npc, cid) {
+  // scripted easter-egg NPCs (the Hermit, Kurt the Gravedigger — see
+  // eggs.js npcReply) never touch the retrieval bank; same 90s debounce
+  if (npc._egg && typeof Eggs !== "undefined" && Eggs.npcReply) {
+    const lastE = NPC_CHAT.greetedAt.get(cid) || 0;
+    if (now - lastE < 90000) return;
+    NPC_CHAT.greetedAt.set(cid, now);
+    npcrSayStreaming(npc, Eggs.npcReply(npc, null));
+    return;
+  }
   if (!AI_NPC_ENABLED) {
     // retrieval mode: greet from the bank ("Kia ora." opener context)
     const last0 = NPC_CHAT.greetedAt.get(cid) || 0;
@@ -521,6 +530,11 @@ function npcBroadcast(text) {
     for (const npc of near) {
       const cid = npcCid(npc);
       NPC_CHAT.greetedAt.set(cid, now);   // conversing counts as greeted
+      // scripted easter-egg NPCs answer from eggs.js in their own fixed voice
+      if (npc._egg && typeof Eggs !== "undefined" && Eggs.npcReply) {
+        const r = Eggs.npcReply(npc, text);
+        if (r) { setTimeout(() => npcrSayStreaming(npc, r), 250 + Math.random() * 500); continue; }
+      }
       if (NPC_CHAT.pending.has(cid)) continue;
       NPC_CHAT.pending.add(cid);
       const delay = 250 + Math.random() * 600;

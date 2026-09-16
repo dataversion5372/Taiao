@@ -42,6 +42,7 @@ const SFX = (() => {
   }
   let gameVol = loadVol("taiaoGameVol");
   let natureVol = loadVol("taiaoNatureVol");
+  let musicVol = loadVol("taiaoMusicVol"); // music.js reads this (generative bed + cinematic themes)
 
   const pools = {};   // file -> [HTMLAudioElement] (reused when not playing)
   const lastAt = {};  // name -> last play time (throttle rapid repeats)
@@ -187,13 +188,14 @@ const SFX = (() => {
     });
     bindVol("gamevol", "taiaoGameVol", () => gameVol, v => { gameVol = v; });
     bindVol("naturevol", "taiaoNatureVol", () => natureVol, v => { natureVol = v; });
+    bindVol("musicvol", "taiaoMusicVol", () => musicVol, v => { musicVol = v; });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initUi);
   else initUi();
 
   return { play, step, gather, craft,
     natureChain, natureSet,
-    gameVol: () => gameVol, natureVol: () => natureVol };
+    gameVol: () => gameVol, natureVol: () => natureVol, musicVol: () => musicVol };
 })();
 
 // terse global helpers, matching the codebase's bare-function call style
