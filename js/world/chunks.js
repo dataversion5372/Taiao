@@ -388,6 +388,13 @@ function createWorldChunks(ctx) {
         const tkey = "tut:" + tu.id;
         if (npcDerived.has(tkey)) continue;
         npcDerived.add(tkey);
+        // defensive: never double-spawn a tutor even if npcDerived's guard
+        // was somehow bypassed (e.g. a background/worker chunk-generation
+        // pass with its own Set instance) — a duplicate standing right on
+        // another tutor's bed tile permanently blocks the real one from
+        // ever reaching it (user-reported: "stuck at the bottom of the
+        // ladder", 2026-09-17)
+        if (npcs.some(n => n.tutor === tu.id)) continue;
         // each tutor IS a real MIX roster character (TUT_MIX_DEF, shared with
         // the Tutorial module so dialogue/bar/gate messages agree) — the
         // nameplate shows their own name with the tutorial title appended.
@@ -2113,8 +2120,17 @@ function createWorldChunks(ctx) {
             kind: hb.kind, storeys: hb.storeys };
           if (b.x0 + b.w < bx || b.x0 >= bx + CHUNK ||
               b.y0 + b.h < by || b.y0 >= by + CHUNK) continue;
+          // row 2, not row 1: row 1 is directly beneath the UPPER floor's
+          // bed-slot tiles (render3d.js tutHouseUpperDecor / TUT_VILLAGE.
+          // bedTile both use x0+1/x0+w-2 at y0+1) — a ground-floor decor
+          // prop sitting on that exact tile was silently blocking NPCs from
+          // ever reaching their own bed above it (npcStepToward's lift/
+          // height check reads the GROUND floor's decor at that (x,y) even
+          // for an upstairs-walking NPC, since upper storeys have no collision
+          // grid of their own). User-reported: "stuck at the bottom of the
+          // ladder in every house", 2026-09-17.
           if (stampBuilding(b))
-            furnishInterior(b, [["bed", 1, 1], ["stool", hb.w - 2, 1]]);
+            furnishInterior(b, [["bed", 1, 2], ["stool", hb.w - 2, 2]]);
         }
       // the Swim-Master's ISLET (TUT_ISLE.islet, per-character seat — this
       // zone is never persisted/injected, see _inIsletZone): the weathered

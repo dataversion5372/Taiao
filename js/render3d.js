@@ -3848,6 +3848,27 @@ const R3D = (() => {
     }
     return false;
   }
+  // Stuck-recovery wrapper around npcStepToward, shared by every caller that
+  // routes an NPC to a fixed chokepoint (a ladder, a door, a bed). The
+  // stepper itself has no memory, so two housemates trading the same tile
+  // back and forth can oscillate success/failure indefinitely without ever
+  // tripping a simple reset-on-any-success counter — DECREMENTING on
+  // success (instead of zeroing) tracks NET struggle over time instead, so
+  // persistent-but-intermittent contention still recovers promptly. The
+  // eventual snap only fires once the target tile is actually free, so two
+  // NPCs (or the player) never get shoved onto the same spot (user-
+  // reported: "stuck at the bottom of the ladder [in every house]",
+  // 2026-09-17).
+  function stuckStepToward(npc, key, tx, ty, T) {
+    if (npcStepToward(npc, tx, ty, T)) { npc[key] = Math.max(0, (npc[key] || 0) - 1); return true; }
+    npc[key] = (npc[key] || 0) + 1;
+    if (npc[key] > 6) {
+      const occupied = (tx === player.x && ty === player.y && (player.level | 0) === (npc.level | 0)) ||
+        (world.npcAt && world.npcAt(tx, ty, npc.level));
+      if (!occupied) { npc.x = tx; npc.y = ty; npc.px = PX(tx); npc.py = PX(ty); npc[key] = 0; return true; }
+    }
+    return false;
+  }
   // Route an NPC to its building's ladder and climb one storey at a time toward
   // targetLevel (the player's own useLadder, but autonomous). Returns true while
   // still busy climbing/walking to the ladder, so the caller skips its own move.
@@ -3864,19 +3885,7 @@ const R3D = (() => {
     }
     if (T < npc._wanderAt) return true;
     npc._wanderAt = T + 230 + Math.random() * 150;
-    // npcStepToward is a pure greedy stepper with no memory — a housemate
-    // parked on the ladder tile, a wall-corner approach angle, or the
-    // player blocking the way can leave it permanently rejecting every
-    // candidate. Mirror the lamp task's stuck-counter: after enough
-    // consecutive failures, snap onto the ladder rather than wedge forever
-    // (user-reported: "not all NPCs can pathfind to their bed", 2026-09-17)
-    if (npcStepToward(npc, lx, ly, T)) npc._climbStuck = 0;
-    else {
-      npc._climbStuck = (npc._climbStuck || 0) + 1;
-      if (npc._climbStuck > 10) {
-        npc.x = lx; npc.y = ly; npc.px = PX(lx); npc.py = PX(ly); npc._climbStuck = 0;
-      }
-    }
+    stuckStepToward(npc, "_climbStuck", lx, ly, T);
     return true;
   }
   function stepMixNpc(npc) {
@@ -3908,13 +3917,7 @@ const R3D = (() => {
       }
       if (T < npc._wanderAt) return;
       npc._wanderAt = T + 220 + Math.random() * 100;
-      if (npcStepToward(npc, gx0, gy0, T)) npc._escortStuck = 0;
-      else {
-        npc._escortStuck = (npc._escortStuck || 0) + 1;
-        if (npc._escortStuck > 10) {
-          npc.x = gx0; npc.y = gy0; npc.px = PX(gx0); npc.py = PX(gy0); npc._escortStuck = 0;
-        }
-      }
+      stuckStepToward(npc, "_escortStuck", gx0, gy0, T);
       return;
     }
     // lamplighter task: stride toward a candle spot / the store, ignoring the
@@ -3948,14 +3951,7 @@ const R3D = (() => {
             if (T >= npc._wanderAt) {
               npc._wanderAt = T + 240 + Math.random() * 140;
               const dx2 = home[0] + (home[2] >> 1), dy2 = home[1] + home[3] - 2;
-              // same stuck-recovery as npcClimbToward — see its comment
-              if (npcStepToward(npc, dx2, dy2, T)) npc._bedStuck = 0;
-              else {
-                npc._bedStuck = (npc._bedStuck || 0) + 1;
-                if (npc._bedStuck > 10) {
-                  npc.x = dx2; npc.y = dy2; npc.px = PX(dx2); npc.py = PX(dy2); npc._bedStuck = 0;
-                }
-              }
+              stuckStepToward(npc, "_bedStuck", dx2, dy2, T);
             }
             return;
           }
@@ -3967,12 +3963,8 @@ const R3D = (() => {
         // if we've wandered OUTSIDE our building (ground level), make for the doorway
         // first (greedy stepping routes around walls poorly), then on to the bed.
         const tgt = ((npc.level | 0) === 0 && home && !inHome) ? [home[0] + (home[2] >> 1), home[1] + home[3] - 2] : bed;
-        if (npcStepToward(npc, tgt[0], tgt[1], T)) npc._bedStuck = 0;
-        else {                                                        // blocked
-          npc._bedStuck = (npc._bedStuck || 0) + 1;
-          if (npc._bedStuck > 10) {
-            npc.x = tgt[0]; npc.y = tgt[1]; npc.px = PX(tgt[0]); npc.py = PX(tgt[1]); npc._bedStuck = 0;
-          } else if (inHome || Math.max(Math.abs(npc.x - bed[0]), Math.abs(npc.y - bed[1])) <= 1) return; // settle at home
+        if (!stuckStepToward(npc, "_bedStuck", tgt[0], tgt[1], T)) {   // blocked, and no recovery snap this tick
+          if (inHome || Math.max(Math.abs(npc.x - bed[0]), Math.abs(npc.y - bed[1])) <= 1) return; // settle at home
         }
         return;
       }
