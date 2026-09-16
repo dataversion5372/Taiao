@@ -69,7 +69,8 @@ const Bifrost = (function () {
   // Perspective tilt makes this approximate — the crossfade hides the rest.
   const LIVE_K = 11.28;
   const Z_LOCK = 0.08;   // painted zoom when the fractal takes over (isle ~17px)
-  const MAP_Z0 = 0.01;   // the far-map reveal zoom ("the whole endless world")
+  const MAP_Z0 = 0.13;   // the far-map reveal zoom — matched to FAR_SPAN so the
+                         // coherent whole-world bake fills the frame as it grows
   const MAP_Z1 = 14;     // map zoom at touchdown (handoff to the live renderer)
 
   // fractal viewpoints. region.center.y is stored PREMULTIPLIED by the canvas
@@ -95,9 +96,14 @@ const Bifrost = (function () {
 
   // pre-render geometry
   const IB_PX = 1024, IB_R = 1;        // isle bake: 1024px @ 1 px/tile (±512 tiles)
-  const FAR_PX = 1536, FAR_SPAN = 220000;             // far map: ~220k tiles across
-  const FAR_R = FAR_PX / FAR_SPAN;                    // ≈ 0.007 px/tile
-  const FAR_STEP = 64;                                // macro step for far tiles
+  // far world panorama: a COHERENT ~16k-tile continental map (buildFarWorld,
+  // one coherent world.macroFlat classify colour per grid cell, smooth
+  // upsample). This REPLACES the old step-64 macro mosaic, whose coastline/
+  // hillshade compared samples 100+ tiles apart and dissolved the reveal into
+  // salt-and-pepper noise. Soft at this range — "a world seen from orbit" —
+  // and the live macro tiles sharpen it into real terrain on the dive.
+  const FAR_PX = 1024, FAR_SPAN = 16000, FAR_GRID = 288;
+  const FAR_R = FAR_PX / FAR_SPAN;                    // ≈ 0.064 px/tile
   const OCEAN_DEEP = "rgb(50,70,114)";                // MAP_WATER[0] (map.js)
 
   let ACTIVE = false;
@@ -114,7 +120,7 @@ const Bifrost = (function () {
   let capA = null, capB = null;         // { cv, r } live screenshots (r = px/tile)
   let isleCv = null, isleShow = null;   // north-up bake + camera-rotated copy
   let isleC = null, isleAt = 0, isleDone = false;
-  let farCv = null, farCells = null, farPend = null, farAt = 0, farX0 = 0, farY0 = 0;
+  let farCv = null, farBuilt = false;   // the coherent whole-world bake
   let worldCv = null, wctx = null;      // full-screen compositor for masked phases
   let land = null;                      // touchdown tile (playerStart, then live pos)
   let zCap = 17, capTried = false;      // painted zoom at capture B (set live)
@@ -325,11 +331,14 @@ const Bifrost = (function () {
     c2.imageSmoothingEnabled = true;
     // step 0.5 = native 1 px/tile art at this bake's resolution
     isleDone = paintTiles(c2, IB_PX, IB_PX, IB_R, isleC.x, isleC.y, 0.5);
-    // soft radial edge: the outer band (past the isle's guaranteed private
-    // ocean) dissolves into the painted endless sea beneath
+    // soft radial edge: dissolve the bake into the painted endless sea WELL
+    // inside the isle's private ocean (coast ≈108px, guaranteed land-free to
+    // ≈340px) so no foreign mainland ever pokes through — the isle reads as
+    // truly alone on an endless ocean. The bake's rim is deep water, the same
+    // colour paintOcean fills with, so the seam is invisible.
     c2.save();
     c2.globalCompositeOperation = "destination-in";
-    const g = c2.createRadialGradient(IB_PX / 2, IB_PX / 2, 300, IB_PX / 2, IB_PX / 2, 490);
+    const g = c2.createRadialGradient(IB_PX / 2, IB_PX / 2, 180, IB_PX / 2, IB_PX / 2, 280);
     g.addColorStop(0, "rgba(0,0,0,1)"); g.addColorStop(1, "rgba(0,0,0,0)");
     c2.fillStyle = g; c2.fillRect(0, 0, IB_PX, IB_PX);
     c2.restore();
@@ -381,60 +390,59 @@ const Bifrost = (function () {
     } while (pregen.length && Date.now() < t1);
   }
 
-  // ---------- the far world-map bake (the 0.01x panorama) -------------------
-  function farSetup() {
-    farCv = document.createElement("canvas");
-    farCv.width = farCv.height = FAR_PX;
-    const c2 = farCv.getContext("2d");
-    c2.fillStyle = OCEAN_DEEP; c2.fillRect(0, 0, FAR_PX, FAR_PX);
-    farX0 = land.x - FAR_SPAN / 2; farY0 = land.y - FAR_SPAN / 2;
-    const MTg = world.MACRO_PX * FAR_STEP * 2;          // game tiles per far cell
-    const m0x = Math.floor(farX0 / MTg), m1x = Math.floor((farX0 + FAR_SPAN) / MTg);
-    const m0y = Math.floor(farY0 / MTg), m1y = Math.floor((farY0 + FAR_SPAN) / MTg);
-    farCells = [];
-    for (let my = m0y; my <= m1y; my++)
-      for (let mx = m0x; mx <= m1x; mx++) farCells.push({ mx, my });
-    // centre-out: the middle of the panorama (where the dive lands) first
-    const cmx = (m0x + m1x) / 2, cmy = (m0y + m1y) / 2;
-    farCells.sort((a, b) => (Math.abs(a.mx - cmx) + Math.abs(a.my - cmy)) - (Math.abs(b.mx - cmx) + Math.abs(b.my - cmy)));
-    farPend = [];
-  }
-  // paced: a slice of flat classify fills + worker requests per frame, then a
-  // periodic sweep that overdraws arrived step-64 macro art
-  function farJob() {
-    if (!farCells) return;
-    const c2 = farCv.getContext("2d");
-    const MTg = world.MACRO_PX * FAR_STEP * 2;
-    for (let n = 0; n < 60 && farCells.length; n++) {
-      const c = farCells.shift();
-      const x = (c.mx * MTg - farX0) * FAR_R, y = (c.my * MTg - farY0) * FAR_R, s = MTg * FAR_R + 0.5;
-      try { c2.fillStyle = world.macroFlat(FAR_STEP, c.mx, c.my); c2.fillRect(x, y, s, s); } catch (e) {}
-      world.requestMacro(FAR_STEP, c.mx, c.my);
-      farPend.push(c);
-    }
-    if (Date.now() - farAt < 600) return;
-    farAt = Date.now();
-    c2.imageSmoothingEnabled = true;
-    // step-64 art undersamples the classify field (one pixel per 128 map
-    // units) into salt-and-pepper — average it down to 16px before use so
-    // the pointwise shimmer becomes area-true continent colour. Two 2x
-    // halvings, because a single 4x drawImage minification is allowed to
-    // point-sample; each 2x step is a real 2x2 average everywhere.
-    if (!farJob._t32) {
-      farJob._t32 = document.createElement("canvas"); farJob._t32.width = farJob._t32.height = 32;
-      farJob._t16 = document.createElement("canvas"); farJob._t16.width = farJob._t16.height = 16;
-    }
-    const c32 = farJob._t32.getContext("2d"), c16 = farJob._t16.getContext("2d");
-    c32.imageSmoothingEnabled = c16.imageSmoothingEnabled = true;
-    for (let i = farPend.length - 1; i >= 0; i--) {
-      const c = farPend[i];
-      const img = world.macroCache.get(FAR_STEP + ":" + c.mx + "," + c.my);
-      if (!img) continue;
-      c32.clearRect(0, 0, 32, 32); c32.drawImage(img, 0, 0, 32, 32);
-      c16.clearRect(0, 0, 16, 16); c16.drawImage(farJob._t32, 0, 0, 16, 16);
-      c2.drawImage(farJob._t16, (c.mx * MTg - farX0) * FAR_R, (c.my * MTg - farY0) * FAR_R, MTg * FAR_R + 0.5, MTg * FAR_R + 0.5);
-      farPend.splice(i, 1);
-    }
+  // ---------- the far world-map panorama (the coherent whole-world reveal) ---
+  // One coherent bake of the destination's continent, centred on the landing
+  // (Newhaven) so the dive resolves the very ground the player is about to
+  // stand on. Sampled through world.macroFlat — ONE coherent classify colour
+  // per grid cell — then smooth-upscaled: no macro-mosaic salt-and-pepper (the
+  // old step-64 far bake compared coastline/hillshade 100+ tiles apart and
+  // dissolved into noise). Reads as "a world seen from orbit"; the live macro
+  // tiles sharpen it into real terrain on the way down. macroFlat samples the
+  // cell CENTRE, so a fractional cell index lands the sample exactly on our
+  // grid. Baked once, under the opaque beam/painting — its ~1s cost is unseen.
+  function buildFarWorld() {
+    if (farBuilt) return;
+    farBuilt = true;
+    try {
+      const G = FAR_GRID;
+      const cmx = land.x / 2, cmy = land.y / 2;      // centre, map coords
+      const H = FAR_SPAN / 4;                          // half-span, map coords
+      const per = (2 * H) / G;                         // map-coords per grid cell
+      const step = per / world.MACRO_PX;               // one macroFlat cell == one grid cell
+      const baseMx = (cmx - H) / per, baseMy = (cmy - H) / per;
+      const water = new Set((world.MAP_WATER || []).map(c => "rgb(" + c[0] + "," + c[1] + "," + c[2] + ")"));
+      const cols = new Array(G * G);
+      const wet = new Uint8Array(G * G);
+      for (let gy = 0; gy < G; gy++)
+        for (let gx = 0; gx < G; gx++) {
+          const s = world.macroFlat(step, baseMx + gx, baseMy + gy);
+          const i = gy * G + gx;
+          cols[i] = s; if (water.has(s)) wet[i] = 1;
+        }
+      // parse cache: only ~41 distinct classify/water colour strings exist
+      const pcache = new Map();
+      const parse = s => { let v = pcache.get(s); if (!v) { const m = s.match(/\d+/g); v = m ? [+m[0], +m[1], +m[2]] : [0, 0, 0]; pcache.set(s, v); } return v; };
+      const img = new ImageData(G, G), d = img.data;
+      for (let gy = 0; gy < G; gy++)
+        for (let gx = 0; gx < G; gx++) {
+          const i = gy * G + gx;
+          // clean coastline: a water cell that touches land on any side
+          const coast = wet[i] &&
+            ((gx > 0 && !wet[i - 1]) || (gx < G - 1 && !wet[i + 1]) ||
+             (gy > 0 && !wet[i - G]) || (gy < G - 1 && !wet[i + G]));
+          const c = coast ? [40, 58, 86] : parse(cols[i]);
+          const o = i * 4;
+          d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+        }
+      const small = document.createElement("canvas");
+      small.width = small.height = G;
+      small.getContext("2d").putImageData(img, 0, 0);
+      farCv = document.createElement("canvas");
+      farCv.width = farCv.height = FAR_PX;
+      const oc = farCv.getContext("2d");
+      oc.imageSmoothingEnabled = true; oc.imageSmoothingQuality = "high";
+      oc.drawImage(small, 0, 0, FAR_PX, FAR_PX);
+    } catch (e) { console.error("bifrost far world:", e); farCv = null; }
   }
 
   // ---------- painters ----------
@@ -637,30 +645,32 @@ const Bifrost = (function () {
     if (fx) fx.style.opacity = "0";
     clearTop();
     const zm = mapZoom(t);
-    // far panorama under, live streamed macro tiles over as the detail arrives
-    const liveA = clamp01((Math.log(zm) - Math.log(0.03)) / (Math.log(0.08) - Math.log(0.03)));
+    // the coherent whole-world bake carries the reveal; live streamed macro
+    // tiles sharpen in over it as the dive closes, so the soft orbital view
+    // resolves into real, crisp terrain on the way down (no hard cut, no wash)
+    const liveA = clamp01((Math.log(zm) - Math.log(MAP_Z0 * 1.15)) / (Math.log(MAP_Z0 * 4) - Math.log(MAP_Z0 * 1.15)));
     if (liveA < 1 && farCv)
       blitLayer(tctx, farCv, zm / FAR_R, w / 2, h / 2, 1, w, h);
-    if (zm > 0.03) drawMapView(zm, land.x, land.y, liveA);
+    if (liveA > 0) drawMapView(zm, land.x, land.y, liveA);
     // the character descends: drifts down and grows as the ground rushes up,
     // with a slow tumble that settles as they near the plaza
     const fall = seg(t, T_FALL - 1.4, T_LAND);
     const cy = h * lerp(0.44, 0.62, easeIn(fall));
     const ch = lerp(0.26, 0.40, easeIn(fall)) * h;
     drawChar(w / 2, cy, ch, 1, Math.sin(t * 2.2) * 0.06 * (1 - fall));
-    const haze = (1 - seg(t, T_MAP, T_FALL)) * 0.3;
-    if (haze > 0) { tctx.fillStyle = `rgba(190,215,240,${haze})`; tctx.fillRect(0, 0, w, h); }
-    tctx.fillStyle = "rgba(255,255,255,0.7)";
-    const fk = seg(t, T_MAP, T_LAND);
-    for (let i = 0; i < 9; i++) {
-      const ph = (i * 0.173 + fk * (1.5 + (i % 4) * 0.3)) % 1;
-      const cw = (0.28 + (i % 3) * 0.16) * w * (0.4 + ph * 2.2);
-      const cxp = w * ((i * 0.37) % 1) + (ph - 0.5) * w * 0.7, cyp = h * ((i * 0.61) % 1) + (ph - 0.5) * h * 0.9;
-      const al = 0.3 * Math.sin(Math.PI * ph);
-      if (al <= 0.01) continue;
-      tctx.globalAlpha = al; tctx.beginPath(); tctx.ellipse(cxp, cyp, cw, cw * 0.38, 0, 0, 7); tctx.fill();
+    // the final plunge breaks through into light: a soft radial bloom that
+    // swells then gives way to the crossfade — you drop out of the sky into the
+    // new world's daylight. No geometric shapes, so the map stays clean and
+    // legible right up to touchdown (the old ellipse-cloud wash is gone).
+    const cl = seg(t, T_FALL, T_LAND);
+    if (cl > 0) {
+      const a = 0.42 * Math.sin(Math.PI * Math.min(1, cl * 1.15));
+      const g = tctx.createRadialGradient(w / 2, h * 0.52, 0, w / 2, h * 0.52, Math.hypot(w, h) * 0.62);
+      g.addColorStop(0, `rgba(250,252,255,${a})`);
+      g.addColorStop(0.55, `rgba(232,242,255,${a * 0.5})`);
+      g.addColorStop(1, "rgba(214,232,255,0)");
+      tctx.fillStyle = g; tctx.fillRect(0, 0, w, h);
     }
-    tctx.globalAlpha = 1;
   }
 
   function paintStars(t, w, h) {
@@ -705,7 +715,7 @@ const Bifrost = (function () {
     try { if (vid) { vid.pause(); vid.style.display = "none"; } } catch (e) {}
     loadXaos();
     try { if (!isleCv) isleSetup(); } catch (e) { console.error("bifrost isle bake:", e); }
-    try { if (!farCv) farSetup(); } catch (e) { console.error("bifrost far bake:", e); }
+    try { buildFarWorld(); } catch (e) { console.error("bifrost far bake:", e); }
     const tryStart = () => { if (zoomer || !ACTIVE) return; if (xaosReady) startFractal(); else if (!xaosFailed) setTimeout(tryStart, 120); };
     setTimeout(tryStart, 150);
   }
@@ -807,8 +817,8 @@ const Bifrost = (function () {
     try { if (vid) { vid.pause(); vid.removeAttribute("src"); } } catch (e) {}
     vid = null; vidMode = null;
     zoomer = null; frac = null; stars = null; opts = null; charCv = null;
-    capA = capB = null; isleCv = isleShow = null; farCv = null;
-    farCells = farPend = null; worldCv = null; wctx = null; org = null; pregen = null;
+    capA = capB = null; isleCv = isleShow = null; farCv = null; farBuilt = false;
+    worldCv = null; wctx = null; org = null; pregen = null;
   }
   function skip() {
     if (!ACTIVE || skipping) return;
@@ -825,7 +835,6 @@ const Bifrost = (function () {
     try {
       if (vidMode === false) {
         if (isleCv && !isleDone && Date.now() - isleAt > 450 && t < T_LOCK + 2) isleCompose();
-        farJob();
       }
       if (t < T_BEAM) {
         decideMode(t);
@@ -909,7 +918,7 @@ const Bifrost = (function () {
     reducedRun = false;
     teleported = doneCalled = skipping = restored = false;
     capA = capB = null; capTried = false; isleCv = isleShow = null; isleDone = false; isleAt = 0;
-    farCv = null; farCells = null; farPend = null; farAt = 0; stars = null;
+    farCv = null; farBuilt = false; stars = null;
     savedZoom = (typeof camZoom === "number" && camZoom > 0) ? Math.min(camZoom, 3) : 1.6;
     if (typeof cancelAction === "function") { try { cancelAction(); } catch (e) {} }
     // snap the view north for the climb: the recorded video is north-up, so
@@ -988,7 +997,7 @@ const Bifrost = (function () {
       teleported = true; doneCalled = skipping = false; restored = true;
       capA = capB = null; capTried = true; stars = null; charDrawn = false; charCv = null;
       isleCv = isleShow = null; isleDone = false; isleAt = 0;
-      farCv = null; farCells = null; farPend = null; farAt = 0;
+      farCv = null; farBuilt = false;
       savedZoom = 1.6; vidMode = false; procReady = false; vid = null;
       dpr = 1; W = VID_W; H = VID_H;
       org = { x: 0, y: 0, yawK: 0 };
@@ -1013,7 +1022,7 @@ const Bifrost = (function () {
       zCap = pxPerTile(RISE_ZOOM);             // == ZCAP_VID at this fixed size
       loadXaos();
       try { isleSetup(); } catch (e) { console.error("rec isle bake:", e); }
-      try { farSetup(); } catch (e) { console.error("rec far bake:", e); }
+      try { buildFarWorld(); } catch (e) { console.error("rec far bake:", e); }
       try { prewarmMacros(land.x, land.y); } catch (e) {}
       const tryStart = () => { if (zoomer || !ACTIVE) return; if (xaosReady) startFractal(); else if (!xaosFailed) setTimeout(tryStart, 120); };
       setTimeout(tryStart, 150);
@@ -1022,11 +1031,10 @@ const Bifrost = (function () {
     ready() {
       if (!recMode) return false;
       if (isleCv && !isleDone && Date.now() - isleAt > 300) isleCompose();
-      farJob();
+      buildFarWorld();
       try { prewarmMacros(land.x, land.y); } catch (e) {}
       const mq = (typeof world._macDebug === "function") ? world._macDebug() : { q: 0, rq: 0, inf: 0 };
-      return !!zoomer && isleDone && !!farCells && farCells.length === 0
-        && !!farPend && farPend.length === 0 && mq.q === 0 && mq.rq === 0 && mq.inf === 0;
+      return !!zoomer && isleDone && !!farCv && mq.q === 0 && mq.rq === 0 && mq.inf === 0;
     },
     frame(t) {
       if (!recMode) return false;
@@ -1035,8 +1043,11 @@ const Bifrost = (function () {
           paintSky(t);
           // drawFractal(true) = full exact recompute, no incremental
           // approximation and no time-budget bail — every recorded frame is
-          // fully converged however fast the region is moving
-          try { if (zoomer) zoomer.drawFractal(true); } catch (e) {}
+          // fully converged however fast the region is moving. SKIP it while
+          // the fractal is still invisible (before it fades in ~T_FXIN): those
+          // RISE frames sit at the deepest RAD_TIGHT zoom, the slowest possible
+          // recompute, and paint nothing — a big chunk of record wall-clock.
+          if (zoomer && t >= T_FXIN - 1.5) { try { zoomer.drawFractal(true); } catch (e) {} }
         } else paintMap(t);
         return true;
       } catch (e) { console.error("rec frame:", e); return false; }
@@ -1046,8 +1057,8 @@ const Bifrost = (function () {
       recMode = false; ACTIVE = false;
       if (root) { root.remove(); root = null; }
       zoomer = null; frac = null; stars = null;
-      capA = capB = null; isleCv = isleShow = null; farCv = null;
-      farCells = farPend = null; worldCv = null; wctx = null; org = null; land = null;
+      capA = capB = null; isleCv = isleShow = null; farCv = null; farBuilt = false;
+      worldCv = null; wctx = null; org = null; land = null;
     },
   };
 
