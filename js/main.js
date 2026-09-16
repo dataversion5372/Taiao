@@ -181,21 +181,31 @@ async function init() {
   world.preloadMapImages(bootNear).then(() => { for (const k of bootNear) { const [cx, cy] = k.split(",").map(Number); world.prewarmMapChunk(cx, cy); } });
   player.px = PX(player.x);
   player.py = PX(player.y);
-  // Pre-generate the missing chunk DATA of the renderer's immediate 5x5
+  // Pre-generate the missing chunk DATA of the renderer's immediate
   // neighbourhood HERE — one chunk per paint — instead of letting R3D.init's
   // first synchronous syncChunks swallow it. A first-ever visit pays the
   // whole world-naming pass + road web on the very first getChunk (many
   // seconds): up here the loading bar ticks through it chunk by chunk, and
   // the sprite decode keeps running in parallel underneath. On a warm reload
   // every chunk is already hydrated and this loop is a no-op.
+  // Only the inner 3x3 blocks boot — the renderer's own fog cuts off at 52
+  // world units (render3d.js scene.fog(28,52), CHUNK=32), well inside a
+  // second ring out, so the rest of the old 5x5 isn't visible at first paint
+  // anyway. That outer ring streams in AFTER gameReady instead (user req
+  // 2026-09-17: shorten the loading screen — defer what isn't needed right
+  // away, stream it in during play, as long as it's not visibly late).
+  let _farChunks = [];
   {
     const CS = world.CHUNK;
     const pcx = Math.floor(player.x / CS), pcy = Math.floor(player.y / CS);
     const near = [];
     for (let dy = -2; dy <= 2; dy++)
-      for (let dx = -2; dx <= 2; dx++)
-        if (!world.chunks.has((pcx + dx) + "," + (pcy + dy))) near.push([pcx + dx, pcy + dy, Math.abs(dx) + Math.abs(dy)]);
+      for (let dx = -2; dx <= 2; dx++) {
+        if (world.chunks.has((pcx + dx) + "," + (pcy + dy))) continue;
+        (Math.abs(dx) <= 1 && Math.abs(dy) <= 1 ? near : _farChunks).push([pcx + dx, pcy + dy, Math.abs(dx) + Math.abs(dy)]);
+      }
     near.sort((a, b) => a[2] - b[2]);
+    _farChunks.sort((a, b) => a[2] - b[2]);
     // roads first: wait for the boot road-warm (crunching on the worker since
     // the top of init, in parallel with the naming pass) so the chunk gens
     // below find every road cell cached instead of freezing on the A*. Real
@@ -265,6 +275,12 @@ async function init() {
   gameReady = true;
   saveGame();
   uiDirty = true;
+  // the outer chunk ring deferred above: stream it in now that the player
+  // can already move, one chunk per paint (same pacing as the blocking loop
+  // it was split from) so it never competes for a frame with real gameplay
+  if (_farChunks.length) (async () => {
+    for (const [fx, fy] of _farChunks) { await _paint(); world.getChunk(fx, fy); }
+  })();
   // first boot of a fresh character on Tūhura Isle: the Guide's welcome
   if (typeof Tutorial !== "undefined") Tutorial.maybeWelcome();
   // "while you were away" — Pulse already finalized the previous session's
