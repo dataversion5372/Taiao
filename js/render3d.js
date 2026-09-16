@@ -3290,7 +3290,23 @@ const R3D = (() => {
     // GROUND floor with a bed. Shop/station buildings are 2-storey (job → upstairs)
     // and get their bedroom on the upper floor via the normal loop below.
     const isHouse = storeys === 1 && !b.job;
-    if ((storeys > 1 || isHouse) && !light) {
+    // Tūhura Isle's Harbour Village houses (kind "tut_house") get their own
+    // exact per-resident bed placement instead of the generic randomised
+    // furniture list, so each tutor's assigned bed (Tutorial.villageBed)
+    // matches where the furniture actually renders (user req 2026-09-17)
+    const tutDecor = (kind === "tut_house" && typeof Tutorial !== "undefined" && Tutorial.tutHouseUpperDecor)
+      ? Tutorial.tutHouseUpperDecor(b) : null;
+    if (tutDecor) {
+      for (const d of tutDecor) {
+        const ov = objForKey(d.key);
+        if (!ov) continue;
+        rec.upperDecor.push({
+          wx: d.x + 0.5, wz: d.y + 0.5,
+          y: rec.baseTier + d.level * STOREY_H + FLOOR_T + 0.02,
+          idx: ov.idx, scale: ov.scale, s: d.level,
+        });
+      }
+    } else if ((storeys > 1 || isHouse) && !light) {
       const UP_TOWER = ["bookshelf_small", "desk", "candle_scrying", "brazier_iron", "strongbox", "easel"];
       // main-branch bank hall: upper floors are the counting house + vault
       const UP_BANK = ["strongbox", "treasure_chest", "lockbox", "desk", "candelabra", "bookshelf_small", "chest_storage", "jewelry_box"];

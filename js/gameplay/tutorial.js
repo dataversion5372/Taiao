@@ -128,9 +128,13 @@ var TUT_VILLAGE = (() => {
   };
   // PROPER HOUSES (user req 2026-09-16): real village buildings — chunks.js
   // stamps these through the same stampBuilding pipeline natural settlements
-  // use (floors, walls, roof, a south door; job/kind null so no shopkeeper
-  // derives). x0/y0 are game-tile offsets of the footprint's NW corner from
-  // the pod centre; placed clear of the path, pier, seats, lamps and stamps.
+  // use (floors, walls, roof, a south door). x0/y0 are game-tile offsets of
+  // the footprint's NW corner from the pod centre; placed clear of the path,
+  // pier, seats, lamps and stamps.
+  // MULTI-STOREY (user req 2026-09-17): kind "tut_house" (world.js
+  // buildingMeta) gives each one a real upstairs reached by a ladder — a
+  // hallway floor split into two bedroom alcoves, one per resident. The 14
+  // "homing" tutors round-robin across the 7 houses, 2 each (divides evenly).
   const houses = [
     { pod: 0,  x0: -13, y0: -6,  w: 5, h: 5 },
     { pod: 0,  x0: 7,   y0: -9,  w: 5, h: 6 },
@@ -140,8 +144,28 @@ var TUT_VILLAGE = (() => {
     { pod: 14, x0: -14, y0: -3,  w: 5, h: 5 },
     { pod: 14, x0: 9,   y0: 3,   w: 5, h: 5 },
   ];
-  // build the lamp field (needs `houses` above): door stands + indoor glows…
-  for (const hb of houses) {
+  houses.forEach((hb, i) => {
+    hb.kind = "tut_house"; hb.storeys = 2;
+    hb.residents = homing.filter((tu, ti) => ti % houses.length === i).map(tu => tu.id);
+  });
+  // Sigrid's own house, a short stroll from her waka post: her bedroom
+  // (storey 2) plus a spare room reserved for the graduate (storey 3,
+  // climbing the same ladder once more — "sometimes another ladder leading
+  // to a third floor"). She's excluded from the general village/seats
+  // system (villageHome never returns a seat for "ferry"), so this is kept
+  // as its own record rather than an 8th entry in `houses`.
+  const sigridHouse = { pod: 14, x0: -4, y0: -9, w: 4, h: 4, kind: "tut_house", storeys: 3, residents: ["ferry"] };
+  // deterministic bed tile for a house resident, by slot: 0/1 = the hallway
+  // floor's two alcoves (NW/NE corners, storey 1); 2 = the rare loft bed
+  // straight above the NW alcove (storey 2 — only sigridHouse uses slot 2)
+  const bedTile = (hb, slot) => ({
+    x: slot === 1 ? hb.x0 + hb.w - 2 : hb.x0 + 1,
+    y: hb.y0 + 1,
+    level: slot === 2 ? 2 : 1,
+  });
+  const allHouses = [...houses, sigridHouse];
+  // build the lamp field (needs the house list above): door stands + indoor glows…
+  for (const hb of allHouses) {
     lampAdd(hb.pod, hb.x0 + (hb.w >> 1) + 1, hb.y0 + hb.h, false);       // beside the door, not in it
     lampAdd(hb.pod, hb.x0 + (hb.w >> 1), hb.y0 + (hb.h >> 1), true);     // through-roof window glow
   }
@@ -158,11 +182,11 @@ var TUT_VILLAGE = (() => {
         if (Math.hypot(gx, gy) < 6) continue;                            // the ring owns the green
         const jx = gx + (((gx * 7 + gy * 13 + pod) % 3 + 3) % 3) - 1;
         const jy = gy + (((gx * 5 + gy * 11 + pod) % 3 + 3) % 3) - 1;
-        if (houses.some(hb => hb.pod === pod && jx >= hb.x0 - 1 && jx < hb.x0 + hb.w + 1 &&
+        if (allHouses.some(hb => hb.pod === pod && jx >= hb.x0 - 1 && jx < hb.x0 + hb.w + 1 &&
                               jy >= hb.y0 - 1 && jy < hb.y0 + hb.h + 1)) continue;
         lampAdd(pod, jx, jy, false);
       }
-  return { seats, lamps, houses };
+  return { seats, lamps, houses, sigridHouse, bedTile };
 })();
 
 // (The Smith's KNIFE gift is the existing `knife` TOOL item (tool:"knife",
@@ -654,7 +678,9 @@ const Tutorial = (() => {
                { on: !!(t && t.candleMade), num: (t && t.candleMade) ? 1 : 0, need: 1, label: "dip a rushlight" },
              ] },
     lore:  { task: "craft 50 air runes at the altar & equip a rushlight", need: LORE_GOALS.length, done: t => allGoals(t, LORE_GOALS), num: t => numGoals(t, LORE_GOALS), items: goalItems(LORE_GOALS) },
-    ferry: null,   // the Navigator just ferries the graduate — no task
+    // sleep at Sigrid's before the crossing (user req 2026-09-17) — a real
+    // task now, so it shows in the journey/goals panel like every other stage
+    ferry: { task: "sleep at Sigrid's spare room, then find her again", done: t => !!(t && t.sleptAtSigrids) },
   };
   function reqDone(id) {
     const r = REQS[id]; if (!r) return true;
@@ -984,7 +1010,18 @@ const Tutorial = (() => {
       if (typeof sfx === "function") sfx("quest", 0.35);
     }
   }
-  const stage = () => STAGES[skyIdx(_seenCount)];
+  // the morning after sleeping at Sigrid's — a fresh 6am, snapped to
+  // instantly (the whole staged sky already works this way: every other
+  // stage transition is an instant snap too, never real elapsed time) —
+  // player.timeShiftMs (graduateCore's mechanism) is irrelevant here since
+  // it only matters once graduated, when the staged sky stops overriding
+  // dayPhase() entirely (user req 2026-09-17)
+  const MORNING_STAGE = { h: 6, wx: "clear", note: null };
+  const stage = () => {
+    const t = state();
+    if (t && t.sleptAtSigrids) return MORNING_STAGE;
+    return STAGES[skyIdx(_seenCount)];
+  };
   const skyActive = () => active() && onIsle();
   // dayPhase 0..1 such that the LOCAL clock where the player stands reads h
   function phaseOverride() {
@@ -1071,6 +1108,37 @@ const Tutorial = (() => {
   // asks villageHome() so freshly hydrated chunks seat them right, and
   // _villageSync moves the LIVE npc objects when the state flips mid-session
   // (hooked into refreshBar, so any progress event settles them).
+  // Retired keepers say plain ambient lines instead of their old lesson
+  // invite (user req 2026-09-17) — chunks.js's deriveNpcs mirrors this same
+  // handful of lines for chunks hydrated after they've already settled in.
+  const OFFDUTY_LINES = [
+    "Evening's mine now — the lesson's done.",
+    "Fine night for the village to settle in.",
+    "My work's done for the day. Rest well yourself.",
+    "The isle's quiet once the teaching's through.",
+    "Off duty now — go on and enjoy the evening.",
+    "A good day's work behind me.",
+  ];
+  // un-root a keeper who's settled into the village — the generic wander/
+  // door system (render3d.js stepMixNpc) picks them up automatically once
+  // _r/_wanderAt look like any other ambient villager's
+  function offDutyLine(id) {
+    const i = TUT_TUTORS.findIndex(t2 => t2.id === id);
+    return `"${OFFDUTY_LINES[(i < 0 ? 0 : i) % OFFDUTY_LINES.length]}"`;
+  }
+  function offDutyIfy(n, tu) {
+    n._r = 6;
+    n._wanderAt = (typeof performance !== "undefined" ? performance.now() : 0) + 800 + Math.random() * 3000;
+    n.line = offDutyLine(tu.id);
+    // a real bed (distinct from _home) so npcAsleep()/the lying-down render
+    // and the generic bedtime walk/climb routine (render3d.js stepMixNpc)
+    // all work correctly instead of falsely reading "asleep" at their post
+    const vb = villageBed(tu.id);
+    if (vb) {
+      n._bed = [vb.x, vb.y]; n._bedLevel = vb.level; n._ladder = vb.ladder; n._owns = vb.owns;
+      n.level = n.level || 0;
+    }
+  }
   function villageAt() {
     const t = state();
     return !!(t && !t.graduated && stage().h >= 17.5);
@@ -1083,6 +1151,121 @@ const Tutorial = (() => {
     if (i < 0 || i >= frontier()) return null;
     const [px, py] = podXY(seat.pod); // the village spans BOTH shore pods (0 + 14)
     return { x: px + seat.dx, y: py + seat.dy };
+  }
+  // which TUT_VILLAGE house (or Sigrid's) a tutor is a resident of, and
+  // their bed slot within it — used to assign _bed/_bedLevel/_ladder/_owns
+  // (chunks.js deriveNpcs, _villageSync) and to furnish the right bedroom
+  // (render3d.js tutHouseUpperDecor, via Tutorial.villageBed)
+  function residentHouse(id) {
+    if (typeof TUT_VILLAGE === "undefined") return null;
+    for (const hb of TUT_VILLAGE.houses) {
+      const slot = hb.residents.indexOf(id);
+      if (slot >= 0) return { house: hb, slot };
+    }
+    if (TUT_VILLAGE.sigridHouse.residents.indexOf(id) >= 0) return { house: TUT_VILLAGE.sigridHouse, slot: 0 };
+    return null;
+  }
+  function villageBed(id) {
+    const r = residentHouse(id);
+    if (!r) return null;
+    const [px, py] = podXY(r.house.pod);
+    const bt = TUT_VILLAGE.bedTile(r.house, r.slot);
+    return {
+      x: px + bt.x, y: py + bt.y, level: bt.level,
+      ladder: [px + r.house.x0 + 1, py + r.house.y0 + r.house.h - 2],
+      owns: [px + r.house.x0, py + r.house.y0, r.house.w, r.house.h],
+    };
+  }
+  // bedroom furniture for a "tut_house" building record (render3d.js
+  // buildBuildingStruct): one bed per resident, at the exact tile
+  // villageBed() assigns them, so the NPC always "sleeps" where the
+  // furniture actually is. Matched to its TUT_VILLAGE entry by world-space
+  // x0/y0 (ch.buildings records don't carry a back-reference).
+  function tutHouseUpperDecor(b) {
+    if (typeof TUT_VILLAGE === "undefined" || b.kind !== "tut_house") return null;
+    const all = [...TUT_VILLAGE.houses, TUT_VILLAGE.sigridHouse];
+    const hb = all.find(h => { const [px, py] = podXY(h.pod); return px + h.x0 === b.x0 && py + h.y0 === b.y0; });
+    if (!hb) return null;
+    const out = [];
+    for (const id of hb.residents) {
+      const vb = villageBed(id);
+      if (vb) out.push({ x: vb.x, y: vb.y, level: vb.level, key: "bed_frame" });
+    }
+    // Sigrid's house alone also gets the spare room, one floor up — the
+    // graduate's bed for the night (user req 2026-09-17)
+    if (hb === TUT_VILLAGE.sigridHouse) {
+      const sb = spareBedTile();
+      out.push({ x: sb.x, y: sb.y, level: sb.level, key: "bed_frame" });
+    }
+    return out;
+  }
+  // the spare room's bed tile — Sigrid's house, storey 2 (slot 2 of
+  // TUT_VILLAGE.bedTile: the loft directly above her own bedroom)
+  function spareBedTile() {
+    const hb = TUT_VILLAGE.sigridHouse;
+    const [px, py] = podXY(hb.pod);
+    const bt = TUT_VILLAGE.bedTile(hb, 2);
+    return { x: px + bt.x, y: py + bt.y, level: bt.level };
+  }
+  // is (x,y,level) the spare bed, and is it still meaningful to click
+  // (hasn't been slept in yet)? Drives input.js's narrowly-scoped "Sleep"
+  // menu entry — not a general bed-sleeping feature.
+  function sigridSpareBedAt(x, y, level) {
+    const t = state();
+    if (!t || t.sleptAtSigrids) return false;
+    const b = spareBedTile();
+    return b.x === x && b.y === y && b.level === level;
+  }
+  // Sigrid leads the way: marks her stage seen (the staged sky rolls to
+  // night, same as every other keeper — advanceStage), drops a real goal
+  // in the journey panel (REQS.ferry), and sends Sigrid herself walking
+  // home to her own bed via the SAME generic off-duty/bedtime machinery
+  // every other keeper already uses (user req 2026-09-17)
+  function inviteSigridSleep() {
+    const t = state();
+    if (!t) return;
+    const prev = _seenCount;
+    t.seen.ferry = 1;
+    _seenCount = Object.keys(t.seen).length;
+    advanceStage(prev);
+    if (typeof log === "function") {
+      log("Sigrid leads you down the lane toward her house.", "gold");
+      log(`Sigrid's task: ${REQS.ferry.task}.`, "gold");
+    }
+    refreshBar();
+    if (typeof saveGame === "function") saveGame();
+    const list = (typeof world !== "undefined" && world && world.npcs) || (typeof npcs !== "undefined" ? npcs : null);
+    const sn = list && list.find(n => n.tutor === "ferry");
+    const tu = TUT_TUTORS.find(t2 => t2.id === "ferry");
+    if (sn && tu) offDutyIfy(sn, tu);
+  }
+  // wake up: reused everywhere the SAME as clicking the spare bed. One-off
+  // morning flourish (not a persistent system — see project notes) sends a
+  // couple of nearby housed keepers to gather their door lamp, and the
+  // staged sky snaps straight to a fresh 6am morning (skyIdx/stage below).
+  function sleepAtSigrids() {
+    const t = state();
+    if (!t || t.sleptAtSigrids) return;
+    t.sleptAtSigrids = 1;
+    if (typeof log === "function")
+      log("Exhausted from the whole long day, you sleep like the dead — ten hours, maybe more.", "gold");
+    refreshBar();
+    if (typeof saveGame === "function") saveGame();
+    morningLampFlourish();
+    if (typeof log === "function")
+      log("You wake to a grey hush over the village — go find Sigrid; she's waiting to open the crossing.", "sys");
+  }
+  function morningLampFlourish() {
+    const list = (typeof world !== "undefined" && world && world.npcs) || (typeof npcs !== "undefined" ? npcs : null);
+    if (!list) return;
+    const housed = list.filter(n => n.tutor && n.tutor !== "ferry" && n._bed).slice(0, 3);
+    for (const n of housed) {
+      const r = residentHouse(n.tutor);
+      if (!r) continue;
+      const [px, py] = podXY(r.house.pod);
+      n._lampTarget = [px + r.house.x0 + (r.house.w >> 1) + 1, py + r.house.y0 + r.house.h];
+      n._wanderAt = typeof performance !== "undefined" ? performance.now() : 0;
+    }
   }
   function _villageSync() {
     if (typeof TUT_ISLE === "undefined") return;
@@ -1101,7 +1284,10 @@ const Tutorial = (() => {
       if (n._home && n._home[0] === hx && n._home[1] === hy) continue;
       n.x = hx; n.y = hy; n.px = PX(hx); n.py = PX(hy);
       n._home = [hx, hy]; n._mt = 0;
-      if (vh) moved++;
+      if (vh) {
+        moved++;
+        offDutyIfy(n, tu);
+      }
     }
     if (moved && villageAt()) {
       const t = state();
@@ -1154,6 +1340,7 @@ const Tutorial = (() => {
     sky:   t => { t.reachedKnoll = 1; t.prog.chatted = 1; },
     candle: t => { t.candleMade = 1; },
     lore:  t => Object.assign(t.prog, { airRunes: 50, rushlightEquipped: 1 }),
+    ferry: t => { t.sleptAtSigrids = 1; },
   };
   const SKIP_ITEMS = {  // what the stage's WORK would have left in the pack
     bush:  [["logs", 30]],
@@ -1524,13 +1711,13 @@ const Tutorial = (() => {
           act: [["Open the quest journal (J)", "questlog"]] },
       ],
     },
+    // shown once the player has slept at Sigrid's spare room (t.sleptAtSigrids)
+    // — the "Ready for the wide world?" intro already ran in FERRY_INVITE_PAGES
+    // the night before, so this picks straight up the next morning
     ferry: {
       pages: [
-        { h: "Ready for the wide world?",
-          t: ["I'm {ferry}. I have sailed every sea you can dream of — and I'll tell you a navigator's secret: no hull sails OUT of Tūhura. For that there is my wayfinding song. It calls down a pillar of light that will lift you over the roof of the sky and set you down in NEWHAVEN, the great city at the centre of everything.",
-              "But know this: Tūhura exists between the tides. The moment you rise, the mist takes it back — no chart, ship or portal will ever find it again. So take your time, and take every gift."] },
         { h: "The crossing",
-          t: ["The way is long and strange. You will climb until the isle is a coin on the sea, fall between worlds the whole night through, and drop out of a MORNING sky over Newhaven — the grand bank, the markets, the quest-givers and the thousand roads all waking beneath you.",
+          t: ["Slept well? Good — a clear head for a strange road. The way is long and strange. You will climb until the isle is a coin on the sea, fall between worlds the whole night through, and drop out of a MORNING sky over Newhaven — the grand bank, the markets, the quest-givers and the thousand roads all waking beneath you.",
               "Stand ready, and I will sing the light down."],
           act: [["Sing the song — send me up!", "graduate"], ["I'll explore a little longer", "close"]] },
       ],
@@ -1544,6 +1731,7 @@ const Tutorial = (() => {
     map: () => { close(); if (typeof openWorldMap === "function") openWorldMap(); },
     questlog: () => { close(); if (typeof Quests !== "undefined") Quests.openLog(); },
     graduate: () => { close(); graduate(); },
+    sigridBed: () => { close(); inviteSigridSleep(); },
     // (the Cook's pail-for-milk barter was removed 2026-09-15, user req —
     // milk is earned at her cows with your own Husbandry, no shortcut)
     close: () => close(),
@@ -1669,8 +1857,23 @@ const Tutorial = (() => {
   const FERRY_EARLY_PAGES = [{ h: "The waka waits — but not for you, yet",
     t: ["Haere mai to the village, traveller! This shore is where the keepers lay their heads when the day's teaching is done — walk among the tents; you're welcome here any hour.",
         "But my waka sails for NEWHAVEN only when every keeper on the path has sent you on. Finish the journey, e hoa — gate by gate, lesson by lesson — then come find me by the pier and we'll talk about the crossing."] }];
+  // journey's done, night's fallen — Sigrid invites the player to rest
+  // before the crossing rather than singing them up on the spot (user req
+  // 2026-09-17). Finishing this page (finish(), not an act button) marks her
+  // "seen" and rolls the staged sky to night, same as every other keeper;
+  // the "Follow Sigrid" button then starts the walk-to-bed sequence.
+  const FERRY_INVITE_PAGES = [
+    { h: "Ready for the wide world?",
+      t: ["I'm {ferry}. I have sailed every sea you can dream of — and I'll tell you a navigator's secret: no hull sails OUT of Tūhura. For that there is my wayfinding song. It calls down a pillar of light that will lift you over the roof of the sky and set you down in NEWHAVEN, the great city at the centre of everything.",
+          "But know this: Tūhura exists between the tides. The moment you rise, the mist takes it back — no chart, ship or portal will ever find it again. So take your time, and take every gift."] },
+    { h: "Rest first, e hoa",
+      t: ["It's late, and a tired body has no business singing itself across the sky. I keep a spare room off my own — sleep there tonight, and we'll talk again come morning, clear-headed and ready for the crossing.",
+          "Go on — I'll walk you down myself."],
+      act: [["Follow Sigrid to her spare room", "sigridBed"]] },
+  ];
   const curPages = () => (cur && cur._remind) ? GUIDE_REMIND_PAGES
     : (cur && cur._early) ? FERRY_EARLY_PAGES
+    : (cur && cur._preSleep) ? FERRY_INVITE_PAGES
     : (cur ? DLG[cur.id].pages : []);
   function next() {
     if (!cur) return;
@@ -1782,6 +1985,15 @@ const Tutorial = (() => {
   function talk(npc) {
     const def = TUT_TUTORS.find(x => x.id === npc.tutor);
     if (!def || !DLG[def.id]) return false;
+    // once a keeper has settled into the Harbour Village for the night, their
+    // scripted lesson is done for good — fall through to ui.js's normal NPC
+    // chat (the speech-bubble line, and the semantic Enter-key chat, which
+    // was never gated on npc.tutor in the first place) instead of replaying
+    // the intro forever (user req 2026-09-17). Sigrid never gets a village
+    // seat (villageHome always returns null for "ferry" — she never leaves
+    // her waka), so this never retires her — her own dialogue tree handles
+    // its own phases (early/invite/graduate) via curPages() below.
+    if (villageHome(def.id) != null) return false;
     ensureDom();
     cur = def;
     // Guide re-visited while still a spark → jump straight to the "take a form"
@@ -1791,6 +2003,9 @@ const Tutorial = (() => {
     // Sigrid reached ahead of the journey's end (the open village shore
     // makes that a one-minute stroll from the Landing): host, don't ferry
     cur._early = def.id === "ferry" && frontier() < TUT_TUTORS.length - 1;
+    // Sigrid, journey done, but hasn't slept yet — show the invite instead
+    // of "sing the song" (user req 2026-09-17: sleep till morning first)
+    cur._preSleep = def.id === "ferry" && !cur._early && !(t && t.sleptAtSigrids);
     // openGrant tutors (the Bushman's axe) hand their tool over the instant
     // the dialogue opens, not after every page is read — grant() is
     // idempotent (t.given[tid]), so finish()'s later call is a no-op
@@ -1982,7 +2197,8 @@ const Tutorial = (() => {
   return { START, talk, maybeWelcome, graduate, state, onIsle, active,
     phaseOverride, weatherOverride, flatSky, barred, frontier, refreshBar, goalState,
     skillVisible, riverFlow, tick, onCraft, anvilRecipes,
-    villageHome, villageLamps,
+    villageHome, villageLamps, offDutyLine, villageBed, tutHouseUpperDecor,
+    sigridSpareBedAt, sleepAtSigrids,
     onGather, onWash, onBank, onKill, onChant,
     onQueue, onBrace, onStoke, onMerge, onChatReply,
     onHarvest, onTend, onEquip, onPickup, onOutOfArrows };

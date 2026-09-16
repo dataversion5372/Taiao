@@ -395,17 +395,25 @@ function createWorldChunks(ctx) {
           mixTitle = tu.role;
           if (def.name) name = def.name + " the " + tu.role;
         }
+        // rooted at the lesson post (still teaching); un-rooted + bedded once
+        // already settled into the village (vh truthy) — mirrors tutorial.js's
+        // _villageSync/offDutyIfy for chunks hydrated after the fact
+        const vb = (vh && typeof Tutorial !== "undefined" && Tutorial.villageBed) ? Tutorial.villageBed(tu.id) : null;
         npcs.push({
           name, x, y, px: PX(x), py: PX(y),
           look: mixKey ? -1 : tu.look % VILLAGER_LOOKS.length,
           spr: mixKey ? undefined : VILLAGER_LOOKS[tu.look % VILLAGER_LOOKS.length],
           mix: mixKey, mixTitle,
           dir8: "south",
-          _mid: "tut" + tu.id, _home: [x, y], _r: 0,   // rooted: tutors never wander
-          _wanderAt: (typeof performance !== "undefined" ? performance.now() : 0) + 9e9,
-          _mt: 0,
+          _mid: "tut" + tu.id, _home: [x, y],
+          _r: vh ? 6 : 0,
+          _wanderAt: (typeof performance !== "undefined" ? performance.now() : 0) + (vh ? 800 + Math.random() * 3000 : 9e9),
+          _mt: 0, level: 0,
           tutor: tu.id,
-          line: `"Haere mai! Come, let me show you something."`,
+          line: vh && typeof Tutorial !== "undefined" && Tutorial.offDutyLine
+            ? Tutorial.offDutyLine(tu.id)
+            : `"Haere mai! Come, let me show you something."`,
+          ...(vb ? { _bed: [vb.x, vb.y], _bedLevel: vb.level, _ladder: vb.ladder, _owns: vb.owns } : {}),
         });
       }
     }
@@ -1009,7 +1017,7 @@ function createWorldChunks(ctx) {
       const cxr = b.x0 + (b.w >> 1), cyr = b.y0 + (b.h >> 1);
       if (inCh(cxr, cyr))
         buildings.push({ x0: b.x0, y0: b.y0, w: b.w, h: b.h, tall: !!b.tall, stone: !!b.stone,
-          kind: b.kind || null, stoneDoor: !!b.stoneDoor, river: spansRiver || undefined,
+          kind: b.kind || null, storeys: b.storeys || undefined, stoneDoor: !!b.stoneDoor, river: spansRiver || undefined,
           job: b.job || null, job2: b.job2 || null, // deriveNpcs re-spawns shopkeepers from these
           roof: roof || b.roof || (b.stone ? ROOFS_STONE[hash2i(b.x0, b.y0, S) % ROOFS_STONE.length] : ROOFS[hash2i(b.x0, b.y0, S) % ROOFS.length]) });
       // sentinel 2: reserve tiles outside the building (door front + 1-tile margin)
@@ -2087,14 +2095,18 @@ function createWorldChunks(ctx) {
       // the village's PROPER HOUSES (user req 2026-09-16): stamped through
       // the very same stampBuilding pipeline natural settlements use — real
       // floors, walls, roofs and a south door (render3d + structAt read
-      // them from the wall decor + ch.buildings records). job/kind stay
-      // null so deriveNpcs spawns no shopkeepers — the keepers themselves
-      // are the villagers. Footprints live in TUT_VILLAGE.houses (pods 0 +
-      // 14, clear of path/pier/seats/lamps); a modest cot-and-stool inside.
+      // them from the wall decor + ch.buildings records). job stays null so
+      // deriveNpcs spawns no shopkeepers — the keepers themselves are the
+      // villagers. Footprints live in TUT_VILLAGE.houses (pods 0 + 14, clear
+      // of path/pier/seats/lamps); a modest stool downstairs (real bedrooms
+      // are upstairs — kind:"tut_house" gives each one a ladder + storeys,
+      // user req 2026-09-17; see world.js buildingMeta and render3d.js's
+      // tutHouseUpperDecor for the bedroom furnishing itself).
       if (typeof TUT_VILLAGE !== "undefined" && TUT_VILLAGE.houses)
-        for (const hb of TUT_VILLAGE.houses) {
+        for (const hb of [...TUT_VILLAGE.houses, TUT_VILLAGE.sigridHouse]) {
           const vp = TUT_ISLE.pods[hb.pod];
-          const b = { x0: vp.mx * 2 + hb.x0, y0: vp.my * 2 + hb.y0, w: hb.w, h: hb.h };
+          const b = { x0: vp.mx * 2 + hb.x0, y0: vp.my * 2 + hb.y0, w: hb.w, h: hb.h,
+            kind: hb.kind, storeys: hb.storeys };
           if (b.x0 + b.w < bx || b.x0 >= bx + CHUNK ||
               b.y0 + b.h < by || b.y0 >= by + CHUNK) continue;
           if (stampBuilding(b))

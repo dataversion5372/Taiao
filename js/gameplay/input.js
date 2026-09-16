@@ -42,6 +42,10 @@ function targetsAt(x, y) {
       if (lv > 0) out.push({ kind: "ladder", b: bld, m: bm, dir: -1 });
     }
   }
+  // Sigrid's spare bed (Tūhura Isle finale, gameplay/tutorial.js) — a
+  // narrowly-scoped one-off "Sleep" interaction, not a general bed feature
+  if (typeof Tutorial !== "undefined" && Tutorial.sigridSpareBedAt && Tutorial.sigridSpareBedAt(x, y, player.level | 0))
+    out.push({ kind: "sigridBed", x, y });
   // monsters live on the ground floor; an upstairs player can't target one below
   let m = monsters.find(m => m.alive && !m.dormant && (m.level | 0) === (player.level | 0) &&
     ((m.moving && m.moving.tx === x && m.moving.ty === y) || (m.x === x && m.y === y)));
@@ -106,6 +110,7 @@ function hoverLabel(tg) {
     return `${typeof doorLocked === "function" && doorLocked(tg.door) ? "Unlock" : "Open"} ${what}`;
   }
   if (tg.kind === "ladder") return tg.dir > 0 ? "Climb-up ladder" : "Climb-down ladder";
+  if (tg.kind === "sigridBed") return "Sleep";
   if (tg.kind === "riding") return `Disembark ${ITEMS[tg.ent.id].name}`;
   if (tg.kind === "placed")
     return ITEMS[tg.ent.id].ride ? `Board ${ITEMS[tg.ent.id].name}` : `Pick up ${ITEMS[tg.ent.id].name}`;
@@ -221,6 +226,7 @@ canvas.addEventListener("click", e => {
 function doTarget(tg) {
   if (tg.kind === "door") setGoal({ type: "door", door: tg.door }, tg.door.x, tg.door.y, 1);
   else if (tg.kind === "ladder") setGoal({ type: "ladder", b: tg.b, m: tg.m, dir: tg.dir }, tg.m.ladder.x, tg.m.ladder.y, 1);
+  else if (tg.kind === "sigridBed") setGoal({ type: "sigridSleep" }, tg.x, tg.y, 1);
   else if (tg.kind === "livestock") setGoal({ type: (typeof husbGoalType === "function" ? husbGoalType(tg.mon) : (tg.mon.husbSpent ? "husbFeed" : "husbHarvest")), mon: tg.mon }, tg.mon.x, tg.mon.y, 1);
   else if (tg.kind === "monster") setGoal({ type: "combat", mon: tg.mon }, tg.mon.x, tg.mon.y, styleRange());
   else if (tg.kind === "riding") { if (typeof disembark === "function") disembark(); }

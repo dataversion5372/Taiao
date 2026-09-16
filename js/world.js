@@ -83,7 +83,12 @@ function genWorld() {
     // "keep" (battlemented 2-storey), "mansion" (3-storey hall + attached wings)
     const kind = b.kind || (b.tall ? "tower" : null);
     let storeys = 1;
-    if (kind === "lighthouse" || kind === "tower" || kind === "spire") storeys = 4;
+    // the Tūhura Isle Harbour Village's houses (gameplay/tutorial.js
+    // TUT_VILLAGE) carry their own precomputed storey count — a brand-new
+    // kind no other building in the game produces, so this cannot affect
+    // anything else (user req 2026-09-17)
+    if (kind === "tut_house") storeys = b.storeys || 2;
+    else if (kind === "lighthouse" || kind === "tower" || kind === "spire") storeys = 4;
     else if (kind === "mansion") storeys = 3;
     else if (kind === "mainbank") storeys = 3; // a bank network's grand main branch hall
     else if (b.tall) storeys = 3;
