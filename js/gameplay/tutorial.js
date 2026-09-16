@@ -855,10 +855,18 @@ const Tutorial = (() => {
       case "arrow_shafts":   return bumpGoal("shafts", 15);     // one cut = 15 shafts
       case "arrow_iron":     return bumpGoal("arrow_iron", 15); // one fletch = 15 arrows
       case "shortbow":       return bumpGoal("shortbow");
-      case "air_rune":       // the Loremaster's altar lesson — yield mirrors
+      case "air_rune": { // the Loremaster's altar lesson — yield mirrors
         // craftOnce's scaleYield formula (base 1 + level/8 bonus runes)
-        return bumpGoal("airRunes",
-          1 + Math.floor(((typeof eff === "function") ? eff("Runecrafting") : 1) / 8));
+        const wasDone = reqDone("lore");
+        bumpGoal("airRunes", 1 + Math.floor(((typeof eff === "function") ? eff("Runecrafting") : 1) / 8));
+        // the sky (skyIdx) was holding at dusk until this — the 50th rune is
+        // the actual moment night falls, so that's when its note fires
+        if (!wasDone && reqDone("lore") && skyActive() && typeof log === "function") {
+          log(subst(STAGES[LORE_STAGE_IDX].note), "gold");
+          if (typeof sfx === "function") sfx("quest", 0.35);
+        }
+        return;
+      }
       case "cooked_fish":    return bumpGoal("fritters");
       case "cottage_cheese": return bumpGoal("cheese");
       case "flatbread":      return bumpGoal("flatbread");
@@ -952,7 +960,16 @@ const Tutorial = (() => {
     { h: 20,    wx: "clear",   note: "Night gathers; the portal ring glimmers on its crown." }, // Loremaster
     { h: 21,    wx: "clear",   note: "Night proper — the stars wheel above the isle. Time to think about the crossing." }, // Navigator
   ];
-  const stage = () => STAGES[Math.min(_seenCount, STAGES.length - 1)];
+  // the sky holds at dusk through the Loremaster's runecrafting lesson —
+  // night proper falls the instant her 50th air rune lands, not the moment
+  // you meet her (user req 2026-09-16; see onCraft's "air_rune" case, which
+  // fires this same stage's note the moment reqDone("lore") flips true)
+  const LORE_STAGE_IDX = TUT_TUTORS.findIndex(t2 => t2.id === "lore") + 1;
+  function skyIdx(n) {
+    const i = Math.min(n, STAGES.length - 1);
+    return (i === LORE_STAGE_IDX && !reqDone("lore")) ? i - 1 : i;
+  }
+  const stage = () => STAGES[skyIdx(_seenCount)];
   const skyActive = () => active() && onIsle();
   // dayPhase 0..1 such that the LOCAL clock where the player stands reads h
   function phaseOverride() {
@@ -964,8 +981,8 @@ const Tutorial = (() => {
   const weatherOverride = () => skyActive() ? TUT_WX[stage().wx] : null;
   const flatSky = () => skyActive(); // daynight dayFraction + world.latitudeAt → 0.5
   function advanceStage(prevCount) {
-    const prev = Math.min(prevCount, STAGES.length - 1);
-    const cur = Math.min(_seenCount, STAGES.length - 1);
+    const prev = skyIdx(prevCount);
+    const cur = skyIdx(_seenCount);
     if (cur === prev || !skyActive()) return;
     const s = STAGES[cur];
     if (s.note && typeof log === "function") log(subst(s.note), "gold");

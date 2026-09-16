@@ -43,8 +43,16 @@ function targetsAt(x, y) {
     }
   }
   // monsters live on the ground floor; an upstairs player can't target one below
-  const m = monsters.find(m => m.alive && !m.dormant && (m.level | 0) === (player.level | 0) &&
+  let m = monsters.find(m => m.alive && !m.dormant && (m.level | 0) === (player.level | 0) &&
     ((m.moving && m.moving.tx === x && m.moving.ty === y) || (m.x === x && m.y === y)));
+  // a bird perched/flying above a tree can't be melee'd anyway (combat.js
+  // refuses it), so without a bow equipped it shouldn't eclipse the tree
+  // it's sitting in as the click target — chop/examine the tree instead
+  // (user req 2026-09-16)
+  if (m && typeof birdAirborne === "function" && birdAirborne(m)) {
+    const w = player.equip.weapon;
+    if (!(w && ITEMS[w].bowPower)) m = null;
+  }
   if (m) {
     // domestic livestock offers BOTH Tend/Feed (Husbandry) and Attack (Combat).
     // The interaction-mode toggle (sidebar) decides which is listed first — i.e.
