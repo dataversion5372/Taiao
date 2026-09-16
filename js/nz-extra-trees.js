@@ -87,7 +87,10 @@ for (let i = 0; i < NZ_EXTRA_TREES.length; i++) {
   SPR["i_" + log] = ["t", 27, 10, { rot: 90, filter: hueF(i) }];
   // XP ramps with the (direct) level, same feel as the base tree ladder
   const xp = (typeof tierXp === "function" ? tierXp(level - 1, 24) : 20 + level * 8);
-  ITEMS[log] = { name: name + " rākau", icon: "i_" + log, stack: true, value: 4 + level * 3, log: true, logTier: level };
+  // logTier is 0-indexed (req - 1), matching the base tree ladder's convention,
+  // so logHeat()/burnMsFor() in firemaking.js give heat/burn-time appropriate
+  // to the Woodcutting level (e.g. Mānuka, level 3, burns at 94° heat).
+  ITEMS[log] = { name: name + " rākau", icon: "i_" + log, stack: true, value: 4 + level * 3, log: true, logTier: level - 1 };
   NODE_TYPES[node] = {
     name, spr: flatSpr, skill: "Woodcutting", req: level, xp, item: log,
     tool: "axe", tick: 1300 + level * 14, depleteCh: 0.35 + Math.min(0.35, level * 0.012),

@@ -32,17 +32,25 @@ const SFX = (() => {
   // it's already a spent, read-only legacy fallback); its index mapped to the
   // old step volumes below).
   const LEGACY_STEPS = [1, 0.55, 0.28, 0];
-  function loadVol(key) {
+  function loadVol(key, def, legacy) {
     let v = NaN;
     try { v = parseFloat(localStorage.getItem(key)); } catch (e) {}
     if (v >= 0 && v <= 1) return v;
-    let old = 1;
-    try { old = parseInt(localStorage.getItem("emberfallSfxVol") || "1", 10); } catch (e) {}
-    return LEGACY_STEPS[(old >= 0 && old < 4) ? old : 1];
+    if (legacy) {
+      // an emberfallSfxVol on disk means a pre-rename save whose chosen
+      // step should carry over; absent that, fresh installs take `def`
+      let old = null;
+      try { old = localStorage.getItem("emberfallSfxVol"); } catch (e) {}
+      if (old != null) {
+        const i = parseInt(old, 10);
+        return LEGACY_STEPS[(i >= 0 && i < 4) ? i : 1];
+      }
+    }
+    return def;
   }
-  let gameVol = loadVol("taiaoGameVol");
-  let natureVol = loadVol("taiaoNatureVol");
-  let musicVol = loadVol("taiaoMusicVol"); // music.js reads this (generative bed + cinematic themes)
+  let gameVol = loadVol("taiaoGameVol", 0.25, true);   // quiet by default (user req 2026-09-16)
+  let natureVol = loadVol("taiaoNatureVol", 1.0, true); // the birds carry the game — full send
+  let musicVol = loadVol("taiaoMusicVol", 0); // music.js reads this; DEFAULT OFF — no legacy key applies
 
   const pools = {};   // file -> [HTMLAudioElement] (reused when not playing)
   const lastAt = {};  // name -> last play time (throttle rapid repeats)
