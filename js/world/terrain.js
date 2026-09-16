@@ -130,6 +130,18 @@ var TUT_ISLE = (() => {
     }
     gates.push({ x: g.mx, y: g.my, i });
   }
+  // KENJI'S SHORTCUT (user req 2026-09-16, the split-selves lesson): a
+  // SECOND arch carrying gate index 6 — it unbars together with the crown's
+  // south gate the moment the Farm stage completes — set in the 45° chamber
+  // wall between the Bank and Woodcrafting chambers. The self that left the
+  // farm early waits here and lanes straight across to Torra's camp, while
+  // the farming self exits through the crown: two roads, one reunion.
+  // (Appended AFTER the 14 journey gates so the path loop's gates[i]
+  // indexing is untouched; classify/tutGateArchAt scan the whole array.)
+  {
+    const sc = seat(45, (RC + RM) / 2);
+    gates.push({ x: sc.mx, y: sc.my, i: 6, shortcut: true });
+  }
   const path = [];                        // [{x, y, s}]
   for (let i = 0; i < 15; i++) {
     if (i === 6) {

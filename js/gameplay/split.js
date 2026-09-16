@@ -202,6 +202,8 @@ var Split = (() => {
     arr.splice(arr.indexOf(b), 1);
     log(`You are ${arr.length ? "fewer" : "whole"} again — what was divided flows back together (${count()}/${MAX_BODIES}).`, "gold");
     if (typeof sfx === "function") sfx("levelup", 0.3);
+    // Torra's stage counts the reunion (gameplay/tutorial.js "merged" goal)
+    if (typeof Tutorial !== "undefined" && Tutorial.onMerge) Tutorial.onMerge();
     uiDirty = true;
     if (typeof saveGame === "function") saveGame();
     syncHud(true);
@@ -611,6 +613,10 @@ var Split = (() => {
     MAX_BODIES,
     splitOrMerge, cycle, cycleTo, tick, onDeath, mergeAll, share: shareWithAdjacent,
     capture, tryQueueClick, queuedTiles,
+    // is a SECOND self currently busy (acting / queued / walking)? — the
+    // tutorial's "keep both selves working" check (gameplay/tutorial.js)
+    twinBusy: () => bodies().some(b => b.act || b.goal ||
+      (b.queue && b.queue.length) || (b.path && b.path.length)),
     isGhost, deferSave,
     serializeBody, reviveBody,
     syncHud,

@@ -61,10 +61,12 @@
   const tinSmelt = RECIPES.smelt.find(r => r.out === "bar_1");
   if (tinSmelt) tinSmelt.req = 1;
 
-  // Every smelted bar now takes 6× as long (user request 2026-09-15). Applied
-  // ONCE here — this is the last file to touch RECIPES.smelt, so it covers every
-  // bar uniformly (data.js base + content.js tiers + the alloys above). The tick
-  // is the per-bar time (crafting.js tickCraft nextAt; passive jobs read it too).
+  // Every smelt FIRING now takes 6× as long (user request 2026-09-15).
+  // Applied ONCE here for every bar uniformly (data.js base + content.js
+  // tiers + the alloys above). NOTE: bestiary-drops.js later normalizes
+  // every Smelting recipe into a SIX-ITEM FURNACE LOAD (inputs sum to 6,
+  // out qty 6, xp ×6) — so the tick below is per six-bar FIRING, not per
+  // bar; per-bar throughput ends up at the original pace.
   const SMELT_TIME_MULT = 6;
   for (const r of RECIPES.smelt) if (r.tick) r.tick *= SMELT_TIME_MULT;
 

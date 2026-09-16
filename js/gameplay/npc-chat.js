@@ -456,8 +456,11 @@ function npcBroadcast(text) {
       npcRetrieveReply(npc, text)
         .then(line => new Promise(res => setTimeout(() => res(line), delay)))
         .then(line => {
-          if (line) npcrSayStreaming(npc, line);
-          else npcSay(npc, (npc.line || "...").replace(/^"|"$/g, ""));  // bank still loading
+          if (line) {
+            npcrSayStreaming(npc, line);
+            // Ravenna's stage counts a real heard answer (gameplay/tutorial.js)
+            if (typeof Tutorial !== "undefined" && Tutorial.onChatReply) Tutorial.onChatReply(npc, line);
+          } else npcSay(npc, (npc.line || "...").replace(/^"|"$/g, ""));  // bank still loading
         })
         .catch(() => npcSay(npc, (npc.line || "...").replace(/^"|"$/g, "")))
         .finally(() => NPC_CHAT.pending.delete(cid));

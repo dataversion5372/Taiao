@@ -202,35 +202,37 @@ const TUT_CONTENT = (() => {
     // THE TERRACE IS AN EXACT LEDGER (user req 2026-09-16): every rock's
     // yield is PINNED (extra.left skips gathering.js's 5-10 roll), and the
     // isle-wide strip in chunks.js deletes every NATURAL metal rock, so this
-    // is all the ore there is (per respawn cycle). The maths:
-    //  · smelt plan → Smelting 3 (1154 xp): 46 copper bars (46×20 = 920 xp)
-    //    + 2 five-bar batches of bronze (10 × 25 = 250 xp) = 1170 ≥ 1154
-    //    (45 copper bars = 1150 falls short — 46 is exact)
-    //  · copper ore = 46 (copper bars) + 20 (bronze: 2/bar) = 66
-    //    → ELEVEN rocks × 6 ore. Mining xp 66 × 30 = 1980 crosses
-    //    Ore-mining 2 (650) at ore #22 and 3 (1154, the iron rock's req)
-    //    at ore #39 — the ladder unlocks itself partway up the terrace
-    //  · tin = 10 (2 bronze batches × 5 bars × 1 tin) → TWO rocks × 5
-    //  · iron = 25 (5 five-bar batches, 1 ore/bar) → FIVE rocks × 5
-    //    (the forge itself spends ~22: 20 arrowhead batches + a 2-bar sword)
-    at(3, -5, -4, { node: "copper", extra: { left: 6, leftMax: 6 } }),
-    at(3, -7, -7, { node: "copper", extra: { left: 6, leftMax: 6 } }),
-    at(3, -9, -3, { node: "copper", extra: { left: 6, leftMax: 6 } }),
-    at(3, -3, -11, { node: "copper", extra: { left: 6, leftMax: 6 } }),
-    at(3, -10, -10, { node: "copper", extra: { left: 6, leftMax: 6 } }),
-    at(3, -1, -6, { node: "copper", extra: { left: 6, leftMax: 6 } }),
-    at(3, -2, -9, { node: "copper", extra: { left: 6, leftMax: 6 } }),
-    at(3, -6, -12, { node: "copper", extra: { left: 6, leftMax: 6 } }),
-    at(3, -11, -6, { node: "copper", extra: { left: 6, leftMax: 6 } }),
-    at(3, -12, -9, { node: "copper", extra: { left: 6, leftMax: 6 } }),
-    at(3, 0, -9, { node: "copper", extra: { left: 6, leftMax: 6 } }),
-    at(3, -7, -10, { node: "rockM1", extra: { left: 5, leftMax: 5 } }),   // tin
-    at(3, -9, -12, { node: "rockM1", extra: { left: 5, leftMax: 5 } }),   // tin
-    at(3, -4, -8, { node: "iron", extra: { left: 5, leftMax: 5 } }),
-    at(3, -5, -13, { node: "iron", extra: { left: 5, leftMax: 5 } }),
-    at(3, -8, -14, { node: "iron", extra: { left: 5, leftMax: 5 } }),
-    at(3, -11, -12, { node: "iron", extra: { left: 5, leftMax: 5 } }),
-    at(3, -13, -4, { node: "iron", extra: { left: 5, leftMax: 5 } }),
+    // is all the ore there is (per respawn cycle). SMELTING WORKS IN SIX-
+    // ITEM FURNACE LOADS (bestiary-drops.js normalizes every smelt recipe:
+    // inputs sum to 6, out 6 bars, xp ×6 — copper 6→6 @120xp, bronze
+    // 4 copper + 2 tin → 6 @150xp, iron 6→6 @360xp), so the ledger counts
+    // in whole FIRINGS:
+    //  · smelt plan → Smelting 3 (1154 xp): EIGHT copper firings (48 ore →
+    //    48 bars, 960 xp) + TWO bronze firings (8 copper + 4 tin → 12 bars,
+    //    300 xp) = 1260 ≥ 1154 (seven copper firings = 1140 falls short —
+    //    eight is exact)
+    //  · copper ore = 48 + 8 = 56 → EIGHT rocks × 7 ore
+    //  · tin = 4 → TWO rocks × 2
+    //  · iron = 30 (FIVE firings → 30 bars) → FIVE rocks × 6
+    //    (the forge spends ~22 bars: 20 arrowhead batches + a 2-bar sword)
+    //  · mining xp (30/ore): Ore-mining 2 at ore #22, 3 (the iron rock's
+    //    req) at #39 — copper + tin alone are 60 ores, so the ladder
+    //    unlocks itself before the first iron swing
+    at(3, -5, -4, { node: "copper", extra: { left: 7, leftMax: 7 } }),
+    at(3, -7, -7, { node: "copper", extra: { left: 7, leftMax: 7 } }),
+    at(3, -9, -3, { node: "copper", extra: { left: 7, leftMax: 7 } }),
+    at(3, -3, -11, { node: "copper", extra: { left: 7, leftMax: 7 } }),
+    at(3, -10, -10, { node: "copper", extra: { left: 7, leftMax: 7 } }),
+    at(3, -1, -6, { node: "copper", extra: { left: 7, leftMax: 7 } }),
+    at(3, -2, -9, { node: "copper", extra: { left: 7, leftMax: 7 } }),
+    at(3, -6, -12, { node: "copper", extra: { left: 7, leftMax: 7 } }),
+    at(3, -7, -10, { node: "rockM1", extra: { left: 2, leftMax: 2 } }),   // tin
+    at(3, -9, -12, { node: "rockM1", extra: { left: 2, leftMax: 2 } }),   // tin
+    at(3, -4, -8, { node: "iron", extra: { left: 6, leftMax: 6 } }),
+    at(3, -5, -13, { node: "iron", extra: { left: 6, leftMax: 6 } }),
+    at(3, -8, -14, { node: "iron", extra: { left: 6, leftMax: 6 } }),
+    at(3, -11, -12, { node: "iron", extra: { left: 6, leftMax: 6 } }),
+    at(3, -13, -4, { node: "iron", extra: { left: 6, leftMax: 6 } }),
     // pod 4 — the Lagoon (Swim-Master): the deep pool is carved in terrain; no
     // hand-placed content — Vrixa gifts the raft + snorkel.
     // pod 5 — the Bank camp: the vault, plus a carpenter's bench and a stand
@@ -432,8 +434,9 @@ const Tutorial = (() => {
         ["bank",  { isletPearl: 1, isletReturn: 1 }],              // swim: the motu errand
         ["farm",  { deposits: 1, pails: 15 }],                     // bank: the pails goal
         ["wood",  { cropWheat: 50, cropPotato: 50, cropApple: 50, cropSage: 50, cropFlax: 50,
-                    flour: 50, eggs: 10, feathers: 100 }],         // farm: 50s + feathers
-        ["cook",  { shafts: 300, arrow_iron: 300 }],               // wood: the 300-ladder
+                    flour: 50, eggs: 10, feathers: 100, twinned: 1 }], // farm: 50s + feathers + the split lesson
+        ["cook",  { shafts: 300, arrow_iron: 300, merged: 1 }],    // wood: the 300-ladder + the reunion
+        ["candle", { chatted: 1 }],                                // sky: Ravenna's chat
         ["ferry", { airRunes: 50 }],                               // lore: altar runecrafting
       ];
       for (const [k, credit] of MIG) {
@@ -517,10 +520,14 @@ const Tutorial = (() => {
   // 50 of EACH crop (user req 2026-09-16) off the fenced 5×5: a first full
   // harvest averages ~37 per crop, so replanting-and-regrowing is required.
   // The 100 feathers are Torra's exact arrow budget (20 batches × 5).
-  const FARM_GOALS = [["cropWheat", 50, "harvest 50 wheat"], ["cropPotato", 50, "harvest 50 potatoes"], ["cropApple", 50, "harvest 50 apples"], ["cropSage", 50, "harvest 50 sageleaves"], ["cropFlax", 50, "harvest 50 flax"], ["flour", 50, "mill 50 flour"], ["eggs", 10, "collect 10 eggs"], ["feathers", 100, "collect 100 feathers"]];
+  // …and the SPLIT-SELVES lesson lives here (user req 2026-09-16): the regrow
+  // waits make the farm the natural place to learn X — one self reaps and
+  // replants while the other works elsewhere (tick() detects both busy at
+  // once). The reunion is Torra's goal, via Kenji's shortcut gate.
+  const FARM_GOALS = [["cropWheat", 50, "harvest 50 wheat"], ["cropPotato", 50, "harvest 50 potatoes"], ["cropApple", 50, "harvest 50 apples"], ["cropSage", 50, "harvest 50 sageleaves"], ["cropFlax", 50, "harvest 50 flax"], ["flour", 50, "mill 50 flour"], ["eggs", 10, "collect 10 eggs"], ["feathers", 100, "collect 100 feathers"], ["twinned", 1, "split in two (press X) & keep both selves working"]];
   // 300 shafts (20 cuts × 35 xp = 700) land Fletching 2 — exactly the level
   // iron arrows demand; the wand is GONE (no magic on the isle, user req)
-  const WOOD_GOALS = [["shafts", 300, "cut 300 arrow shafts"], ["arrow_iron", 300, "fletch 300 iron arrows"], ["shortbow", 1, "carve a shortbow"]];
+  const WOOD_GOALS = [["merged", 1, "merge your selves back into one (X, side by side)"], ["shafts", 300, "cut 300 arrow shafts"], ["arrow_iron", 300, "fletch 300 iron arrows"], ["shortbow", 1, "carve a shortbow"]];
   const COOK_GOALS = [["fritters", 5, "cook 5 whitebait fritters"], ["cheese", 1, "make cottage cheese"], ["flatbread", 5, "bake 5 flatbread"]];
   const WAR_GOALS  = [["slimes", 3, "slay 3 slimes"], ["tallow", 3, "gather 3 tallow"], ["actionRune", 3, "gather 3 action runes"], ["stateRune", 3, "gather 3 state runes"], ["hide", 3, "gather 3 hide"], ["koreke", 5, "slay 5 koreke"]];
   // the Swim-Master's islet errand (user req 2026-09-16): snorkel out past
@@ -534,6 +541,7 @@ const Tutorial = (() => {
     for (const [c, n, label] of arr) GOALS[c] = [n, label];
   GOALS.arrowheads = [SMITH_HEADS, `smith ${SMITH_HEADS} iron arrowheads`]; // smith stage counter (15/batch)
   GOALS.furnaceLit = [1, "light the furnace"];                              // smith stage counter (onStoke)
+  GOALS.chatted = [1, "say something to Ravenna & hear her answer"];        // sky stage counter (onChatReply)
   // journey-bar itemisation: one {on, num, need, label} row per goal
   const goalItems = arr => t => arr.map(([c, n, label]) =>
     ({ on: cnt(t, c) >= n, num: Math.min(n, cnt(t, c)), need: n, label }));
@@ -561,7 +569,15 @@ const Tutorial = (() => {
     wood:  { task: "cut 300 shafts, fletch 300 arrows, carve a bow", need: WOOD_GOALS.length, done: t => allGoals(t, WOOD_GOALS), num: t => numGoals(t, WOOD_GOALS), items: goalItems(WOOD_GOALS) },
     cook:  { task: "cook fritters, cheese & flatbread", need: COOK_GOALS.length, done: t => allGoals(t, COOK_GOALS), num: t => numGoals(t, COOK_GOALS), items: goalItems(COOK_GOALS) },
     war:   { task: "clear the pit & slay 5 koreke", need: WAR_GOALS.length, done: t => allGoals(t, WAR_GOALS), num: t => numGoals(t, WAR_GOALS), items: goalItems(WAR_GOALS) },
-    sky:   { task: "climb the Sky Knoll",      done: t => !!t.reachedKnoll },
+    // the Skywatcher's stage also SHOWCASES the semantic chat (user req):
+    // say anything to her (Enter) and hear a real, un-canned answer
+    sky:   { task: "climb the Sky Knoll & really talk to Ravenna", need: 2,
+             done: t => !!t.reachedKnoll && cnt(t, "chatted") >= 1,
+             num: t => (t.reachedKnoll ? 1 : 0) + (cnt(t, "chatted") >= 1 ? 1 : 0),
+             items: t => [
+               { on: !!t.reachedKnoll, num: t.reachedKnoll ? 1 : 0, need: 1, label: "climb the Sky Knoll" },
+               { on: cnt(t, "chatted") >= 1, num: Math.min(1, cnt(t, "chatted")), need: 1, label: "say something to Ravenna (Enter) & hear her answer" },
+             ] },
     candle:{ task: "dip a rushlight",          done: t => !!t.candleMade,
              items: t => [
                { on: !!(t && t.candleMade), num: (t && t.candleMade) ? 1 : 0, need: 1, label: "dip a rushlight" },
@@ -642,6 +658,18 @@ const Tutorial = (() => {
   function onStoke(node) {
     if (!active() || !node || node.type !== "furnace") return;
     bumpGoal("furnaceLit");
+  }
+  // merge hook (split.js doMerge): Torra's "back into one" checkbox
+  function onMerge() {
+    if (!active()) return;
+    bumpGoal("merged");
+  }
+  // semantic-chat hook (npc-chat.js, fired when a retrieval reply is actually
+  // SAID): Ravenna's "hear her answer" checkbox — hers alone, so the wow
+  // moment happens where her dialogue set it up
+  function onChatReply(npc) {
+    if (!active() || !npc || npc.tutor !== "sky") return;
+    bumpGoal("chatted");
   }
   // farm crop key → goal counter (caps + labels live in FARM_GOALS)
   const CROP_TASK = {
@@ -832,6 +860,12 @@ const Tutorial = (() => {
     const s = STAGES[cur];
     if (s.note && typeof log === "function") log(subst(s.note), "gold");
     if (typeof sfx === "function") sfx("quest", 0.35);
+    // warm the semantic-chat bank a couple of keepers ahead of Ravenna's
+    // talk-to-me lesson, so her first answer is the real thing, not the
+    // "bank still loading" canned fallback (idempotent; deliberately NOT
+    // at boot — the MiniLM load would lean on the perf-sensitive boot path)
+    if (_seenCount >= 10 && typeof npcRetrievalWarm === "function")
+      try { npcRetrievalWarm(); } catch (e) { /* offline build */ }
   }
 
   // ---------- the river ----------
@@ -1075,7 +1109,8 @@ const Tutorial = (() => {
               "This isle is a journey: follow the dirt path east, camp to camp. At every gate waits a keeper with something wonderful to teach — and each gate only unbars when its keeper has finished with you. No rushing ahead!"] },
         { h: "The basics",
           t: ["Click the ground to walk. Click a tree, a rock, a fire or a person to use them — your character handles the rest. RIGHT-click anything for more choices; almost everything can be examined.",
-              "Your packs, skills and equipment live in the sidebar tabs. Your Skills tab starts near-empty — each keeper AWAKENS the crafts they teach, and the rest of the world's trades open the day you sail. The ? tab holds a full guide whenever you're lost, and the bar at the top of your screen tracks the journey."] },
+              "Your packs, skills and equipment live in the sidebar tabs. Your Skills tab starts near-empty — each keeper AWAKENS the crafts they teach, and the rest of the world's trades open the day you sail. The ? tab holds a full guide whenever you're lost, and the bar at the top of your screen tracks the journey.",
+              "And one more thing worth knowing early: the folk of this world can be TALKED to — press Enter near anyone and say what you like, in your own words. They truly answer. The Skywatcher up the path makes a lesson of it; try it on me any time."] },
         { h: "Be anyone — choose now",
           t: ["Look at yourself, e hoa — you're still a spark of unformed light! You cannot set foot on the path until you take a BODY. Tap the button below and choose one: dozens of folk, each with their own build, pace and wardrobe.",
               "The first gate will not open while you're still just light — so choose before you go. (Change your mind any time by talking to me again; out in the world, Newhaven's Registrar keeps the register of forms.)",
@@ -1119,8 +1154,8 @@ const Tutorial = (() => {
       reward: { items: [["pickaxe_iron", 1], ["knife", 1], ["flint", 1]] },
       pages: [
         { h: "From rock to blade",
-          t: ["This pickaxe is yours — but the craft you'll earn stroke by stroke; nothing here is given. My terrace is a MEASURED LEDGER, the only ore on this whole isle: ELEVEN copper rocks (six ore each), TWO pale tin rocks (five each), FIVE dark iron rocks (five each). Copper first — your arms harden on it: tin yields at Ore-mining TWO, iron at THREE, and the copper alone carries you there.",
-              "Then the furnace, in this order: FORTY-SIX COPPER BARS, then TWO five-bar batches of BRONZE (each bronze bar drinks two copper and one tin — your twenty spare copper and all ten tin, to the last stone). That work lands your Smelting at THREE — exactly enough for FIVE five-bar batches of IRON. Every swing and every bar earns its own experience; nothing on my terrace is wasted, so waste nothing."] },
+          t: ["This pickaxe is yours — but the craft you'll earn stroke by stroke; nothing here is given. My terrace is a MEASURED LEDGER, the only ore on this whole isle: EIGHT copper rocks (seven ore each), TWO pale tin rocks (two each), FIVE dark iron rocks (six each). Copper first — your arms harden on it: tin yields at Ore-mining TWO, iron at THREE, and the copper alone carries you there.",
+              "My furnace smelts in LOADS OF SIX. So, in this order: EIGHT firings of COPPER (forty-eight bars), then TWO firings of BRONZE — each load drinks four copper and two tin, your last eight copper and every tin stone. That work lands your Smelting at THREE — exactly enough for FIVE firings of IRON, thirty bars. Every swing and every firing earns its own experience; nothing on my terrace is wasted, so waste nothing."] },
         { h: "First, light the furnace",
           t: ["A cold furnace smelts nothing — every fire on this isle burns REAL fuel. So take my working KNIFE and this piece of FLINT — keep both in your pack. Stand at the furnace, STRIKE a spark, then STOKE the fire with logs. LIGHTING MY FURNACE is the first mark of your lesson — and every stoke feeds your FIREMAKING; even a fizzled spark is practice.",
               "Plain logs burn hot enough to smelt copper and bronze — but IRON wants a fiercer fire. Fell a MĀNUKA when your Woodcutting reaches 3 and stoke with its rākau, and keep striking until your Firemaking can hold that heat. The flint never wears out; it lights every fire you'll ever lay."] },
@@ -1189,16 +1224,19 @@ const Tutorial = (() => {
         { h: "Mill & tend",
           t: ["Grain becomes food at the MILLSTONE: mill FIFTY wheat into flour (bran comes off with it) — your whole wheat harvest, ground fine; you'll bake with it up the path. Keep your flax too; it spins into linen for candle wicks later.",
               "Livestock roam the pasture — TEND them for wool, milk, feathers and eggs. Tend my QUAIL and hens for TEN eggs (save some for the fritters!) and ONE HUNDRED FEATHERS — that's the exact fletching budget for {wood}'s three hundred arrows, so every feather counts. Watch for GIANT animals — one in six is born big and gives double."] },
+        { h: "Be in two places at once",
+          t: ["Now the vale's deepest secret, and my favourite: while the rows regrow, DON'T STAND WAITING. Press X and SPLIT — you will tear into TWO SELVES, each with hands, a pack, a will. Leave one here to reap, replant and mill (queue the rows with Option+click and it works the list alone!), and walk the other wherever it's needed. Tab hops between them; your strength divides while you're apart and flows back whole when you rejoin. Keep BOTH selves busy at once — that's my mark.",
+              "And here is my gift for the road: see the little gate in the chamber wall to the NORTH-EAST, out through my east arch? MY SHORTCUT. It unbars the moment my stage is done — a straight lane from the bank chamber into {wood}'s camp. Send your free self round to wait there; when the last crop falls, both your roads open at once: one self through the crown's south gate, one through the shortcut — and you meet again at Torra's benches."] },
         { h: "Onward",
-          t: ["So: fifty of each crop — reap, replant, reap again — fifty flour milled, ten eggs and a hundred feathers gathered. Keep those pails handy — {cook} up the path keeps COWS, and once your Husbandry reaches THREE they'll fill every pail you carry. When the farm's given up its bounty, {wood} keeps the woodcrafting camp through the next gate.",
+          t: ["So: fifty of each crop — reap, replant, reap again — fifty flour milled, ten eggs and a hundred feathers gathered, and both your selves at work. Keep those pails handy — {cook} up the path keeps COWS, and once your Husbandry reaches THREE they'll fill every pail you carry. When the farm's given up its bounty, {wood} keeps the woodcrafting camp beyond the gates.",
               "And in a real settlement at dusk, watch the lamplighters set glowing candle-stands along the streets, gathered again by dawn. This world lives its own life."] },
       ],
     },
     wood: {
       pages: [
         { h: "Boards, shafts and bows",
-          t: ["Kia ora! This is the woodcrafting camp. Everything here begins with LOGS — the ones you felled in the bush. At the sawmill you SAW logs into boards; at my bench you shape them further.",
-              "Three skills live here: Sawing, Fletching and Carpentry. No gifts from me — you'll make your own kit from wood you cut."] },
+          t: ["Kia ora — both of you, if Kenji taught you right! First things first: stand your two selves SIDE BY SIDE and press X — MERGE back into one. Divided hands are grand for waiting on crops; fletching three hundred arrows wants your whole strength in one pair of arms.",
+              "This is the woodcrafting camp. Everything here begins with LOGS — the ones you felled in the bush. At the sawmill you SAW logs into boards; at my bench you shape them further. Three skills live here: Sawing, Fletching and Carpentry. No gifts from me — you'll make your own kit from wood you cut."] },
         { h: "Fletch & carve",
           t: ["The ladder goes like this. FIRST: cut THREE HUNDRED ARROW SHAFTS at my bench — twenty logs, fifteen shafts a cut. By the last bundle your Fletching will have reached LEVEL TWO, and level two is exactly what iron arrows demand. SECOND: bind them — fifteen shafts, five of the vale's feathers, fifteen of {smith}'s iron heads per batch — until THREE HUNDRED IRON ARROWS fill your quiver. Your hundred feathers and three hundred arrowheads are the exact budget: twenty batches, nothing wasted.",
               "THIRD: carve a SHORTBOW from a couple of logs. That bow and those arrows are how you'll bring down the warden's koreke later, so make them well."] },
@@ -1236,6 +1274,9 @@ const Tutorial = (() => {
     sky: {
       reward: { coins: 30 },
       pages: [
+        { h: "Talk to me — truly",
+          t: ["Before the sky, a wonder closer to hand. Everyone you have met on this isle — everyone in this whole world — can be SPOKEN WITH. Not clicked. SPOKEN WITH. Press ENTER, say anything in your own words, and we answer. Ask me what I love about my knoll. Ask me about the rain that soaked you at the bank camp, or what I make of the Warden's slimes, or whether the stars go out.",
+              "And understand what you're hearing: no script — no wheel of stock phrases turning under my tongue. And no dream-machine either, the kind that invents words nobody ever meant. Every answer I give you is a thing a real soul once truly said, found and offered because it fits YOUR words. If you speak nonsense, I'll be honestly puzzled, as anyone would. No world's folk have ever talked like Taiao's folk talk. Say something to me — and hear for yourself. That's half my lesson."] },
         { h: "The sun keeps time",
           t: ["Look up! Out in the wide world, day and night roll on REAL time — and the world is so wide it has TIMEZONES: every 256 tiles east is an hour ahead. Newhaven's clocks already read three hours ahead of ours.",
               "This isle sits at an even 50% latitude — half day, half night. Sail far enough north or south out there and latitude changes the days themselves: polar summers where the sun never sets, winters where it barely rises.",
@@ -1657,6 +1698,11 @@ const Tutorial = (() => {
     isletSync(); // re-seat the motu the moment the worn body changes (also at boot, BEFORE the shore-wash looks around)
     if (!_shoreChecked && typeof gameReady !== "undefined" && gameReady) _shoreWash(t);
     if (!t || t.graduated) return;
+    // the split-selves lesson: BOTH selves working at once (the farm's
+    // regrow waits are the natural moment — Kenji's page teaches X)
+    if ((!t.prog || !t.prog.twinned) && typeof Split !== "undefined" && Split.twinBusy &&
+        (player.act || player.goal || (player.path && player.path.length)) && Split.twinBusy())
+      bumpGoal("twinned");
     // the Swim-Master's errand, leg two: pearl in hand, back TO VRIXA — the
     // fetch completes at her side (user req), not just any dry shore
     if (t.prog && t.prog.isletPearl && !t.prog.isletReturn) {
@@ -1701,7 +1747,7 @@ const Tutorial = (() => {
     skillVisible, riverFlow, tick, onCraft, anvilRecipes,
     villageHome, villageLamps,
     onGather, onWash, onBank, onKill, onChant,
-    onQueue, onBrace, onStoke,
+    onQueue, onBrace, onStoke, onMerge, onChatReply,
     onHarvest, onTend, onEquip, onPickup };
 })();
 if (typeof window !== "undefined") window.Tutorial = Tutorial;
