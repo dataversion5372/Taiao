@@ -92,6 +92,22 @@
     try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
   }
 
+  // ---------- key labels ----------
+  // DECLARED ABOVE THE SESSION BLOCK on purpose: finalizeSnapshot runs at
+  // IIFE EVAL time (the previous session's boot summary, just below) and
+  // calls label() — with this `const` in its old spot ~250 lines further
+  // down, any load after a ≥2-min unfinalized session threw "can't access
+  // lexical declaration before initialization" and killed the whole bundle
+  // eval. Functions hoist; consts don't.
+  const LABELS = {
+    combat: "Combat", explore: "Exploring", travel: "Travelling", sailing: "Sailing",
+    "ui:map": "Map browsing", "ui:bank": "Banking", "ui:trade": "Shopping & trading",
+    "ui:bestiary": "Bestiary reading", "ui:quests": "Quest journal", "ui:skills": "Skill guides",
+    "act:gather": "Gathering (misc)", "act:craft": "Crafting (misc)", "act:harvest": "Farming (misc)",
+    "act:till": "Farming (misc)", "act:chop": "Farming (misc)", "act:husb": "Husbandry (misc)",
+    "act:alch": "Alchemy (misc)",
+  };
+
   // ---------- session ----------
   // Finalize a session snapshot: EMA trend update + session journal entry.
   function finalizeSnapshot(snap, note) {
@@ -367,14 +383,7 @@
   });
 
   // ---------- inference ----------
-  const LABELS = {
-    combat: "Combat", explore: "Exploring", travel: "Travelling", sailing: "Sailing",
-    "ui:map": "Map browsing", "ui:bank": "Banking", "ui:trade": "Shopping & trading",
-    "ui:bestiary": "Bestiary reading", "ui:quests": "Quest journal", "ui:skills": "Skill guides",
-    "act:gather": "Gathering (misc)", "act:craft": "Crafting (misc)", "act:harvest": "Farming (misc)",
-    "act:till": "Farming (misc)", "act:chop": "Farming (misc)", "act:husb": "Husbandry (misc)",
-    "act:alch": "Alchemy (misc)",
-  };
+  // (LABELS lives above the session block — see the TDZ note there)
   function label(k) { return k.startsWith("skill:") ? k.slice(6) : (LABELS[k] || k); }
   function fmtDur(sec) {
     sec = Math.round(sec);
