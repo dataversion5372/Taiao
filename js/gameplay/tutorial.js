@@ -500,7 +500,7 @@ const Tutorial = (() => {
                     flour: 10, eggs: 10, feathers: 10, twinned: 1 }],  // farm goals + the split lesson
         ["cook",  { shafts: 300, arrow_iron: 30, merged: 1 }],     // wood: the shaft ladder + the reunion
         ["candle", { chatted: 1 }],                                // sky: Ravenna's chat
-        ["ferry", { airRunes: 50 }],                               // lore: altar runecrafting
+        ["ferry", { airRunes: 50, rushlightEquipped: 1 }],         // lore: altar runecrafting + rushlight
       ];
       for (const [k, credit] of MIG) {
         if (!t.seen[k]) continue;
@@ -602,8 +602,11 @@ const Tutorial = (() => {
   // bare-lungs range, lift the sea chest's pearl, and swim it back to HER
   const SWIM_GOALS = [["isletPearl", 1, "open the islet's sea chest"], ["isletReturn", 1, "bring the pearl back to Vrixa"]];
   // the Loremaster's lesson is RUNECRAFTING, not spellcasting: her 50 gifted
-  // state runes become 50 air runes at the crown's altar (no magic taught)
-  const LORE_GOALS = [["airRunes", 50, "craft 50 air runes at the altar"]];
+  // state runes become 50 air runes at the crown's altar (no magic taught).
+  // Second goal (user req 2026-09-16): equip a rushlight — the isle's sky
+  // holds at dusk until BOTH goals are done (skyIdx/maybeLoreNight below),
+  // so the player always has light to work the altar by.
+  const LORE_GOALS = [["airRunes", 50, "craft 50 air runes at the altar"], ["rushlightEquipped", 1, "equip a rushlight"]];
   const GOALS = {}; // counter -> [cap, label]
   for (const arr of [BUSH_GOALS, FISH_GOALS, BANK_GOALS, FARM_GOALS, WOOD_GOALS, COOK_GOALS, WAR_GOALS, SWIM_GOALS, LORE_GOALS])
     for (const [c, n, label] of arr) GOALS[c] = [n, label];
@@ -650,7 +653,7 @@ const Tutorial = (() => {
              items: t => [
                { on: !!(t && t.candleMade), num: (t && t.candleMade) ? 1 : 0, need: 1, label: "dip a rushlight" },
              ] },
-    lore:  { task: "craft 50 air runes at the altar", need: LORE_GOALS.length, done: t => allGoals(t, LORE_GOALS), num: t => numGoals(t, LORE_GOALS), items: goalItems(LORE_GOALS) },
+    lore:  { task: "craft 50 air runes at the altar & equip a rushlight", need: LORE_GOALS.length, done: t => allGoals(t, LORE_GOALS), num: t => numGoals(t, LORE_GOALS), items: goalItems(LORE_GOALS) },
     ferry: null,   // the Navigator just ferries the graduate — no task
   };
   function reqDone(id) {
@@ -815,6 +818,13 @@ const Tutorial = (() => {
       t.candleEquipped = 1; // tracked but not a stage requirement
       refreshBar(); if (typeof saveGame === "function") saveGame();
     }
+    // the Loremaster's second goal (LORE_GOALS): equip a rushlight —
+    // whichever of her two goals lands last is the moment night falls
+    if (id === "rushlight") {
+      const wasDone = reqDone("lore");
+      bumpGoal("rushlightEquipped");
+      maybeLoreNight(wasDone);
+    }
   }
   const onChant = () => reqBump("chants");
 
@@ -859,12 +869,7 @@ const Tutorial = (() => {
         // craftOnce's scaleYield formula (base 1 + level/8 bonus runes)
         const wasDone = reqDone("lore");
         bumpGoal("airRunes", 1 + Math.floor(((typeof eff === "function") ? eff("Runecrafting") : 1) / 8));
-        // the sky (skyIdx) was holding at dusk until this — the 50th rune is
-        // the actual moment night falls, so that's when its note fires
-        if (!wasDone && reqDone("lore") && skyActive() && typeof log === "function") {
-          log(subst(STAGES[LORE_STAGE_IDX].note), "gold");
-          if (typeof sfx === "function") sfx("quest", 0.35);
-        }
+        maybeLoreNight(wasDone);
         return;
       }
       case "cooked_fish":    return bumpGoal("fritters");
@@ -961,13 +966,23 @@ const Tutorial = (() => {
     { h: 21,    wx: "clear",   note: "Night proper — the stars wheel above the isle. Time to think about the crossing." }, // Navigator
   ];
   // the sky holds at dusk through the Loremaster's runecrafting lesson —
-  // night proper falls the instant her 50th air rune lands, not the moment
-  // you meet her (user req 2026-09-16; see onCraft's "air_rune" case, which
-  // fires this same stage's note the moment reqDone("lore") flips true)
+  // night proper falls only once BOTH her goals (LORE_GOALS: 50 air runes +
+  // equip a rushlight) are done, not the moment you meet her (user req
+  // 2026-09-16; see maybeLoreNight below, called from onCraft's "air_rune"
+  // case and onEquip — whichever goal is completed last triggers it)
   const LORE_STAGE_IDX = TUT_TUTORS.findIndex(t2 => t2.id === "lore") + 1;
   function skyIdx(n) {
     const i = Math.min(n, STAGES.length - 1);
     return (i === LORE_STAGE_IDX && !reqDone("lore")) ? i - 1 : i;
+  }
+  // fires the "Night gathers..." narration the instant BOTH of Runa's goals
+  // are done, whichever lands last — the 50th air rune or equipping the
+  // rushlight (onCraft's "air_rune" case and onEquip both call this)
+  function maybeLoreNight(wasDone) {
+    if (!wasDone && reqDone("lore") && skyActive() && typeof log === "function") {
+      log(subst(STAGES[LORE_STAGE_IDX].note), "gold");
+      if (typeof sfx === "function") sfx("quest", 0.35);
+    }
   }
   const stage = () => STAGES[skyIdx(_seenCount)];
   const skyActive = () => active() && onIsle();
@@ -1138,7 +1153,7 @@ const Tutorial = (() => {
     soap:  t => { t.washedClean = 1; },
     sky:   t => { t.reachedKnoll = 1; t.prog.chatted = 1; },
     candle: t => { t.candleMade = 1; },
-    lore:  t => Object.assign(t.prog, { airRunes: 50 }),
+    lore:  t => Object.assign(t.prog, { airRunes: 50, rushlightEquipped: 1 }),
   };
   const SKIP_ITEMS = {  // what the stage's WORK would have left in the pack
     bush:  [["logs", 30]],
@@ -1499,7 +1514,7 @@ const Tutorial = (() => {
       pages: [
         { h: "The craft of runes",
           t: ["Take these — FIFTY raw STATE RUNES, humming with unshaped intent. Raw, they're just cold stones; shaped at a RUNESTONE ALTAR they become true runes. That's my craft: RUNECRAFTING.",
-              "My altar stands beside the portal. Work all fifty into AIR RUNES — the lightest, kindest shaping there is — and feel the craft settle into your hands. (As your Runecrafting deepens, each raw stone yields more.)"] },
+              "My altar stands beside the portal. Work all fifty into AIR RUNES — the lightest, kindest shaping there is — and feel the craft settle into your hands. (As your Runecrafting deepens, each raw stone yields more.) And keep that rushlight of Miles's EQUIPPED in your off-hand — night won't fall proper till it's burning at your side and the altar's done. You'll want the light either way."] },
         { h: "The ancient portals",
           t: ["Why air runes? Look at that stone ring on the crown: an ANCIENT PORTAL — one of a network scattered across the endless world. Step up to it and it will ATTUNE to you. Do that with every portal you find, and you can leap between them — FOR A PRICE IN RUNES. The further the jump, the finer the rune the veil demands; your fifty air runes are short-hop fare.",
               "Go on, touch it — feel the attunement take. The mist will reclaim this one when you sail, but out there, every portal you wake is yours for good."] },
