@@ -170,3 +170,7 @@ If its stewardship ever went wrong, anyone could fork it and carry on.
   (credited in `assets/sfx/CREDITS.txt`), and the optional bird-recording
   layer is xeno-canto CC BY-NC-SA, individually credited alongside the
   clips — the NC term means that layer may never be sold by anyone.
+
+None of this requires your money to keep working. If you ever want to leave
+something for the road anyway, [docs/koha.md](docs/koha.md) says, honestly,
+what it would and wouldn't fund.
