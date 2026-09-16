@@ -115,6 +115,12 @@ node tools/build.mjs # -> dist/bundle.js  (rerun after any js/ edit)
 tools (max skills, cheats panel, separate dev save). A headless-testing recipe
 lives in `.claude/skills/verify/`.
 
+The game builds and runs completely offline with no server at all. An
+optional Cloudflare Worker (`server/`) adds accounts, a save vault, synced
+workshop votes, and a shared world layer — see
+[docs/SPEC.md](docs/SPEC.md) for what it does and [server/README.md](server/README.md)
+for how to run it.
+
 ## Contributing
 
 Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).

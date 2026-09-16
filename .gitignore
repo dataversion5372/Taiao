@@ -73,19 +73,13 @@ __pycache__/
 /tools/npc_dialogue/generated/
 /libs/npcml/
 
-# Phase-1 server (server/): local dev state only — src, schema and configs
-# ARE tracked (the server being open is part of the trust story)
+# Phase-1 server (server/): local dev state and secrets only — src, schema
+# and configs ARE tracked (the server being open is part of the trust story)
 /server/node_modules/
 /server/.wrangler/
+/server/.dev.vars*
 
 # generated web-build zip (tools/build_web_zip.sh) — a build artifact, not source
-/dist/taiao-web.zip
-
-# ── Server (Cloudflare Worker): deps + local dev state stay out ──────
-/server/node_modules/
-/server/.wrangler/
-
-# Generated web-build zip (tools/build_web_zip.sh) — build artifact, never tracked
 /dist/taiao-web.zip
 
 # web-distribution zips (tools/build_web_zip.sh output)

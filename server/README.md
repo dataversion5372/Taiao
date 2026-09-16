@@ -1,5 +1,8 @@
 # Taiao server (Phase 1)
 
+See [docs/SPEC.md](../docs/SPEC.md) for the full Phase 0-2 systems spec —
+this file is the deploy/run guide; that one is the "what it does and why."
+
 The tiny server that counts. One Cloudflare Worker giving the game:
 
 - **Accounts** — username + password (argon2id), optional passkeys, optional
