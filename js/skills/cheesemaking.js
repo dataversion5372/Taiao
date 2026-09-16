@@ -34,10 +34,15 @@
   RECIPES.cheesemaking = [];
   // curdling (active): milk → curds, with a whey by-product that feeds ricotta
   RECIPES.cheesemaking.push(
-    // curdling empties the milk pails, so each returns an empty `pail`.
+    // curdling empties the milk pails, so each returns an empty `pail`. Milk
+    // cost halved and xp per batch raised (user req 2026-09-16: L1->L2 was
+    // too grindy) — milk sits behind a slow Husbandry/feed/milling supply
+    // chain, so the fix targets milk EFFICIENCY here rather than the milk
+    // supply itself: 25 crafts (25 milk) now reaches level 2, vs. 30 crafts
+    // (60 milk) before.
     { id: "curdle_milk", out: "curds", qty: 2, name: "Curdle milk", skill: "Cheesemaking",
-      req: 1, xp: 22, in: { milk: 2 }, tick: 1500, family: "curds",
-      byproducts: [{ id: "whey", qty: 1 }, { id: "pail", qty: 2 }], stations: ["creamery", "cauldron", "barn"] },
+      req: 1, xp: 26, in: { milk: 1 }, tick: 1500, family: "curds",
+      byproducts: [{ id: "whey", qty: 1 }, { id: "pail", qty: 1 }], stations: ["creamery", "cauldron", "barn"] },
     { id: "rich_curds", out: "curds", qty: 4, name: "Set rich curds", skill: "Cheesemaking",
       req: 8, xp: 44, in: { milk: 3 }, tick: 1600, family: "curds",
       byproducts: [{ id: "whey", qty: 2 }, { id: "pail", qty: 3 }], stations: ["creamery", "cauldron", "barn"] },

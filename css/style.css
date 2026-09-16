@@ -12,7 +12,12 @@
 @font-face { font-family: "OpenDyslexic"; src: url("../fonts/OpenDyslexic-Italic.woff") format("woff"); font-weight: normal; font-style: italic; font-display: swap; }
 @font-face { font-family: "OpenDyslexic"; src: url("../fonts/OpenDyslexic-BoldItalic.woff") format("woff"); font-weight: bold; font-style: italic; font-display: swap; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: #1a1620; color: #ddd; font-family: "OpenDyslexic", "Verdana", "Geneva", sans-serif; font-size: 12px; overflow: hidden; }
+html, body { height: 100%; background: #1a1620; color: #ddd; font-family: "OpenDyslexic", "Verdana", "Geneva", sans-serif; font-size: 12px; overflow: hidden;
+  user-select: none; -webkit-user-select: none; -moz-user-select: none; }
+/* the UI is click-driven overlay chrome, not readable text — shift-click is a
+   gameplay modifier (quantity 5) everywhere, and without this the browser's
+   native shift-click text-selection kicks in and highlights the whole page */
+input, textarea { user-select: text; -webkit-user-select: text; -moz-user-select: text; }
 #wrap { display: flex; height: 100%; }
 #gamecol { position: relative; flex: 1; background: #0d0b12; min-width: 0; overflow: hidden; }
 #game { display: block; width: 100%; height: 100%; cursor: crosshair; background: #87b5d4; }

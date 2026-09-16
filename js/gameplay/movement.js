@@ -365,6 +365,16 @@ function tryStep(dx, dy) {
 //  gameplay/world.js:87,101,104,116,122,130,132,159,164,168,173,188,197,201,206,220,224,237,245,261,264,274,278,283,285,287,289,290,298,300,302,308,310,319,323,324,325,331,335,337,343,354,451,463
 //  render3d.js:524,572
 //  world/map.js:36,61,63,67,68,69,78,85,97,101,113,114,119,126,132,134,139,162,169,175,189,202,209,232,238,243,244,248,249,270,282,290,292,298,330,331,337,343,356,601,602,617,622,645
+// barred() runs on every step (held-key movement, autopath, river drift can
+// all retry the same blocked tile many times a second) — throttle identical
+// repeats the same way the oar/hull warnings above do, so a standing block
+// logs once per 3s instead of spamming the log.
+function logBarred(msg) {
+  if (player._barredMsg !== msg || !player._barredLogAt || now - player._barredLogAt > 3000) {
+    log(msg, "sys");
+    player._barredMsg = msg; player._barredLogAt = now;
+  }
+}
 function moveTo(nx, ny) {
   // Tūhura Isle gates & seal (gameplay/tutorial.js): every step — walking,
   // wading or sailing — funnels through here. During the tutorial the gate
@@ -374,7 +384,7 @@ function moveTo(nx, ny) {
     const b = Tutorial.barred(nx, ny);
     if (b) {
       player.path = []; player.goal = null;
-      log(b, "sys");
+      logBarred(b);
       return;
     }
   }
@@ -384,7 +394,7 @@ function moveTo(nx, ny) {
     const b = Dream.barred(nx, ny);
     if (b) {
       player.path = []; player.goal = null;
-      log(b, "sys");
+      logBarred(b);
       return;
     }
   }

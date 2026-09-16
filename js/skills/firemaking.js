@@ -203,6 +203,17 @@ function placeLogs(invIndex) {
   log(`You lay the ${name} on the ground. Strike a spark (bladed weapon + flint) to light it.`);
   uiDirty = true;
 }
+// Undo a lay: hand the logs back and remove the unlit pile. Lets a player
+// who laid a fire without a knife/flint (or just changed their mind) reclaim
+// the logs instead of being stuck with an unlightable, unremovable pile.
+// Callers: gameplay/pathing.js (executeGoal "pickupFire")
+function pickUpUnlitFire(node) {
+  if (!node || node.type !== "unlit_fire") return;
+  if (!addItem(node.logId, 1)) { log("Your inventory is full.", "warn"); return; }
+  dynNodes = dynNodes.filter(d => d !== node);
+  log(`You gather up the ${ITEMS[node.logId].name.toLowerCase()}.`, "sys");
+  uiDirty = true;
+}
 // Strike a laid unlit fire alight — blade + flint + a Firemaking-scaled roll.
 // On a fizzle the pile stays put, so you can try again.
 // Callers: gameplay/pathing.js (executeGoal "lightFire")

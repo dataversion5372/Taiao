@@ -89,6 +89,7 @@ function executeGoal() {
   else if (goal.type === "farm") useFarmPlot(goal.node);
   else if (goal.type === "farmWater") waterFruitTree(goal.node);
   else if (goal.type === "lightFire") lightPlacedFire(goal.node);
+  else if (goal.type === "pickupFire") pickUpUnlitFire(goal.node);
   else if (goal.type === "obstacle") useObstacle(goal.ob);
   else if (goal.type === "door") useDoor(goal.door);
   else if (goal.type === "ladder") useLadder(goal.b, goal.m, goal.dir);

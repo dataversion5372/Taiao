@@ -364,7 +364,11 @@ function buildTileMenu(t) {
       || (tg.door.kind === "gate" ? "Sturdy gates keep the wilds out." : "The door is " + (world.isDoorOpen(tg.door.x, tg.door.y) ? "open." : "closed."));
     else if (tg.kind === "ladder") exam = tg.dir > 0 ? "It leads to the floor above." : "It leads back down.";
     else if (tg.kind === "riding") exam = "You're aboard. Click to step ashore.";
-    else if (tg.kind === "unlitfire") exam = "A stack of logs laid ready to burn — strike a spark (bladed weapon + flint) to light it.";
+    else if (tg.kind === "unlitfire") {
+      exam = "A stack of logs laid ready to burn — strike a spark (bladed weapon + flint) to light it.";
+      items.push({ label: `Take back ${ITEMS[tg.node.logId].name.toLowerCase()}`,
+        fn: () => setGoal({ type: "pickupFire", node: tg.node }, tg.node.x, tg.node.y, 1) });
+    }
     else if (tg.kind === "farm") exam = tg.node.crop ? "Something is growing here."
       : tg.node.tilled === false ? `Untilled ${tg.node.skill || "farm"} soil — break it with a hoe.`
       : `Tilled ${tg.node.skill || "farm"} soil, ready for ${tg.node.skill || "any"} seed.`;

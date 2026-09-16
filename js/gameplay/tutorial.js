@@ -457,6 +457,7 @@ const Tutorial = (() => {
   });
 
   let _seenCount = 0;
+  let _offStreak = 0; // consecutive tick()s spent reading as "off the isle"
   function state() {
     if (typeof player === "undefined") return null;
     // A character standing OFF the isle can only be a graduate: veteran saves
@@ -471,7 +472,13 @@ const Tutorial = (() => {
     if (!player.tutorial || typeof player.tutorial !== "object")
       player.tutorial = { seen: {}, given: {}, welcomed: off ? 1 : 0, graduated: off ? 1 : 0 };
     const t = player.tutorial;
-    if (off && !t.graduated) {
+    // this graduation is irreversible, so require a few consecutive off-isle
+    // ticks before latching it — a single stray frame (e.g. right at the
+    // islet-channel's geometry edge, mid-swim) must not permanently end a
+    // live tutorial; a real off-isle character (teleport, poisoned save)
+    // stays off for many ticks in a row regardless
+    _offStreak = off ? _offStreak + 1 : 0;
+    if (_offStreak > 20 && !t.graduated) {
       t.graduated = 1; t.welcomed = 1;
       if (barEl) { barEl.remove(); barEl = null; }
     }
@@ -517,7 +524,11 @@ const Tutorial = (() => {
     const iux = Math.cos(TUT_ISLE.IA), iuy = Math.sin(TUT_ISLE.IA);
     const it = dx * iux + dy * iuy, is = -dx * iuy + dy * iux;
     const isletR = Math.hypot(I.x - TUT_ISLE.CX, I.y - TUT_ISLE.CY);
-    return it > TUT_ISLE.RO - 2 && it < isletR + 6 && Math.abs(is) < 10;
+    // cross-track tolerance must match (or stay inside) terrain.js's isletZone
+    // reservation (s in [-12, 12]) — a swimmer drifting with the chop on the
+    // return leg was falling outside a narrower ±10 band for a single frame,
+    // wrongly reading as "off the isle" (see inIsletRegion callers below)
+    return it > TUT_ISLE.RO - 2 && it < isletR + 6 && Math.abs(is) < 12;
   }
   const onIsle = () => {
     const q = sd();

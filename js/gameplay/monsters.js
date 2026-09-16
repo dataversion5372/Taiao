@@ -29,8 +29,10 @@ function swimTick(m, dt) {
 //  main.js:41
 function updateMonsters(dt) {
   // monsters keep their temper near a village/city or a road (see
-  // world.inPeacefulZone), so travellers are safe in town and on the way there
-  const peaceful = world.inPeacefulZone && world.inPeacefulZone(player.x, player.y);
+  // world.inPeacefulZone), so travellers are safe in town and on the way
+  // there — and on Tūhura Isle, permanently (terrain.js onTutIsle)
+  const peaceful = (world.inPeacefulZone && world.inPeacefulZone(player.x, player.y)) ||
+    (typeof onTutIsle === "function" && onTutIsle(player.x, player.y));
   for (const m of monsters) {
     const def = MONSTERS[m.kind];
     if (!m.alive) {

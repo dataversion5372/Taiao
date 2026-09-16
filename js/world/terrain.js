@@ -391,6 +391,18 @@ function tutIsleAtMap(x, y) {
   const q = tutIsleSD(x, y);
   return !!q && q.D < 130;
 }
+// isle land + a little surrounding water (D<60 matches chunks.js's spawn-
+// strip band, wide enough to also cover the Swim-Master's islet). Used to
+// keep the isle's own creatures calm regardless of tutorial state (user req:
+// EVERY animal on Tūhura Isle is non-aggressive, permanently, not just
+// during the tutorial) — gameplay/monsters.js's aggro gate and render3d.js's
+// name-label colour both read this. Takes GAME-TILE coords (player.x/y,
+// monster m.x/y), not map units.
+function onTutIsle(gx, gy) {
+  if (typeof tutIsleSD !== "function") return false;
+  const q = tutIsleSD(gx / 2, gy / 2);
+  return !!q && q.D < 60;
+}
 
 // ---------- The Dream Forest interior: many doors, one forest ----------
 // Every Dream Forest patch in the wide world is a DOOR into the same hidden

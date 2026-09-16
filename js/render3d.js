@@ -4856,9 +4856,11 @@ const R3D = (() => {
     // the world map's settlement labels, gameplay/world.js).
     octx.font = nameFont;
     octx.textAlign = "center";
-    // matches monsters.js's aggro gate: near a village/city or a road, a
-    // monster that would otherwise be dangerous reads as calm instead
-    const peaceful = world.inPeacefulZone && world.inPeacefulZone(player.x, player.y);
+    // matches monsters.js's aggro gate: near a village/city or a road (or on
+    // Tūhura Isle, permanently), a monster that would otherwise be dangerous
+    // reads as calm instead
+    const peaceful = (world.inPeacefulZone && world.inPeacefulZone(player.x, player.y)) ||
+      (typeof onTutIsle === "function" && onTutIsle(player.x, player.y));
     for (const mon of monsters) {
       if (!mon.alive || mon.dormant) continue;
       if (Math.abs(mon.x - player.x) > _ovr || Math.abs(mon.y - player.y) > _ovr) continue;
