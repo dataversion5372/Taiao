@@ -3,7 +3,7 @@
 // experience. Bump CACHE_VERSION whenever shipped assets change.
 "use strict";
 
-const CACHE_VERSION = "emberfall-v3"; // v3 2026-09-12: gated character chooser (isle keeper + Newhaven Registrar); purge stale bundles
+const CACHE_VERSION = "taiao-v4"; // v4 2026-09-16: rename to Taiao + repacked sprite atlases + libs/xaos — purge every pre-rename cache
 
 // Cache-first for large immutable assets (content-hashed sheets never change).
 const CACHE_FIRST = [
