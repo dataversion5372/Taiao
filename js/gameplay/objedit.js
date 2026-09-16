@@ -1224,4 +1224,7 @@
   function isOpen() { return !!panel && panel.classList.contains("open"); }
 
   window.ObjEdit = { open, close, isOpen };
+  // reused by the Bifrost graduation cinematic (gameplay/bifrost.js) to draw
+  // the player's own character sprite floating centre-screen
+  window.drawPlayerFrame = drawPlayerFrame;
 })();
