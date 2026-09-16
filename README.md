@@ -160,3 +160,23 @@ than twice your combat level, so the frontier moves with you.
 - A few custom item sprites drawn for this game (CC0)
 - 3D engine: [three.js](https://threejs.org) r147 (MIT), vendored in `libs/` for offline play
 - License texts in `assets/`. Code written by Claude.
+
+## Licensing
+
+Taiao is free — and licensed so that it stays that way, permanently.
+No one, including its original creator, can ever close it, take it from
+its community, or sell it out from under the people who play and build it.
+If its stewardship ever went wrong, anyone could fork it and carry on.
+
+- **Code** — [GNU GPL-3.0-or-later](LICENSE). You may play, study, modify
+  and share it; anything built from it must stay just as free.
+- **Original assets** made for Taiao (the painted terrain/item/fish
+  tilesheets, generated sprite atlases, docs and dialogue written for the
+  game) — [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/):
+  share and adapt with credit, under the same terms.
+- **Third-party assets** keep their own licenses: Kenney.nl and Tiny
+  Creatures art are CC0 (license texts in `assets/`), three.js is MIT,
+  sound effects are CC0 (credited in `assets/sfx/CREDITS.txt`), and the
+  bird recordings are xeno-canto CC BY-NC-SA, individually credited in
+  `assets/birdsong/CREDITS.txt` — the NC term means that layer may never
+  be sold by anyone.
