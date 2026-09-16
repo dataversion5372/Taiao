@@ -20,6 +20,7 @@ js/skills/husbandry.js
 js/skills/husbandry-animals.js
 js/skills/cheesemaking.js
 js/skills/ropemaking.js
+js/skills/rubbermaking.js
 js/skills/sailmaking.js
 js/skills/shipwrighting.js
 js/skills/stonework.js
@@ -50,6 +51,9 @@ js/skills/seed-drops.js
 js/biome-tiles.js
 js/world/terrain.js
 js/world/features.js
+# shared erosion + chunk field passes — before chunks.js (main thread) and
+# importScripts'd by world/chunkworker.js (worker); one copy, no drift
+js/world/erosion.js
 js/world/chunks.js
 js/world/map.js
 js/world.js
@@ -73,10 +77,14 @@ js/skills/agility.js
 js/skills/firemaking.js
 js/gameplay/actions.js
 js/gameplay/monsters.js
+js/gameplay/birdflight.js
+js/gameplay/birdsong.js
+js/gameplay/ambience.js
 js/gameplay/portals.js
 js/gameplay/locks.js
 js/gameplay/world.js
 js/gameplay/input.js
+js/gameplay/npc-retrieval.js
 js/gameplay/npc-chat.js
 js/gameplay/chant.js
 js/main/ui.js
@@ -151,11 +159,19 @@ js/sprites/spinning-icons-data.js
 js/sprites/textile-paper-icons-data.js
 js/sprites/vial-icon-data.js
 js/sprites/reagent-icons-data.js
+js/sprites/rubber-icons-data.js
 js/sprites/object-icons-hook.js
+# packed small-sheet atlas repoint — must stay the LAST js/sprites entry
+js/sprites/sheet-pack-data.js
 js/gameplay/bestiary.js
+js/gameplay/objedit.js
 js/gameplay/quests.js
+js/gameplay/tutorial.js
 js/gameplay/daynight.js
 js/gameplay/weather.js
+js/gameplay/cheats.js
 js/gameplay/armour-overlay.js
 js/gameplay/dream.js
+js/gameplay/split.js
+js/gameplay/pulse.js
 js/main.js
