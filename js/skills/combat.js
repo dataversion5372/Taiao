@@ -581,7 +581,12 @@ function playerAttack(mon) {
     const bp = w ? (ITEMS[w].bowPower || 0) : 0;
     if (!w || !ITEMS[w].bowPower) { log("You need a bow equipped to use archery.", "warn"); player.act = null; return; }
     const quiver = player.equip.quiver;
-    if (!quiver) { log("You're out of arrows! Load some into your quiver.", "warn"); player.act = null; return; }
+    if (!quiver) {
+      // Yuki's koreke lesson (gameplay/tutorial.js): running dry mid-hunt
+      // shouldn't stall the goal — she resupplies instead of a hard stop
+      if (typeof Tutorial !== "undefined" && Tutorial.onOutOfArrows && Tutorial.onOutOfArrows()) return;
+      log("You're out of arrows! Load some into your quiver.", "warn"); player.act = null; return;
+    }
     const arrow = quiver.id;
     quiver.qty -= 1;
     if (quiver.qty <= 0) player.equip.quiver = null;

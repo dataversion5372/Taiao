@@ -597,7 +597,7 @@ const Tutorial = (() => {
   // is GONE (no magic on the isle, user req)
   const WOOD_GOALS = [["merged", 1, "merge your selves back into one (X, side by side)"], ["shafts", 300, "cut 300 arrow shafts"], ["arrow_iron", 30, "fletch 30 iron arrows"], ["shortbow", 1, "carve a shortbow"]];
   const COOK_GOALS = [["fritters", 5, "cook 5 whitebait fritters"], ["cheese", 1, "make cottage cheese"], ["flatbread", 5, "bake 5 flatbread"]];
-  const WAR_GOALS  = [["slimes", 3, "slay 3 slimes"], ["tallow", 3, "gather 3 tallow"], ["actionRune", 3, "gather 3 action runes"], ["stateRune", 3, "gather 3 state runes"], ["hide", 3, "gather 3 hide"], ["koreke", 5, "slay 5 koreke"]];
+  const WAR_GOALS  = [["slimes", 3, "slay 3 slimes"], ["tallow", 1, "gather 1 tallow"], ["actionRune", 3, "gather 3 action runes"], ["stateRune", 3, "gather 3 state runes"], ["hide", 3, "gather 3 hide"], ["koreke", 1, "slay 1 koreke"]];
   // the Swim-Master's islet errand (user req 2026-09-16): snorkel out past
   // bare-lungs range, lift the sea chest's pearl, and swim it back to HER
   const SWIM_GOALS = [["isletPearl", 1, "open the islet's sea chest"], ["isletReturn", 1, "bring the pearl back to Vrixa"]];
@@ -636,7 +636,7 @@ const Tutorial = (() => {
     farm:  { task: "harvest 20 of each crop, mill flour, gather eggs & feathers", need: FARM_GOALS.length, done: t => allGoals(t, FARM_GOALS), num: t => numGoals(t, FARM_GOALS), items: goalItems(FARM_GOALS) },
     wood:  { task: "cut 300 shafts, fletch 30 arrows, carve a bow", need: WOOD_GOALS.length, done: t => allGoals(t, WOOD_GOALS), num: t => numGoals(t, WOOD_GOALS), items: goalItems(WOOD_GOALS) },
     cook:  { task: "cook fritters, cheese & flatbread", need: COOK_GOALS.length, done: t => allGoals(t, COOK_GOALS), num: t => numGoals(t, COOK_GOALS), items: goalItems(COOK_GOALS) },
-    war:   { task: "clear the pit & slay 5 koreke", need: WAR_GOALS.length, done: t => allGoals(t, WAR_GOALS), num: t => numGoals(t, WAR_GOALS), items: goalItems(WAR_GOALS) },
+    war:   { task: "clear the pit & slay 1 koreke", need: WAR_GOALS.length, done: t => allGoals(t, WAR_GOALS), num: t => numGoals(t, WAR_GOALS), items: goalItems(WAR_GOALS) },
     // the Skywatcher's stage also SHOWCASES the semantic chat (user req):
     // say anything to her (Enter) and hear a real, un-canned answer
     sky:   { task: "climb the Sky Knoll & really talk to Ravenna", need: 2,
@@ -777,6 +777,20 @@ const Tutorial = (() => {
     }
   }
   const onBank = () => bumpGoal("deposits");
+  // out-of-arrows hook (combat.js archery, the quiver-empty branch): Yuki
+  // keeps the koreke hunt from stalling on a bad quiver count — she runs up
+  // with 30 more iron arrows, every time, until the koreke goal is met
+  // (user req 2026-09-16). Returns true if she resupplied, so combat.js can
+  // skip its own "out of arrows" warning that round.
+  function onOutOfArrows() {
+    if (!active()) return false;
+    const t = state();
+    if (!t || !t.seen.war || cnt(t, "koreke") >= (GOALS.koreke ? GOALS.koreke[0] : 1)) return false;
+    player.equip.quiver = { id: "arrow_iron", qty: 30 }; // straight into the slot — no re-equip friction mid-hunt
+    if (typeof log === "function") log('Yuki comes running up to you: "Here, have some more arrows."', "sys");
+    uiDirty = true;
+    return true;
+  }
   // kill hook — combat.js passes the monster kind
   function onKill(kind) {
     if (!active()) return;
@@ -1103,7 +1117,7 @@ const Tutorial = (() => {
                   cropSage: 20, cropFlax: 20, flour: 10, eggs: 10, feathers: 10, twinned: 1 }),
     wood:  t => Object.assign(t.prog, { merged: 1, shafts: 300, arrow_iron: 30, shortbow: 1 }),
     cook:  t => Object.assign(t.prog, { fritters: 5, cheese: 1, flatbread: 5 }),
-    war:   t => Object.assign(t.prog, { slimes: 3, tallow: 3, actionRune: 3, stateRune: 3, hide: 3, koreke: 5 }),
+    war:   t => Object.assign(t.prog, { slimes: 3, tallow: 1, actionRune: 3, stateRune: 3, hide: 3, koreke: 1 }),
     soap:  t => { t.washedClean = 1; },
     sky:   t => { t.reachedKnoll = 1; t.prog.chatted = 1; },
     candle: t => { t.candleMade = 1; },
@@ -1119,7 +1133,7 @@ const Tutorial = (() => {
     farm:  [["flour", 10], ["egg", 10], ["feathers", 10], ["wheat", 10]],
     wood:  [["arrow_iron", 30], ["shortbow", 1]],
     cook:  [["cooked_fish", 5], ["cottage_cheese", 1], ["flatbread", 5]],
-    war:   [["tallow", 3], ["hide", 3], ["action_rune", 3], ["state_rune", 3]],
+    war:   [["tallow", 1], ["hide", 3], ["action_rune", 3], ["state_rune", 3]],
     candle: [["rushlight", 1]],
     lore:  [["air_rune", 50]],
   };
@@ -1429,12 +1443,12 @@ const Tutorial = (() => {
           t: ["Draw that iron shortsword you forged — and take these two health draughts. The SLIMES in the pit are yours: click one and go. MELEE is sword and shield up close; ARCHERY looses real arrows that arc through the air — you can kite, but you need line of sight.",
               "(There are stranger arts out in the wide world — woven magic, spoken spells — but those are lessons for beyond the mist, not for my pit.)"] },
         { h: "The pit's harvest",
-          t: ["Prove yourself: slay THREE SLIMES, and gather THREE TALLOW and THREE HIDE from the pit's beasts, THREE ACTION RUNES off the slimes, and THREE STATE RUNES (mine the essence rocks for those). Monsters drop coins and rare REAGENTS that gate whole crafting skills — hunters feed the whole economy. Every kill fills your BESTIARY (press B).",
+          t: ["Prove yourself: slay THREE SLIMES, and gather ONE TALLOW and THREE HIDE from the pit's beasts, THREE ACTION RUNES off the slimes, and THREE STATE RUNES (mine the essence rocks for those). Monsters drop coins and rare REAGENTS that gate whole crafting skills — hunters feed the whole economy. Every kill fills your BESTIARY (press B).",
               "The wilds get harder the further you roam from Newhaven, but near towns and roads there are PEACE ZONES — nothing jumps you on Main Street."],
           act: [["Open the bestiary (B)", "bestiary"]] },
         { h: "Koreke on the wing",
-          t: ["See the KOREKE — the little quail about the pit? Startle one and it takes to the air, and a bird on the wing is beyond any blade; this is what your bow is for. Nock an arrow, lead the flight, and bring FIVE KOREKE down. That is archery.",
-              "Slimes slain, reagents gathered, five koreke down — then wash up with {soap} at the springs past the gate; you've earned a scrub."] },
+          t: ["See the KOREKE — the little quail about the pit? Startle one and it takes to the air, and a bird on the wing is beyond any blade; this is what your bow is for. Nock an arrow, lead the flight, and bring ONE KOREKE down. That is archery. Run dry and I'll come running with more arrows — don't fret the count.",
+              "Slimes slain, reagents gathered, a koreke down — then wash up with {soap} at the springs past the gate; you've earned a scrub."] },
       ],
     },
     sky: {
@@ -1939,6 +1953,6 @@ const Tutorial = (() => {
     villageHome, villageLamps,
     onGather, onWash, onBank, onKill, onChant,
     onQueue, onBrace, onStoke, onMerge, onChatReply,
-    onHarvest, onTend, onEquip, onPickup };
+    onHarvest, onTend, onEquip, onPickup, onOutOfArrows };
 })();
 if (typeof window !== "undefined") window.Tutorial = Tutorial;
