@@ -22,11 +22,11 @@
 
 const Bifrost = (function () {
   // phase boundaries, seconds
-  const T_BEAM = 3.4;    // karakia + light pillar + camera climb over the isle
-  const T_VOID = 11.6;   // fractal hyperfall (teleport happens at T_BEAM)
-  const T_BURST = 12.0;  // white burst out of the void
-  const T_FALL = 17.4;   // macro-map dive into Newhaven
-  const T_LAND = 18.2;   // crossfade + touchdown
+  const T_BEAM = 4.2;    // karakia + light pillar + camera climb over the isle
+  const T_VOID = 12.4;   // fractal hyperfall (teleport happens at T_BEAM)
+  const T_BURST = 12.8;  // white burst out of the void
+  const T_FALL = 18.2;   // macro-map dive into Newhaven
+  const T_LAND = 19.0;   // crossfade + touchdown
   const RISE_ZOOM = 5.0; // camZoom at the top of the climb (beyond ZOOM_MAX)
 
   // the famous seahorse-valley point; region.center.y is stored premultiplied
@@ -153,7 +153,7 @@ const Bifrost = (function () {
       tctx.fillRect(mx - r / 2, my - r / 2, r, r);
     }
     // whiteout floor rising to full at phase end
-    const white = easeIn(clamp01((k - 0.55) / 0.45));
+    const white = easeIn(clamp01((k - 0.62) / 0.38));
     if (white > 0) { tctx.fillStyle = `rgba(255,255,255,${white})`; tctx.fillRect(0, 0, w, h); }
   }
 
@@ -167,7 +167,7 @@ const Bifrost = (function () {
       const r = frac.region;
       // exponential dive: radius 2.5 → ~2e-4 across the phase, clamped so the
       // view never leaves the filament country for interior black
-      const kz = 0.9816;
+      const kz = 0.981;
       r.center.x = tx + (r.center.x - tx) * kz;
       r.center.y = ty + (r.center.y - ty) * kz;
       r.radius.x = Math.max(2e-4, r.radius.x * kz);
@@ -176,7 +176,7 @@ const Bifrost = (function () {
       fx.style.opacity = String(clamp01((t - T_BEAM) / 0.8));
       // the interdimensional shimmer: slow hue carousel + a breathing pulse
       const hue = (t - T_BEAM) * 42;
-      const pulse = 1.02 + 0.05 * Math.sin((t - T_BEAM) * 1.7);
+      const pulse = 1.07 + 0.05 * Math.sin((t - T_BEAM) * 1.7); // never below 1: no canvas edges
       fx.style.filter = `hue-rotate(${hue}deg) saturate(1.35) contrast(1.06)`;
       fx.style.transform = `scale(${pulse})`;
     } else if (!zoomer) {
