@@ -84,3 +84,6 @@ __pycache__/
 
 # web-distribution zips (tools/build_web_zip.sh output)
 dist/taiao-web*.zip
+
+# generated itch-page assets (cover/GIF shot from the live game) — artifacts, not source
+/dist/itch-page/

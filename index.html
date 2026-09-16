@@ -16,7 +16,7 @@
 		     window.__boot.stage()/sub()/done(). -->
 		<div id="bootload" role="status" aria-busy="true">
 		  <div id="bl-title">Taiao</div>
-		  <div id="bl-sub">the living world</div>
+		  <div id="bl-sub">the natural world</div>
 		  <div id="bl-track"><div id="bl-fill"></div></div>
 		  <div id="bl-stage">Loading game code…</div>
 		  <div id="bl-names"></div>
@@ -249,8 +249,10 @@
 					<button id="questbtn" title="Quest Journal (J)">Quests (J)</button>
 						<button id="bestiarybtn" title="Bestiary (B)">Bestiary (B)</button>
 						<button id="soapbtn" title="Soaps (P)">Soap (P)</button>
-						<button id="pulsebtn" title="Play Pulse — what the game thinks you enjoy (I)">Pulse (I)</button>
-						<button id="postcardbtn" title="Save a postcard of this spot">Postcard</button>
+						<!-- Pulse and Postcard live on their hotkeys alone (I / in-map);
+						     their sidebar buttons were dropped 2026-09-16 (user req) —
+						     pulse.js/postcard.js null-guard the missing ids -->
+
 				</div>
 				<button id="interactmodebtn" title="Toggle the default action on animals: Combat (Attack first) or Husbandry (Tend/Feed first). Also the left-click default.">Mode: 🌾 Husbandry</button>
 			</div>

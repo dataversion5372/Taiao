@@ -233,9 +233,14 @@ html, body { height: 100%; background: #1a1620; color: #ddd; font-family: "OpenD
 #panels { position: relative; flex: 0 1 auto; min-height: 0; }
 .panel { display: none; overflow-y: auto; padding: 15px 10px; }
 .panel.active { display: block; }
-#panel-inv { display: block; }                  /* always in flow → sizes #panels */
+#panel-inv { display: block; max-height: 100%; } /* always in flow → sizes #panels;
+   the max-height clamp matters on SHORT viewports (itch's 720px embed): when
+   the column can't fit the full 8-row inventory even with the minimap at its
+   190px floor, #panels flex-shrinks — without the clamp the inventory just
+   overflowed the box and its bottom rows were clipped dead; with it, the
+   panel's own overflow-y:auto takes over and the inventory scrolls. */
 #panel-inv:not(.active) { visibility: hidden; }  /* hidden but still the sizer */
-#panel-equip, #panel-skills, #panel-goals, #panel-help, #panel-cheats { position: absolute; inset: 0; }
+#panel-equip, #panel-skills, #panel-goals, #panel-help, #panel-cheats, #panel-account { position: absolute; inset: 0; }
 
 /* cheat-mode Cheats panel (js/gameplay/cheats.js) */
 .cheatgroup { margin: 12px 0; padding: 8px; background: #241d30; border: 1px solid #38304a; border-radius: 4px; }

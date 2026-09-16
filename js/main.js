@@ -85,7 +85,7 @@ async function init() {
       player.respawn = { x: s.x, y: s.y, name: "Tūhura Isle" };
       Tutorial.state(); // seed player.tutorial so the welcome fires post-boot
     }
-    log("Welcome to Taiao — the living world!", "gold");
+    log("Welcome to Taiao — the natural world!", "gold");
     log("Click things to interact. Check the ? tab for a guide.", "sys");
   } else {
     // saved-position validation happens BELOW, after preloadSeen: passable()
