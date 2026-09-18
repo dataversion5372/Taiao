@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taiao — player insights</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb; --page: #f9f9f7;
+    --ink-1: #0b0b0b; --ink-2: #52514e; --ink-3: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --blue: #2a78d6; --blue-wash: rgba(42,120,214,0.10);
+    --ord-1:#86b6ef; --ord-2:#6da7ec; --ord-3:#5598e7; --ord-4:#3987e5;
+    --ord-5:#2a78d6; --ord-6:#1c5cab; --ord-7:#104281;
+    --good: #006300;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1: #1a1a19; --page: #0d0d0d;
+      --ink-1: #ffffff; --ink-2: #c3c2b7; --ink-3: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+      --blue: #3987e5; --blue-wash: rgba(57,135,229,0.12);
+      --ord-1:#86b6ef; --ord-2:#6da7ec; --ord-3:#5598e7; --ord-4:#3987e5;
+      --ord-5:#2a78d6; --ord-6:#1c5cab; --ord-7:#184f95;
+      --good: #0ca30c;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --page: #0d0d0d;
+    --ink-1: #ffffff; --ink-2: #c3c2b7; --ink-3: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --blue: #3987e5; --blue-wash: rgba(57,135,229,0.12);
+    --ord-7:#184f95;
+    --good: #0ca30c;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--page); color: var(--ink-1);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 20px; }
+  h1 { font-size: 19px; }
+  .sub { color: var(--ink-3); font-size: 12px; margin-top: 2px; }
+  .filters { display: flex; gap: 6px; align-items: center; margin: 16px 0 18px; flex-wrap: wrap; }
+  .filters button { background: var(--surface-1); border: 1px solid var(--border); color: var(--ink-2);
+                    padding: 5px 12px; border-radius: 7px; cursor: pointer; font: inherit; font-size: 12.5px; }
+  .filters button.on { color: var(--ink-1); border-color: var(--blue); font-weight: 600; }
+  .filters button.on::before { content: "✓ "; color: var(--blue); font-weight: 700; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+          padding: 14px 16px 12px; min-width: 0; }
+  .card.wide { grid-column: 1 / -1; }
+  .card h2 { font-size: 13px; font-weight: 600; }
+  .card .note { color: var(--ink-3); font-size: 11.5px; margin: 1px 0 10px; }
+  .tiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-bottom: 14px; }
+  .tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .tile .label { color: var(--ink-2); font-size: 12px; }
+  .tile .value { font-size: 26px; font-weight: 600; margin-top: 2px; }
+  .tile .hint { color: var(--ink-3); font-size: 11px; margin-top: 2px; }
+  svg { display: block; width: 100%; height: auto; }
+  svg text { font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--ink-3); }
+  svg text.val { fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+  svg text.cat { fill: var(--ink-2); }
+  .gridline { stroke: var(--grid); stroke-width: 1; }
+  .axisline { stroke: var(--axis); stroke-width: 1; }
+  .bar { fill: var(--blue); }
+  .bar:hover, .col:hover { filter: brightness(1.15); }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th { text-align: left; color: var(--ink-3); font-weight: 500; font-size: 11.5px;
+       border-bottom: 1px solid var(--grid); padding: 4px 10px 4px 0; }
+  td { padding: 4px 10px 4px 0; border-bottom: 1px solid var(--grid); color: var(--ink-2); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td:first-child { color: var(--ink-1); }
+  details { margin-top: 8px; }
+  summary { color: var(--ink-3); font-size: 11.5px; cursor: pointer; }
+  #tip { position: fixed; pointer-events: none; background: var(--surface-1); color: var(--ink-1);
+         border: 1px solid var(--border); border-radius: 7px; padding: 6px 9px; font-size: 12px;
+         box-shadow: 0 4px 14px rgba(0,0,0,.18); display: none; z-index: 50; max-width: 280px; }
+  #tip .v { font-weight: 600; }
+  #tip .k { color: var(--ink-2); }
+  .empty { color: var(--ink-3); padding: 18px 0; font-size: 12.5px; }
+  .themebtn { margin-left: auto; }
+</style>
+</head>
+<body>
+<h1>Taiao — player insights</h1>
+<div class="sub" id="gen"></div>
+
+<div class="filters" id="filters">
+  <button data-range="1">Today</button>
+  <button data-range="7">Last 7 days</button>
+  <button data-range="30" class="on">Last 30 days</button>
+  <button data-range="0">All fetched</button>
+  <button class="themebtn" id="themebtn" title="Toggle light/dark">◐ Theme</button>
+</div>
+
+<div class="tiles" id="tiles"></div>
+<div class="grid" id="cards"></div>
+<div id="tip"></div>
+
+<script>
+"use strict";
+const DATA = /*__DATA__*/null;
+
+// ---------- helpers ----------
+const $ = s => document.querySelector(s);
+const el = (tag, attrs = {}, text) => {
+  const ns = /^(svg|rect|line|text|circle|path|g)$/.test(tag);
+  const e = ns ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text != null) e.textContent = text;
+  return e;
+};
+const fmtMin = m => m == null ? "—" : m < 1 ? Math.round(m * 60) + "s" : m < 90 ? (m < 10 ? m.toFixed(1) : Math.round(m)) + "m" : (m / 60).toFixed(1) + "h";
+const fmtN = n => n >= 100000 ? (n / 1000).toFixed(0) + "K" : n >= 10000 ? (n / 1000).toFixed(1) + "K" : String(Math.round(n));
+const pct = (a, b) => b ? Math.round(100 * a / b) + "%" : "—";
+const median = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; };
+const sum = a => a.reduce((x, y) => x + y, 0);
+
+// ---------- shared tooltip ----------
+const tip = $("#tip");
+function tipOn(target, html) {
+  target.addEventListener("pointermove", e => {
+    tip.style.display = "block";
+    tip.replaceChildren(...html());
+    const w = tip.offsetWidth, vw = innerWidth;
+    tip.style.left = Math.min(e.clientX + 14, vw - w - 8) + "px";
+    tip.style.top = (e.clientY + 14) + "px";
+  });
+  target.addEventListener("pointerleave", () => { tip.style.display = "none"; });
+}
+const tipRow = (value, label) => {
+  const d = document.createElement("div");
+  const v = document.createElement("span"); v.className = "v"; v.textContent = value;
+  const k = document.createElement("span"); k.className = "k"; k.textContent = " " + label;
+  d.append(v, k); return d;
+};
+
+// ---------- chart builders (SVG, spec: thin marks, 4px rounded data-end) ----------
+// horizontal bar list: rows [{label, value, extra?}], valueFmt
+function hbars(rows, { valueFmt = fmtN, color = "var(--blue)", tipLabel = "" } = {}) {
+  const W = 560, rowH = 26, labW = 190, valW = 56;
+  const H = rows.length * rowH + 6;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}` });
+  const max = Math.max(...rows.map(r => r.value), 1);
+  const plotW = W - labW - valW;
+  rows.forEach((r, i) => {
+    const y = i * rowH + 5;
+    const bw = Math.max(2, (r.value / max) * plotW);
+    const lab = el("text", { x: labW - 8, y: y + 12, "text-anchor": "end", class: "cat" });
+    lab.textContent = r.label.length > 30 ? r.label.slice(0, 29) + "…" : r.label;
+    svg.append(lab);
+    // 4px rounded data-end, square baseline: rounded rect + square patch at base
+    const bar = el("rect", { x: labW, y, width: bw, height: 16, rx: 4, class: "bar", fill: color });
+    const patch = el("rect", { x: labW, y, width: Math.min(4, bw / 2), height: 16, fill: color });
+    svg.append(bar, patch);
+    svg.append(el("text", { x: labW + bw + 6, y: y + 12, class: "val" }, valueFmt(r.value)));
+    const hit = el("rect", { x: 0, y: y - 2, width: W, height: rowH, fill: "transparent" });
+    tipOn(hit, () => [tipRow(valueFmt(r.value), tipLabel), tipRow("", r.label), ...(r.extra ? [tipRow("", r.extra)] : [])]);
+    svg.append(hit);
+  });
+  svg.append(el("line", { x1: labW, y1: 0, x2: labW, y2: H - 2, class: "axisline" }));
+  return svg;
+}
+
+// column chart over ordered categories: pts [{x(label), y}]
+function columns(pts, { yFmt = fmtN, xFmt = x => x, tipLabel = "" } = {}) {
+  const W = 560, H = 190, padL = 40, padB = 24, padT = 14;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}` });
+  const max = Math.max(...pts.map(p => p.y), 1);
+  const step = niceStep(max);
+  const top = Math.ceil(max / step) * step;
+  const plotW = W - padL - 8, plotH = H - padT - padB;
+  for (let v = 0; v <= top; v += step) {
+    const y = padT + plotH - (v / top) * plotH;
+    svg.append(el("line", { x1: padL, y1: y, x2: W - 8, y2: y, class: v ? "gridline" : "axisline" }));
+    svg.append(el("text", { x: padL - 6, y: y + 3, "text-anchor": "end" }, fmtN(v)));
+  }
+  const n = pts.length;
+  const band = plotW / Math.max(n, 1);
+  const bw = Math.min(24, Math.max(3, band - 2)); // ≤24px thick, 2px surface gap
+  pts.forEach((p, i) => {
+    const x = padL + i * band + (band - bw) / 2;
+    const h = Math.max(p.y > 0 ? 2 : 0, (p.y / top) * plotH);
+    const y = padT + plotH - h;
+    if (h) {
+      svg.append(el("rect", { x, y, width: bw, height: h, rx: 4, class: "col bar" }));
+      svg.append(el("rect", { x, y: y + Math.max(0, h - 4), width: bw, height: Math.min(4, h), class: "bar" }));
+    }
+    if (i % Math.ceil(n / 8) === 0)
+      svg.append(el("text", { x: x + bw / 2, y: H - 8, "text-anchor": "middle" }, xFmt(p.x)));
+    const hit = el("rect", { x: padL + i * band, y: padT, width: band, height: plotH + padB, fill: "transparent" });
+    tipOn(hit, () => [tipRow(yFmt(p.y), tipLabel), tipRow("", p.x)]);
+    svg.append(hit);
+  });
+  return svg;
+}
+
+// line chart over ordered categories
+function lineChart(pts, { yFmt = fmtN, xFmt = x => x, tipLabel = "" } = {}) {
+  const W = 560, H = 190, padL = 40, padB = 24, padT = 14;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}` });
+  const vals = pts.map(p => p.y).filter(v => v != null);
+  const max = Math.max(...vals, 1);
+  const step = niceStep(max);
+  const top = Math.ceil(max / step) * step;
+  const plotW = W - padL - 14, plotH = H - padT - padB;
+  for (let v = 0; v <= top; v += step) {
+    const y = padT + plotH - (v / top) * plotH;
+    svg.append(el("line", { x1: padL, y1: y, x2: W - 8, y2: y, class: v ? "gridline" : "axisline" }));
+    svg.append(el("text", { x: padL - 6, y: y + 3, "text-anchor": "end" }, fmtN(v)));
+  }
+  const X = i => padL + (pts.length === 1 ? plotW / 2 : (i / (pts.length - 1)) * plotW);
+  const Y = v => padT + plotH - (v / top) * plotH;
+  let d = "";
+  pts.forEach((p, i) => { if (p.y != null) d += (d ? " L" : "M") + X(i).toFixed(1) + " " + Y(p.y).toFixed(1); });
+  svg.append(el("path", { d, fill: "none", stroke: "var(--blue)", "stroke-width": 2,
+                          "stroke-linejoin": "round", "stroke-linecap": "round" }));
+  pts.forEach((p, i) => {
+    if (p.y == null) return;
+    svg.append(el("circle", { cx: X(i), cy: Y(p.y), r: 6, fill: "var(--surface-1)" })); // 2px surface ring
+    svg.append(el("circle", { cx: X(i), cy: Y(p.y), r: 4, fill: "var(--blue)" }));
+    if (i % Math.ceil(pts.length / 8) === 0)
+      svg.append(el("text", { x: X(i), y: H - 8, "text-anchor": "middle" }, xFmt(p.x)));
+    const hw = pts.length > 1 ? (plotW / (pts.length - 1)) : plotW;
+    const hit = el("rect", { x: X(i) - hw / 2, y: padT, width: hw, height: plotH + padB, fill: "transparent" });
+    tipOn(hit, () => [tipRow(yFmt(p.y), tipLabel), tipRow("", p.x)]);
+    svg.append(hit);
+  });
+  return svg;
+}
+
+// funnel: descending stages. Single hue — row position already encodes the
+// stage order (a 7-step one-hue ramp can't keep visible ΔL gaps; validated).
+function funnelChart(rows) {
+  const W = 560, rowH = 28, labW = 170;
+  const H = rows.length * rowH + 6;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}` });
+  const max = Math.max(rows[0] ? rows[0].n : 1, 1);
+  const plotW = W - labW - 100;
+  rows.forEach((r, i) => {
+    const y = i * rowH + 5;
+    const bw = Math.max(2, (r.n / max) * plotW);
+    svg.append(el("text", { x: labW - 8, y: y + 13, "text-anchor": "end", class: "cat" }, r.label));
+    svg.append(el("rect", { x: labW, y, width: bw, height: 18, rx: 4, class: "bar" }));
+    svg.append(el("rect", { x: labW, y, width: Math.min(4, bw / 2), height: 18, class: "bar" }));
+    const share = pct(r.n, max);
+    const drop = i > 0 && rows[i - 1].n ? Math.round(100 * (1 - r.n / rows[i - 1].n)) : 0;
+    svg.append(el("text", { x: labW + bw + 6, y: y + 13, class: "val" },
+      `${r.n} · ${share}` + (i > 0 && drop > 0 ? `  (−${drop}%)` : "")));
+    const hit = el("rect", { x: 0, y: y - 2, width: W, height: rowH, fill: "transparent" });
+    tipOn(hit, () => [tipRow(r.n + " players", "· " + share + " of starters"), tipRow("", r.label)]);
+    svg.append(hit);
+  });
+  return svg;
+}
+
+function niceStep(max) {
+  const raw = max / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1e-6))));
+  for (const m of [1, 2, 2.5, 5, 10]) if (m * mag >= raw) return m * mag;
+  return 10 * mag;
+}
+
+// ---------- table builder ----------
+function table(headers, rows) {
+  const t = el("table");
+  const trh = el("tr");
+  headers.forEach((h, i) => trh.append(Object.assign(el("th", i ? { class: "num" } : {}), { textContent: h })));
+  t.append(trh);
+  for (const r of rows) {
+    const tr = el("tr");
+    r.forEach((c, i) => tr.append(Object.assign(el("td", i ? { class: "num" } : {}), { textContent: String(c) })));
+    t.append(tr);
+  }
+  return t;
+}
+function card(title, note, ...body) {
+  const c = el("div", { class: "card" });
+  c.append(el("h2", {}, title), el("div", { class: "note" }, note));
+  for (const b of body) if (b) c.append(b);
+  return c;
+}
+function withTable(chart, headers, rows) {
+  const wrap = document.createElement("div");
+  wrap.append(chart);
+  if (rows.length) {
+    const d = el("details");
+    d.append(el("summary", {}, "Table view"), table(headers, rows));
+    wrap.append(d);
+  }
+  return wrap;
+}
+const empty = msg => el("div", { class: "empty" }, msg);
+
+// ---------- aggregation over the active date range ----------
+function topOf(dayMap, days, n, mapKey = k => k) {
+  const agg = {};
+  for (const [day, kv] of Object.entries(dayMap || {})) {
+    if (!days.has(day)) continue;
+    for (const [k, v] of Object.entries(kv)) agg[mapKey(k)] = (agg[mapKey(k)] || 0) + (v.n != null ? v.n : v);
+  }
+  return Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, n);
+}
+
+function render(rangeDays) {
+  const allDays = [...new Set(DATA.sessions.map(s => s.day))].sort();
+  let days;
+  if (!rangeDays) days = new Set(allDays);
+  else {
+    const cutoff = new Date(Date.now() - (rangeDays - 1) * 864e5).toISOString().slice(0, 10);
+    days = new Set(allDays.filter(d => d >= cutoff));
+  }
+  const S = DATA.sessions.filter(s => days.has(s.day));
+  const dayList = [...days].sort();
+
+  // ---- KPI tiles ----
+  const devs = new Set(S.map(s => s.device));
+  const devDays = {};
+  for (const s of S) (devDays[s.device] = devDays[s.device] || new Set()).add(s.day);
+  const returners = Object.values(devDays).filter(d => d.size > 1).length;
+  const medMin = median(S.map(s => s.min));
+  const dq = S.filter(s => s.dq).length;
+  const tiles = [
+    ["Players", devs.size, "distinct devices"],
+    ["Sessions", S.length, "sittings (10-min refresh gap merged)"],
+    ["Median session", fmtMin(medMin), "half of sessions are shorter"],
+    ["Total play", fmtMin(sum(S.map(s => s.min))), "wall-clock across everyone"],
+    ["Multi-day players", pct(returners, devs.size), "played on 2+ days in range"],
+    ["Quit after dying", pct(dq, S.length), "sessions ending ≤2 min after a death"],
+  ];
+  const tl = $("#tiles");
+  tl.replaceChildren(...tiles.map(([label, value, hint]) => {
+    const t = el("div", { class: "tile" });
+    t.append(el("div", { class: "label" }, label), el("div", { class: "value" }, String(value)),
+             el("div", { class: "hint" }, hint));
+    return t;
+  }));
+
+  // ---- cards ----
+  const cards = $("#cards");
+  cards.replaceChildren();
+  if (!S.length) { cards.append(card("No data", "No sessions in this range.", empty("Nothing recorded yet — check back once players have played."))); return; }
+
+  // sessions per day + median length per day (two charts, one axis each)
+  const perDay = dayList.map(day => {
+    const ds = S.filter(s => s.day === day);
+    return { day, n: ds.length, med: median(ds.map(s => s.min)), players: new Set(ds.map(s => s.device)).size };
+  });
+  cards.append(card("Sessions per day", "how much the game is being played",
+    withTable(columns(perDay.map(p => ({ x: p.day, y: p.n })), { tipLabel: "sessions", xFmt: d => d.slice(5) }),
+      ["Day", "Sessions", "Players"], perDay.map(p => [p.day, p.n, p.players]))));
+  cards.append(card("Median session length per day", "are sittings getting longer or shorter?",
+    withTable(lineChart(perDay.map(p => ({ x: p.day, y: p.med ? +p.med.toFixed(1) : null })), { yFmt: fmtMin, tipLabel: "median", xFmt: d => d.slice(5) }),
+      ["Day", "Median (min)"], perDay.map(p => [p.day, p.med ? p.med.toFixed(1) : "—"]))));
+
+  // session length histogram
+  const BUCKETS = [["<1m",0,1],["1–5m",1,5],["5–15m",5,15],["15–30m",15,30],["30–60m",30,60],["1–2h",60,120],["2h+",120,1e9]];
+  const hist = BUCKETS.map(([label, lo, hi]) => ({ x: label, y: S.filter(s => s.min >= lo && s.min < hi).length }));
+  cards.append(card("How long a sitting lasts", "before the player quits (all sessions in range)",
+    withTable(columns(hist, { tipLabel: "sessions" }), ["Length", "Sessions"], hist.map(h => [h.x, h.y]))));
+
+  // where sessions end
+  const quitAgg = {};
+  for (const s of S) quitAgg[s.quit] = (quitAgg[s.quit] || 0) + 1;
+  const quitRows = Object.entries(quitAgg).sort((a, b) => b[1] - a[1]).slice(0, 12)
+    .map(([label, value]) => ({ label, value, extra: pct(value, S.length) + " of sessions" }));
+  cards.append(card("What players were doing when they quit", "last meaningful activity in the final 3 minutes",
+    withTable(hbars(quitRows, { tipLabel: "sessions ended here" }),
+      ["Activity", "Sessions", "Share"], quitRows.map(r => [r.label, r.value, pct(r.value, S.length)]))));
+
+  // quit locations
+  const cellAgg = {};
+  for (const s of S) if (s.cell) cellAgg[s.cell] = (cellAgg[s.cell] || 0) + 1;
+  const cellRows = Object.entries(cellAgg).sort((a, b) => b[1] - a[1]).slice(0, 12)
+    .map(([c, n]) => ({ label: "around (" + c + ")", value: n }));
+  cards.append(card("Where in the world sessions end", "last position, bucketed to 32-tile cells — teleport there to see what's frustrating",
+    cellRows.length ? withTable(hbars(cellRows, { tipLabel: "sessions ended here" }),
+      ["Cell", "Sessions"], cellRows.map(r => [r.label, r.value])) : empty("No positions recorded.")));
+
+  // first-session funnel (all fetched range — device-lifetime data)
+  cards.append(card("First-session funnel", "of every new player's FIRST sitting (all fetched data) — where the tutorial loses people",
+    funnelChart(DATA.funnel)));
+
+  // time-to-first milestones
+  const MS_LABELS = {
+    first_xp: "Earn any XP", first_kill: "Kill a monster", first_talk: "Talk to an NPC",
+    first_station: "Use a crafting station", first_equip: "Equip an item", first_map: "Open the map",
+    first_bank: "Use the bank", first_trade: "Buy or sell at a shop", first_split: "Split selves",
+    first_queue: "Queue a task", first_boat: "Board a boat",
+  };
+  const msRows = DATA.msStats.map(m => [
+    MS_LABELS[m.name] || m.name, pct(m.reached, m.of),
+    m.median != null ? fmtMin(m.median) : "—", m.p75 != null ? fmtMin(m.p75) : "—",
+  ]);
+  cards.append(card("Time to first…", "cumulative play time before a player first does each thing (all fetched data). A high median = players take ages to work it out; a low % = most never find it.",
+    table(["Milestone", "% of players", "Median", "Slowest quartile"], msRows)));
+
+  // stalls
+  const stalls = DATA.stallRows.filter(r => days.has(r.day));
+  const stallCtx = {};
+  const stallCell = {};
+  for (const r of stalls) {
+    stallCtx[r.ctx] = (stallCtx[r.ctx] || 0) + r.sec;
+    if (r.cell) {
+      const c = stallCell[r.cell] || (stallCell[r.cell] = { n: 0, sec: 0 });
+      c.n++; c.sec += r.sec;
+    }
+  }
+  const stallRows = Object.entries(stallCtx).sort((a, b) => b[1] - a[1]).slice(0, 10)
+    .map(([label, sec]) => ({ label, value: Math.round(sec / 60) }));
+  const totalStallMin = Math.round(sum(stalls.map(r => r.sec)) / 60);
+  cards.append(card("Confusion hotspots", `≥3 min of activity (moving, clicking, examining) with zero progress — ${stalls.length} stalls, ${fmtMin(totalStallMin)} total. What players struggle to work out.`,
+    stallRows.length ? withTable(hbars(stallRows, { valueFmt: v => fmtMin(v), tipLabel: "stalled" }),
+      ["During", "Stalled (min)"], stallRows.map(r => [r.label, r.value])) : empty("No stalls detected — either smooth sailing or not enough data.")));
+  const stallCellRows = Object.entries(stallCell).sort((a, b) => b[1].sec - a[1].sec).slice(0, 10)
+    .map(([c, v]) => [`around (${c})`, v.n, fmtMin(Math.round(v.sec / 60))]);
+  if (stallCellRows.length)
+    cards.append(card("Where players get stuck", "locations of the stalls above — worth walking to in-game",
+      table(["Cell", "Stalls", "Time lost"], stallCellRows)));
+
+  // activity time share
+  const actRows = topOf(DATA.acts, days, 12).map(([k, sec]) => ({
+    label: k.startsWith("skill:") ? k.slice(6) : k === "combat" ? "Combat" : k.replace(/^act:/, ""),
+    value: Math.round(sec / 60),
+  }));
+  cards.append(card("Where the time goes", "total minutes in each activity (from completed actions)",
+    actRows.length ? withTable(hbars(actRows, { valueFmt: v => fmtMin(v), tipLabel: "total" }),
+      ["Activity", "Minutes"], actRows.map(r => [r.label, r.value])) : empty("No completed actions recorded.")));
+
+  // combat + economy tables
+  const killRows = topOf(DATA.kills, days, 10).map(([k, n]) => [k, n]);
+  const deathRows = topOf(DATA.deaths, days, 10).map(([k, n]) => [k, n]);
+  const xpRows = topOf(DATA.xpBy, days, 12).map(([k, n]) => [k, fmtN(Math.round(n))]);
+  const c2 = card("Combat", "what players fight — and what kills them", null);
+  if (killRows.length) { c2.append(el("div", { class: "note" }, "Kills by monster"), table(["Monster", "Kills"], killRows)); }
+  if (deathRows.length) { c2.append(el("div", { class: "note", style: "margin-top:10px" }, "Player deaths by killer"), table(["Killer", "Deaths"], deathRows)); }
+  if (!killRows.length && !deathRows.length) c2.append(empty("No combat recorded."));
+  cards.append(c2);
+  cards.append(card("XP by skill", "which skills players actually train",
+    xpRows.length ? table(["Skill", "XP"], xpRows) : empty("No XP recorded.")));
+  const buyRows = topOf(DATA.trades, days, 8, k => k).filter(([k]) => k.startsWith("buy|")).map(([k, n]) => [k.slice(4), n]);
+  const sellRows = topOf(DATA.trades, days, 8, k => k).filter(([k]) => k.startsWith("sell|")).map(([k, n]) => [k.slice(5), n]);
+  const c3 = card("Shops", "what players buy and sell", null);
+  if (buyRows.length) c3.append(el("div", { class: "note" }, "Bought"), table(["Item", "Qty"], buyRows));
+  if (sellRows.length) c3.append(el("div", { class: "note", style: "margin-top:10px" }, "Sold"), table(["Item", "Qty"], sellRows));
+  if (!buyRows.length && !sellRows.length) c3.append(empty("No shop trades recorded."));
+  cards.append(c3);
+}
+
+// ---------- boot ----------
+{
+  const g = new Date(DATA.generatedAt);
+  $("#gen").textContent = `Generated ${g.toLocaleString()} · ${DATA.sessions.length} sessions · ${DATA.devices.length} players` +
+    (DATA.demo ? " · DEMO DATA" : "") + (DATA.includeDev ? " · includes dev-mode play" : " · dev-mode play excluded") +
+    ` · refresh with: node tools/telemetry_dash.mjs`;
+  document.querySelectorAll("#filters button[data-range]").forEach(b => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll("#filters button[data-range]").forEach(x => x.classList.remove("on"));
+      b.classList.add("on");
+      render(+b.dataset.range);
+    });
+  });
+  $("#themebtn").addEventListener("click", () => {
+    const r = document.documentElement;
+    const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+    const cur = r.dataset.theme || (dark ? "dark" : "light");
+    r.dataset.theme = cur === "dark" ? "light" : "dark";
+  });
+  render(30);
+}
+</script>
+</body>
+</html>

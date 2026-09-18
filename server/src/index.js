@@ -18,6 +18,7 @@ import * as shops from "./shops.js";
 import * as seeds from "./seeds.js";
 import * as envelope from "./envelope.js";
 import * as ranks from "./ranks.js";
+import * as telemetry from "./telemetry.js";
 
 export { RegionLedger } from "./region.js";
 
@@ -60,6 +61,9 @@ const ROUTES = {
   "GET /api/xp/validated":              envelope.mine,
   "GET /api/ranks/skill":               ranks.skillMeta,
   "GET /api/ranks/me":                  ranks.mine,
+
+  "POST /api/telemetry":                telemetry.ingest,
+  "GET /api/admin/telemetry":           telemetry.adminBrowse,
 
   "POST /api/admin/cost":               admin.setCost,
   "GET /api/admin/flagged":             admin.flaggedQueue,

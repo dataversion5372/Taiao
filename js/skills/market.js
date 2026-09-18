@@ -462,6 +462,7 @@ function renderMarket() {
           ev && ev.producer || null, ev && ev.skill || null);
       }
       sfx("coins", 0.7);
+      if (typeof Tele !== "undefined") Tele.ev("sell", s.id, price, n);
       log(`You sell ${n} × ${def.name} for ${price * n} coins.`);
       uiDirty = true;
       renderMarket();

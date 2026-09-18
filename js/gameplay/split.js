@@ -105,6 +105,7 @@ var Split = (() => {
     log(`You tear yourself in two — and step onward in the NEW self (№${myNum()} of ${count()}). Its pack is empty: pass what it needs through the share window. Tab switches; X merges; ⇧X re-opens sharing.`, "gold");
     shareOpen(bodies().find(b => b.num === origNum));
     if (typeof sfx === "function") sfx("levelup", 0.3);
+    if (typeof Tele !== "undefined") Tele.ev("split", count());
     uiDirty = true;
     if (typeof saveGame === "function") saveGame();
     syncHud(true);
@@ -210,6 +211,7 @@ var Split = (() => {
     if (typeof sfx === "function") sfx("levelup", 0.3);
     // Torra's stage counts the reunion (gameplay/tutorial.js "merged" goal)
     if (typeof Tutorial !== "undefined" && Tutorial.onMerge) Tutorial.onMerge();
+    if (typeof Tele !== "undefined") Tele.ev("merge", count());
     uiDirty = true;
     if (typeof saveGame === "function") saveGame();
     syncHud(true);

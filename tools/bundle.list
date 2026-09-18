@@ -185,6 +185,7 @@ js/gameplay/pulse.js
 # TAIAO_SERVER_URL. Order: api core first; actionlog wraps the choke points
 # (after pulse.js so both wrap chains stack); UI last.
 js/net/serverapi.js
+js/net/telemetry.js
 js/net/actionlog.js
 js/net/savesync.js
 js/net/worksync.js

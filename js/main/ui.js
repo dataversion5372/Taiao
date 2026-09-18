@@ -1277,6 +1277,7 @@ function renderBank() {
       if (s.qty <= 0 && ensureBankPermanents(player.bankNet))
         log(`The ${bankNetName(player.bankNet)} restocks your ${(ITEMS[s.id] ? ITEMS[s.id].name : s.id).toLowerCase()} — account holders are never without one.`, "sys");
       ensureCheatStock(player.bankNet); // cheat mode: the 1000-of-everything shelf refills itself
+      if (typeof Tele !== "undefined") Tele.ev("bank", "wd", s.id, moved);
       bankRev++;
       uiDirty = true;
       renderBank();

@@ -3,7 +3,7 @@
 // experience. Bump CACHE_VERSION whenever shipped assets change.
 "use strict";
 
-const CACHE_VERSION = "taiao-v6"; // v6 2026-09-16: scope-relative paths (itch.io subdirectory hosting) + dist/ offline
+const CACHE_VERSION = "taiao-v7"; // v7 2026-09-17: gameplay telemetry stream (bundle + index.html changed)
 
 // ── Base-path independence ──────────────────────────────────────────────
 // Every path below is written relative to the game's ROOT ("/assets/…"),

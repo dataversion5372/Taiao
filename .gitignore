@@ -87,3 +87,6 @@ dist/taiao-web*.zip
 
 # generated itch-page assets (cover/GIF shot from the live game) — artifacts, not source
 /dist/itch-page/
+
+# telemetry analytics dumps (player data — repo is public, never commit)
+analytics/
