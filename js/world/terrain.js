@@ -27,7 +27,21 @@ var TUT_ISLE = (() => {
   // Ring boundaries and sector spokes are FENCES with gate arches where the
   // journey path crosses (tutFenceAt / tutGateArchAt below feed chunks.js
   // painting and tutorial.js barred()). All units are MAP units (game/2).
-  const CX = -380, CY = 500;         // island centre
+  // ISLAND CENTRE (relocated 2026-09-18): the isle is A SEPARATE MAP, not a
+  // feature of the main world — it sits in a far open-sea basin ~6400 game
+  // tiles WSW of Newhaven (probed offline against seed 1337: ~90% natural
+  // water inside the whole carve disc, still world block (0,0) so boot-time
+  // world naming is unchanged, well clear of DREAM_WORLD's rect). Nothing
+  // physical connects it to the mainland: the widened private-ocean carve
+  // (M below) drowns everything within sight, and Tutorial.barred() mists
+  // the SEAL_D disc against all travel in both directions. Saves from the
+  // old seat (game -760,1000) are translated on load — storage.js
+  // migrateTutIsleCoords must match any future move of these constants,
+  // and the game-tile delta from the old seat must stay a whole number of
+  // 32-tile chunks (seen-chunk keys translate by integer chunk counts) and
+  // a whole number of map units (the rounded fence/gate geometry then
+  // translates exactly). Current delta: game (-5408, +736) = chunks (-169, +23).
+  const CX = -3084, CY = 868;        // island centre
   const RC = 16, RM = 32, RO = 54;   // centre wall / middle ring / coast radii
   const D2R = Math.PI / 180;
   // pod seats (degrees, screen convention: -90 = north/up, +x east).
@@ -205,10 +219,23 @@ var TUT_ISLE = (() => {
     }
     return { x0, y0, x1, y1 };
   })();
-  const M = 130; // private-ocean margin (no foreign land in sight)
+  // private-ocean margin: the carve holds FULL deep sea out to D=380 and
+  // fades 380..400 (tutW below), so from anywhere a sealed-out sailor can
+  // stand (the SEAL_D mist wall) every tile within render range — far-clip
+  // 200 game tiles, chunk ring 256 — is featureless carved deep, and from
+  // the isle (land + islet, rad ≤ ~115) no natural coast is ever in sight.
+  const M = 410;
+  // THE SEAL (map units past the coast, so rad = RO + SEAL_D = 280 = 560
+  // game tiles): outside a live tutorial, Tutorial.barred() mists this whole
+  // disc — no foot, hull or portal crosses it in either direction — and
+  // gameplay/world.js partitions the world map by the same disc, so isle
+  // chunks and mainland chunks can never share one map view. Chosen so the
+  // Swim-Master's islet (seated up to rad ~115 for the fastest bodies) stays
+  // ≥ 330 game tiles from any standable water: beyond view, beyond reach.
+  const SEAL_D = 226;
   return {
     pods, river, gates, path,
-    CX, CY, RC, RM, RO, SPOKES, MIDWALLS, IA, isletZone,
+    CX, CY, RC, RM, RO, SPOKES, MIDWALLS, IA, isletZone, SEAL_D,
     islet: null, // seeded below via tutIsletFor(1, 1); re-seated per character
     gx: pods[0].mx * 2, gy: pods[0].my * 2,
     bbox: { x0: CX - RO - M, x1: CX + RO + M, y0: CY - RO - M, y1: CY + RO + M },
@@ -386,10 +413,20 @@ function tutGateArchAt(x, y) {
   return -1;
 }
 // inside the island's influence footprint? (features.js exclusions) — the
-// whole private-ocean disc, so no village/POI/portal/icon seeds in it
+// whole private-ocean disc, so no village/POI/portal/icon/road seeds in it
 function tutIsleAtMap(x, y) {
   const q = tutIsleSD(x, y);
-  return !!q && q.D < 130;
+  return !!q && q.D < 400;
+}
+// inside the SEALED disc? GAME-TILE coords (player.x/y). The seal is the
+// "separate map" boundary: Tutorial.barred() mists it against feet, hulls
+// and portals in BOTH directions, and gameplay/world.js partitions the
+// world-map fog by it — a chunk inside the seal belongs to the isle's own
+// map and never renders on the wide world's, nor the reverse.
+function inTutSeal(gx, gy) {
+  if (typeof tutIsleSD !== "function") return false;
+  const q = tutIsleSD(gx / 2, gy / 2);
+  return !!q && q.D < TUT_ISLE.SEAL_D;
 }
 // isle land + a little surrounding water (D<60 matches chunks.js's spawn-
 // strip band, wide enough to also cover the Swim-Master's islet). Used to
@@ -514,12 +551,13 @@ function createWorldTerrain() {
 
   // ---------- Tūhura Isle overrides (TUT_ISLE + tutIsleSD, top of file) ----
   // Override weight from a tube sample: 1 across the isle AND its whole
-  // private ocean (out to D=110), fading to natural terrain across 110..130 —
-  // far beyond sight, so no foreign land ever shows from the isle.
-  // (plateau extended 110 → 120 on 2026-09-16 so the Swim-Master's islet —
-  // seated up to ~112 map units out for the fastest bodies — sits wholly on
-  // analytic carve; the fade band narrows to 120..130 accordingly)
-  const tutW = q => q.D <= 120 ? 1 : (130 - q.D) / 10;
+  // private ocean (out to D=380), fading to natural terrain across 380..400.
+  // (bands widened 120/130 → 380/400 with the 2026-09-18 relocation: the
+  // moat must now outrun RENDER RANGE from the SEAL_D mist wall, not just
+  // swim range from the shore — a sealed-out sailor pressed against the
+  // mist at D=226 sees carved deep sea to the horizon in every direction,
+  // and the fade seam to natural terrain lands beyond their farthest view)
+  const tutW = q => q.D <= 380 ? 1 : (400 - q.D) / 20;
   const tutMix = (q, v, target) => v + (target - v) * tutW(q);
   // Target elevation from the tube: grassy plateau (soft noise) with per-pod
   // relief (knolls, pools), a beach taper to the coast, then shallows sloping
@@ -600,7 +638,7 @@ function createWorldTerrain() {
     if (isl > 0.60) e += (isl - 0.60) * 0.55;
     const v = originBlend(x, y, Math.max(0, Math.min(1, e)), 0.565);
     const q = tutIsleSD(x, y);
-    if (q && q.D < 130) return tutMix(q, v, tutElev(x, y, q));
+    if (q && q.D < 400) return tutMix(q, v, tutElev(x, y, q));
     // Dream Forest interior (DREAM_WORLD, top of file): gentle dry rolls —
     // never a beach (>0.497), never highlands (<0.615), so the whole region
     // classifies B.DREAM and no water ever cuts a level disc
@@ -637,7 +675,7 @@ function createWorldTerrain() {
     // Tūhura Isle: forced climate whatever the latitude says — per-POD now
     // (each zone's unique biome needs its own temperature band)
     const q = tutIsleSD(x, y);
-    if (q && q.D < 130) return tutMix(q, v, TUT_ISLE.pods[q.i].tmp || 0.52);
+    if (q && q.D < 400) return tutMix(q, v, TUT_ISLE.pods[q.i].tmp || 0.52);
     const dq = dreamSD(x, y);          // Dream interior: the temperate DREAM band
     if (dq) return v + (0.50 - v) * dq.w;
     return v;
@@ -685,7 +723,7 @@ function createWorldTerrain() {
     // Farm Vale pod dry enough for FARM fields, the rest grass/meadow. Gentle
     // noise keeps the biome seams at the gates organic.
     const q = tutIsleSD(x, y);
-    if (q && q.D < 130) {
+    if (q && q.D < 400) {
       const wob = (fbm(x * 0.07, y * 0.07, S + 883, 2) - 0.5) * 0.08;
       return tutMix(q, v, (TUT_ISLE.pods[q.i].hum || 0.50) + wob);
     }
@@ -697,7 +735,7 @@ function createWorldTerrain() {
   const civField = (x, y) => {
     const v = originBlend(x, y, fbm(x * 0.0012, y * 0.0012, S + 601, 2), 0.72);
     const q = tutIsleSD(x, y);
-    if (q && q.D < 130) return tutMix(q, v, TUT_ISLE.pods[q.i].civ || 0.35);
+    if (q && q.D < 400) return tutMix(q, v, TUT_ISLE.pods[q.i].civ || 0.35);
     const dq = dreamSD(x, y);
     if (dq) return v + (0.30 - v) * dq.w;
     return v;
@@ -707,7 +745,7 @@ function createWorldTerrain() {
     const q = tutIsleSD(x, y);
     // no fantasy biomes on the isle — but the Portal Crown runs LOW weird
     // (wrd 0.18 → the Ruins biome) for its ancient-stones look
-    const p = q && q.D < 130 ? TUT_ISLE.pods[q.i] : null;
+    const p = q && q.D < 400 ? TUT_ISLE.pods[q.i] : null;
     if (p) return tutMix(q, v, p.wrd != null ? p.wrd : 0.45);
     const dq = dreamSD(x, y);          // Dream interior: deep in the weird band
     if (dq) return v + (0.90 - v) * dq.w;
@@ -716,7 +754,7 @@ function createWorldTerrain() {
   const farmField = (x, y) => {
     const v = fbm(x * 0.025, y * 0.025, S + 501, 3);
     const q = tutIsleSD(x, y);
-    if (q && q.D < 130) return tutMix(q, v, TUT_ISLE.pods[q.i].farm || 0.35);
+    if (q && q.D < 400) return tutMix(q, v, TUT_ISLE.pods[q.i].farm || 0.35);
     const dq = dreamSD(x, y);
     if (dq) return v + (0.30 - v) * dq.w;
     return v;

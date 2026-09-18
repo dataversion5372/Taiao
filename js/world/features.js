@@ -2148,14 +2148,27 @@ function createWorldFeatures(ctx) {
   // The exact colour pipeline of the world map's macro tiles as pure math on
   // a plain buffer: js/world/map.js renderMacro AND the worker's "macro"
   // message both call this, so off-thread tiles are pixel-identical.
-  function macroPixels(step, mx, my, MPX, MAP_COLORS, MAP_WATER) {
+  function macroPixels(step, mx, my, MPX, MAP_COLORS, MAP_WATER, showIsle) {
     const MT = MPX * step;
     const bx = mx * MT, by = my * MT;
     const EG = MPX + 2;                    // margin for coastline + hillshade lookups
     const eG = new Float32Array(EG * EG);
+    // Tūhura Isle is a SEPARATE map (terrain.js inTutSeal): macro tiles are
+    // painted straight from terrain, so without this mask a tile straddling
+    // the seal would show the isle's landmass to a sealed-out sailor. Unless
+    // the VIEWER is on the isle themselves (showIsle — map.js decides from
+    // the player's side, and the Bifrost cinematic pins it for its takeoff
+    // bake), sample the sealed disc as flat deep sea instead — that silences
+    // the pixel colour, the coastline outline test AND the hillshade in one
+    // place. Seal-touching tiles are never persisted and never rendered by
+    // the road worker (map.js reroutes them main-thread, like the islet
+    // zone), so the two variants can share the plain cache key safely.
+    const _seal = !showIsle && typeof inTutSeal === "function";
     for (let gy = 0; gy < EG; gy++)
-      for (let gx = 0; gx < EG; gx++)
-        eG[gy * EG + gx] = elevation(bx + (gx - 1) * step, by + (gy - 1) * step);
+      for (let gx = 0; gx < EG; gx++) {
+        const wx = bx + (gx - 1) * step, wy = by + (gy - 1) * step;
+        eG[gy * EG + gx] = _seal && inTutSeal(wx * 2, wy * 2) ? 0.335 : elevation(wx, wy);
+      }
     const d = new Uint8ClampedArray(MPX * MPX * 4);
     // biome sampled once per BLOCK cell (classify + its field inputs are the
     // expensive part); coarse steps sample finer so the zoomed-out map reads

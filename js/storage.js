@@ -240,6 +240,57 @@ document.getElementById("importfile").onchange = e => {
   reader.onerror = () => alert("Couldn't read that file.");
   reader.readAsText(file);
 };
+// ---------- Tūhura Isle relocation (2026-09-18) ----------
+// The tutorial isle moved from game (-760,1000) to (-6168,1736) — a far
+// open-sea basin — so it exists as a SEPARATE map instead of sitting in the
+// main world 1250 tiles off Newhaven (js/world/terrain.js TUT_ISLE). A save
+// written mid-tutorial against the old seat holds isle-anchored coordinates:
+// the standing player, split bodies, the keeper-camp respawn, placed
+// furniture, picked-decor/husbandry/station-heat tile keys, an attuned
+// Portal Crown, and the explored isle chunks. Translate everything inside
+// the OLD footprint by the move delta so a mid-tutorial character wakes
+// exactly where they stood — the isle is translation-identical (the delta is
+// whole map units AND whole 32-tile chunks, see the CX/CY note in
+// terrain.js, so fences, stamps and seen-chunk keys all line up exactly).
+// Veteran/graduated saves are left alone on purpose: graduation already
+// purged their isle marks, and a sailor saved floating in the old isle's
+// outer waters simply wakes in what is now natural ocean — translating THEM
+// would strand them inside the new seal. Chunk/map IDB caches need nothing
+// here: WORLDGEN_SIG/MAPBAKE_SIG re-key them wholesale on any worldgen edit.
+const TUT_MOVE = {
+  x0: -1176, y0: 584, x1: -344, y1: 1416, // old bbox game rect + 48 (graduateCore's own pad)
+  dx: -5408, dy: 736,                     // whole chunks: (-169, +23) * 32
+};
+function migrateTutIsleCoords(d) {
+  if (!d || !d.tutorial || d.tutorial.graduated || !d.inf) return;
+  const R = TUT_MOVE;
+  const inOld = (x, y) => typeof x === "number" && typeof y === "number" &&
+    x >= R.x0 && x <= R.x1 && y >= R.y0 && y <= R.y1;
+  const movePt = p => { if (p && inOld(p.x, p.y)) { p.x += R.dx; p.y += R.dy; } };
+  movePt(d);                                        // the player
+  if (Array.isArray(d.bodies)) d.bodies.forEach(movePt);   // split selves
+  movePt(d.respawn);                                // keeper-camp respawn
+  if (Array.isArray(d.placed)) d.placed.forEach(movePt);   // furniture/vessels
+  // "x,y" GAME-TILE keyed maps and objects
+  const moveTileKey = k => {
+    const [x, y] = String(k).split(",").map(Number);
+    return inOld(x, y) ? (x + R.dx) + "," + (y + R.dy) : k;
+  };
+  for (const f of ["pickedDecor", "husbCooldowns", "stationHeat"])
+    if (Array.isArray(d[f])) d[f] = d[f].map(e => Array.isArray(e) ? [moveTileKey(e[0]), e[1]] : e);
+  for (const f of ["portals", "unlocked"])
+    if (d[f] && typeof d[f] === "object")
+      for (const k of Object.keys(d[f])) {
+        const nk = moveTileKey(k);
+        if (nk !== k) { d[f][nk] = d[f][k]; delete d[f][k]; }
+      }
+  // explored chunks: "cx,cy" CHUNK keys, shifted by the whole-chunk delta
+  if (Array.isArray(d.seen))
+    d.seen = d.seen.map(k => {
+      const [cx, cy] = String(k).split(",").map(Number);
+      return inOld(cx * 32 + 16, cy * 32 + 16) ? (cx + R.dx / 32) + "," + (cy + R.dy / 32) : k;
+    });
+}
 // Callers (4):
 //  storage.js:69,83,122,154
 function freshSkills() {
@@ -262,6 +313,7 @@ function loadGame() {
     }
     if (raw) {
       const d = JSON.parse(raw);
+      migrateTutIsleCoords(d); // mid-tutorial saves follow the relocated isle
       // swap any legacy Carpentry boat id (inventory, bank, or placed-on-water)
       // to its Shipwrighting equivalent before the id-validity filters below
       if (Array.isArray(d.inv)) for (const it of d.inv) if (it && it.id) it.id = migrateBoatId(it.id);

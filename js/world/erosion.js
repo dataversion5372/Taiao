@@ -128,15 +128,17 @@ function computeChunkFields(T, CHUNK, ccx, ccy) {
     (T.S ^ Math.imul(ccx * 7, 0x9E3779B1) ^ Math.imul(ccy * 13, 0x85EBCA77)) >>> 0);
   const disG = runErosion(eG, GS, GS, erosionRng);
 
-  // (restore band widened 24 → 120 on 2026-09-16: the whole private ocean is
-  // analytic carve now that the Swim-Master's islet sits far offshore — its
-  // dome and drowning-deep approach must match heightAt exactly)
+  // (restore band widened 24 → 120 on 2026-09-16, then → 380 with the
+  // 2026-09-18 relocation: the whole private ocean is analytic carve — the
+  // Swim-Master's dome, the drowning-deep approach AND the widened moat out
+  // past the seal must all match heightAt exactly; the erosion seam lands
+  // inside the carve's own 380..400 fade, in open water nobody can reach)
   if (tutRaw)
     for (let gy = 0; gy < GS; gy++)
       for (let gx = 0; gx < GS; gx++) {
         const q = tutIsleSD((bx + gx - 1) * 0.5, (by + gy - 1) * 0.5);
-        if (!q || q.D >= 128) continue;
-        const w = q.D <= 120 ? 1 : (128 - q.D) / 8;
+        if (!q || q.D >= 388) continue;
+        const w = q.D <= 380 ? 1 : (388 - q.D) / 8;
         const i = gy * GS + gx;
         eG[i] += (tutRaw[i] - eG[i]) * w;
       }

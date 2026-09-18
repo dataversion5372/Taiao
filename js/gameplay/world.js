@@ -169,14 +169,21 @@ function seenBounds() {
   // Returns game-tile bounding box of all explored chunks, or null if nothing explored.
   if (!seenChunks.size) return null;
   const CS = world.CHUNK;
+  // the sealed tutorial isle is a SEPARATE map (terrain.js inTutSeal): the
+  // pannable view is bounded by ONE side's chunks at a time — on the isle,
+  // only isle chunks; in the wide world, never an isle chunk — so panning
+  // can no more reach the isle from Newhaven than a reset character's kept
+  // mainland map can be reached from mid-tutorial. Same rule as inSeen.
+  const isleSide = typeof inTutSeal === "function" && inTutSeal(player.x, player.y);
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const k of seenChunks) {
     const [cx, cy] = k.split(',').map(Number);
+    const gcx = cx * CS + CS / 2, gcy = cy * CS + CS / 2;
     // the Dream Forest interior never counts as explored world — the frozen
     // in-dream map (wmDraw) must not let the pannable view reach the far-off
     // region and give the trick away (gameplay/dream.js)
-    if (typeof dreamZoneAtMap === "function" &&
-        dreamZoneAtMap((cx * CS + CS / 2) * 0.5, (cy * CS + CS / 2) * 0.5)) continue;
+    if (typeof dreamZoneAtMap === "function" && dreamZoneAtMap(gcx * 0.5, gcy * 0.5)) continue;
+    if (typeof inTutSeal === "function" && inTutSeal(gcx, gcy) !== isleSide) continue;
     if (cx < x0) x0 = cx; if (cx > x1) x1 = cx;
     if (cy < y0) y0 = cy; if (cy > y1) y1 = cy;
   }
@@ -195,6 +202,15 @@ function clampWmView() {
 // Callers (5):
 //  gameplay/world.js:477,489,504,575,743
 function inSeen(gx, gy) { // game-tile coords
+  // the sealed tutorial isle is a SEPARATE map (terrain.js inTutSeal): a
+  // point inside the seal only counts as seen while the player is also
+  // inside it, and a wide-world point only while they're outside — so the
+  // world map's chunk bakes, macro/mip fog and every icon/river/road pass
+  // render exactly one of the two maps, never both. Other-side keys may
+  // well sit in seenChunks (a character reset keeps the mainland's explored
+  // map through the tutorial); they're just invisible until the player is
+  // back on that side.
+  if (typeof inTutSeal === "function" && inTutSeal(gx, gy) !== inTutSeal(player.x, player.y)) return false;
   return seenChunks.has(`${Math.floor(gx / world.CHUNK)},${Math.floor(gy / world.CHUNK)}`);
 }
 // Callers (2):
@@ -853,8 +869,9 @@ function wmDraw() {
         if (L === 0) {
           // bake only chunks the player has actually explored — a cheat-mode
           // reveal of fresh terrain keeps the macro underlay instead of
-          // forcing full chunk generation for the whole viewport
-          const img = seenChunks.has(`${tx2},${ty2}`) ? world.renderMapChunkCached(tx2, ty2) : null;
+          // forcing full chunk generation for the whole viewport. Routed
+          // through inSeen so the sealed-isle map partition applies here too.
+          const img = inSeen(tx2 * CS + CS / 2, ty2 * CS + CS / 2) ? world.renderMapChunkCached(tx2, ty2) : null;
           if (img) wmCtx.drawImage(img, sx, sy, px, px);
           else drawFromAncestor(0, tx2, ty2, sx, sy, px);
         } else {
@@ -1085,7 +1102,9 @@ function wmDraw() {
     let shared = null;
     for (let cy = c0y; cy <= c1y; cy++)
       for (let cx = c0x; cx <= c1x; cx++) {
-        if (!revealAll && !seenChunks.has(`${cx},${cy}`)) continue; // unexplored = dark background
+        // unexplored = dark background; inSeen also applies the sealed-isle
+        // map partition, so full-detail zoom can't cross it either
+        if (!revealAll && !inSeen(cx * CS + CS / 2, cy * CS + CS / 2)) continue;
         if (!shared && !world.mapChunkCache.has(`${cx},${cy}`))
           // mapRegionQuery/renderMapChunk work in MAP-COORD units, where one
           // chunk is CS/2 wide (js/world/map.js's own local CS=16, "Map.html

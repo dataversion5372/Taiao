@@ -424,11 +424,28 @@ function createWorldMap(ctx) {
   // sampled per macro pixel (coarser than renderMapChunk's per-tile sampling)
   // pixel math lives in features.js macroPixels (shared with the road worker,
   // which renders macro tiles off-thread — see the "macro" worker message)
+  // --- which side of the isle SEAL does the macro painter draw for? ---
+  // Macro tiles are pure terrain, so a tile straddling the seal exists in
+  // two truths: the isle visible (for the character living its tutorial —
+  // and for the Bifrost takeoff bake) or masked to deep sea (for everyone
+  // in the wide world). The viewer's side picks the variant at RENDER time;
+  // _macroIsleView lets the Bifrost cinematic pin "isle visible" across the
+  // graduation teleport (start() sets it, its cleanup clears it and drops
+  // the seal's tiles). Sharing the plain cache key is safe because the only
+  // side flips are graduation (tutorial.js graduateCore purges the seal
+  // rect via mapDropRect) and a character reset (a full page reload).
+  let _macroIsleView = null;             // null = follow the player's side
+  function setMacroIsleView(v) { _macroIsleView = v; }
+  function _viewShowIsle() {
+    if (_macroIsleView !== null) return _macroIsleView;
+    return typeof inTutSeal === "function" && typeof player !== "undefined" && player &&
+      inTutSeal(player.x, player.y);
+  }
   function renderMacro(step, mx, my) {
     const cv = document.createElement('canvas');
     cv.width = MACRO_PX; cv.height = MACRO_PX;
     cv.getContext('2d').putImageData(
-      new ImageData(macroPixels(step, mx, my, MACRO_PX, MAP_COLORS, MAP_WATER), MACRO_PX, MACRO_PX), 0, 0);
+      new ImageData(macroPixels(step, mx, my, MACRO_PX, MAP_COLORS, MAP_WATER, _viewShowIsle()), MACRO_PX, MACRO_PX), 0, 0);
     return cv;
   }
   // Fully synchronous, no throttling: wmDraw() must complete the ENTIRE
@@ -451,7 +468,7 @@ function createWorldMap(ctx) {
   // IMMEDIATELY from disk. First-ever tiles render through a paced pump (a
   // couple of ~40ms renders per frame) instead of stalling a draw call.
   function persistMacro(key, cv) {
-    { const r = _macroKeyRect(key); if (_isletZoneHit(r[0], r[1], r[2], r[3])) return; } // per-character islet — never cache to disk
+    { const r = _macroKeyRect(key); if (_isletZoneHit(r[0], r[1], r[2], r[3]) || _isleSealHit(r[0], r[1], r[2], r[3])) return; } // islet + sealed isle — never cache to disk
     try { cv.toBlob(b => { if (b) _mOpen().then(db =>
       db.transaction('m', 'readwrite').objectStore('m').put(b, _mKey('mac:' + key))).catch(() => {}); }, 'image/png'); }
     catch (e) { /* best effort */ }
@@ -566,10 +583,12 @@ function createWorldMap(ctx) {
       while (_macRenderQ.length) {
         const key = _macRenderQ.shift();
         if (macroCache.has(key)) continue;
-        // isletZone tiles stay ON the main thread: the worker's terrain copy
-        // only knows the islet's DEFAULT seat, not the chosen body's
+        // isletZone tiles stay ON the main thread (the worker's terrain copy
+        // only knows the islet's DEFAULT seat, not the chosen body's), and so
+        // do seal-touching tiles: the isle-or-masked variant is picked by the
+        // VIEWER's side (_viewShowIsle), which the worker can't know
         { const r = _macroKeyRect(key);
-          if (_isletZoneHit(r[0], r[1], r[2], r[3])) {
+          if (_isletZoneHit(r[0], r[1], r[2], r[3]) || _isleSealHit(r[0], r[1], r[2], r[3])) {
             const ci2 = key.indexOf(':');
             getMacro(parseFloat(key.slice(0, ci2)), ...key.slice(ci2 + 1).split(',').map(Number));
             continue;
@@ -680,6 +699,20 @@ function createWorldMap(ctx) {
     const Z = TUT_ISLE.isletZone;
     return x0 < Z.x1 && x1 > Z.x0 && y0 < Z.y1 && y1 > Z.y0;
   }
+  // --- the isle's SEALED disc (terrain.js TUT_ISLE.SEAL_D): a SEPARATE map -
+  // No artefact that touches the seal is ever persisted (same scheme as the
+  // islet zone above): the isle renders fresh for the character living its
+  // tutorial, and graduation's world.mapDropRect purge (tutorial.js
+  // graduateCore) is then the WHOLE cleanup — a graduated save can never
+  // re-hydrate isle art from disk into the wide world's map, and a mip tile
+  // assembled while on the isle can never survive into a mainland session.
+  function _isleSealHit(x0, y0, x1, y1) {  // MAP-coord rect vs the seal disc
+    if (typeof TUT_ISLE === "undefined" || !TUT_ISLE.SEAL_D) return false;
+    const R = TUT_ISLE.RO + TUT_ISLE.SEAL_D;
+    const nx = Math.max(x0, Math.min(TUT_ISLE.CX, x1));
+    const ny = Math.max(y0, Math.min(TUT_ISLE.CY, y1));
+    return Math.hypot(nx - TUT_ISLE.CX, ny - TUT_ISLE.CY) < R;
+  }
   const _chunkKeyRect = key => {          // "gcx,gcy" chunk bake → map rect
     const [cx, cy] = key.split(",").map(Number);
     return [cx * 16, cy * 16, cx * 16 + 16, cy * 16 + 16];
@@ -717,7 +750,7 @@ function createWorldMap(ctx) {
     _flatCache.clear();
   }
   function persistMapImage(key, canvas) {
-    { const r = _chunkKeyRect(key); if (_isletZoneHit(r[0], r[1], r[2], r[3])) return; }
+    { const r = _chunkKeyRect(key); if (_isletZoneHit(r[0], r[1], r[2], r[3]) || _isleSealHit(r[0], r[1], r[2], r[3])) return; }
     try {
       canvas.toBlob(b => {
         if (!b) return;
@@ -849,7 +882,9 @@ function createWorldMap(ctx) {
         let fill = _flatCache.get(fkey);
         if (!fill) {
           const wx = (mx + 0.5) * MT, wy = (my + 0.5) * MT;
-          const e = elevation(wx, wy);
+          // sealed isle disc reads as deep sea, same viewer-side mask as
+          // macroPixels (mapDropRect clears _flatCache on the side flip)
+          const e = (!_viewShowIsle() && typeof inTutSeal === "function" && inTutSeal(wx * 2, wy * 2)) ? 0.335 : elevation(wx, wy);
           const col = e < LAND_E
             ? (e < 0.34 ? MAP_WATER[0] : e < 0.41 ? MAP_WATER[1] : e < 0.45 ? MAP_WATER[2] : MAP_WATER[3])
             : MAP_COLORS[classify(e, humidity(wx, wy), temperature(wx, wy), farmField(wx, wy), civField(wx, wy), weirdField(wx, wy))];
@@ -876,7 +911,7 @@ function createWorldMap(ctx) {
   // so any later session shows real tile art at full zoom-out immediately —
   // no need to re-hydrate thousands of individual chunk bakes first.
   function _mipPersist(key, cv) {
-    { const r = _mipKeyRect(key); if (_isletZoneHit(r[0], r[1], r[2], r[3])) return; } // per-character islet — never cache to disk
+    { const r = _mipKeyRect(key); if (_isletZoneHit(r[0], r[1], r[2], r[3]) || _isleSealHit(r[0], r[1], r[2], r[3])) return; } // islet + sealed isle — never cache to disk
     try { cv.toBlob(b => { if (b) _mOpen().then(db =>
       db.transaction('m', 'readwrite').objectStore('m').put(b, _mKey('mip2:' + key))).catch(() => {}); }, 'image/png'); }
     catch (e) { /* best effort */ }
@@ -967,7 +1002,9 @@ function createWorldMap(ctx) {
     if (!fill) {
       const MT = MACRO_PX * step;
       const wx = (mx + 0.5) * MT, wy = (my + 0.5) * MT;
-      const e = elevation(wx, wy);
+      // the isle's sealed disc reads as deep sea, same viewer-side mask as
+      // macroPixels (mapDropRect clears _flatCache on the side flip)
+      const e = (!_viewShowIsle() && typeof inTutSeal === "function" && inTutSeal(wx * 2, wy * 2)) ? 0.335 : elevation(wx, wy);
       const col = e < LAND_E
         ? (e < 0.34 ? MAP_WATER[0] : e < 0.41 ? MAP_WATER[1] : e < 0.45 ? MAP_WATER[2] : MAP_WATER[3])
         : MAP_COLORS[classify(e, humidity(wx, wy), temperature(wx, wy), farmField(wx, wy), civField(wx, wy), weirdField(wx, wy))];
@@ -1407,7 +1444,7 @@ function createWorldMap(ctx) {
     return BIOME_NAMES[b] || 'Unknown';
   }
 
-  return { renderMapChunk, renderMapChunkCached, preloadMapImages, prewarmMapChunk, mapDropRect, biomeNameAt, BIOME_NAMES,
+  return { renderMapChunk, renderMapChunkCached, preloadMapImages, prewarmMapChunk, mapDropRect, setMacroIsleView, biomeNameAt, BIOME_NAMES,
     getMacro, overviewStep, OVERVIEW_Z, MACRO_PX, mapChunkCache, macroCache, mapRegionQuery,
     mipTile, mipPeek, mipMacroFill, mipBudget, MIP_MAX, requestMacro, prewarmMacros, macroFlat,
     _macDebug: () => ({ q: _macQ.length, rq: _macRenderQ.length, inf: _macInFlight.size, raf: _macRaf,

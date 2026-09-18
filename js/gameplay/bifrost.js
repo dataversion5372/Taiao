@@ -819,6 +819,18 @@ const Bifrost = (function () {
     zoomer = null; frac = null; stars = null; opts = null; charCv = null;
     capA = capB = null; isleCv = isleShow = null; farCv = null; farBuilt = false;
     worldCv = null; wctx = null; org = null; pregen = null;
+    // release the isle-visible macro pin and flush any unmasked seal tiles
+    // the crossing baked — the graduate lives in the wide world now, where
+    // the sealed disc renders (and re-renders here) as featureless deep sea
+    try {
+      if (typeof world !== "undefined" && world.setMacroIsleView) {
+        world.setMacroIsleView(null);
+        if (world.mapDropRect && typeof TUT_ISLE !== "undefined" && TUT_ISLE.bbox) {
+          const B = TUT_ISLE.bbox;
+          world.mapDropRect(B.x0 - 24, B.y0 - 24, B.x1 + 24, B.y1 + 24);
+        }
+      }
+    } catch (e) { /* best effort */ }
   }
   function skip() {
     if (!ACTIVE || skipping) return;
@@ -916,6 +928,12 @@ const Bifrost = (function () {
     opts = o || {};
     ACTIVE = true;
     reducedRun = false;
+    // pin the macro painter to the ISLE-VISIBLE side for the whole crossing:
+    // graduateCore's teleport flips the player to the mainland mid-cinematic,
+    // and without the pin any isle-bake tile rendered after that moment would
+    // come back as masked deep sea (world/map.js setMacroIsleView; finish()
+    // releases the pin and drops the seal's unmasked tiles)
+    try { if (typeof world !== "undefined" && world.setMacroIsleView) world.setMacroIsleView(true); } catch (e) {}
     teleported = doneCalled = skipping = restored = false;
     capA = capB = null; capTried = false; isleCv = isleShow = null; isleDone = false; isleAt = 0;
     farCv = null; farBuilt = false; stars = null;
@@ -994,6 +1012,10 @@ const Bifrost = (function () {
     start() {
       if (ACTIVE) return false;
       ACTIVE = true; recMode = true;
+      // the recorder bakes the isle's takeoff terrain from macro tiles too —
+      // pin the painter to the isle-visible side (the headless recorder page
+      // isn't standing on the isle, so the player-side default would mask it)
+      try { if (typeof world !== "undefined" && world.setMacroIsleView) world.setMacroIsleView(true); } catch (e) {}
       teleported = true; doneCalled = skipping = false; restored = true;
       capA = capB = null; capTried = true; stars = null; charDrawn = false; charCv = null;
       isleCv = isleShow = null; isleDone = false; isleAt = 0;

@@ -54,7 +54,7 @@ function genWorld() {
   const {
     chunks, obstacles, npcs, getChunk, preloadSeen, persistChunk, persistAt, flushChunks, pruneChunks, dropChunkRect,
   } = chunksApi;
-  const { renderMapChunk, renderMapChunkCached, preloadMapImages, prewarmMapChunk, mapDropRect, biomeNameAt, BIOME_NAMES,
+  const { renderMapChunk, renderMapChunkCached, preloadMapImages, prewarmMapChunk, mapDropRect, setMacroIsleView, biomeNameAt, BIOME_NAMES,
     getMacro, overviewStep, OVERVIEW_Z, MACRO_PX, mapChunkCache, macroCache, mapRegionQuery,
     mipTile, mipPeek, mipMacroFill, mipBudget, MIP_MAX, requestMacro, prewarmMacros, macroFlat, _macDebug,
     MAP_PATH, MAP_WATER, MAP_BRIDGE } = mapApi;
@@ -378,6 +378,7 @@ function genWorld() {
     renderMapChunkCached,
     preloadMapImages,
     prewarmMapChunk,
+    setMacroIsleView, // Bifrost pins the macro painter to the isle-visible side
     getMacro,
     overviewStep,
     OVERVIEW_Z,

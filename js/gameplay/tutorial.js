@@ -1509,10 +1509,11 @@ const Tutorial = (() => {
       if (player.sailing || (typeof ridingEnt === "function" && ridingEnt()))
         return "The chop over the drowned shelf would swamp any hull — this crossing must be SWUM.";
     }
-    // graduated: the mist takes back the WHOLE footprint, not just the coast —
-    // the isle is a separate place now, unreachable and invisible from the sea
+    // graduated: the mist takes back the WHOLE sealed disc (TUT_ISLE.SEAL_D,
+    // rad 560 game tiles) — the isle is a separate map now, unreachable and,
+    // because the carved moat outruns render range from here, invisible too
     if (!active())
-      return q.D < 110 ? "A wall of pearly mist churns ahead. Nothing you do finds a way through." : false;
+      return q.D < TUT_ISLE.SEAL_D ? "A wall of pearly mist churns ahead. Nothing you do finds a way through." : false;
     if (q.D >= 14) return false;
     // journey-gate arches (ring/spoke crossings, terrain.js tutGateArchAt):
     // latch ONLY the arch tiles — every other fence tile is physically
@@ -2167,6 +2168,13 @@ const Tutorial = (() => {
       const [px, py] = k.split(",").map(Number);
       if (inRect(px, py)) delete player.portals[k];
     }
+    // …and the in-memory map artefacts (chunk bakes, mip tiles, macro tiles
+    // — the minimap composites the same bakes). map.js never PERSISTS any
+    // artefact touching the isle footprint (the _isleSealHit guards, same
+    // scheme as the per-character islet zone), so in-memory is the whole
+    // job: after this, no rendering of the isle survives graduation at all.
+    if (typeof world !== "undefined" && world && world.mapDropRect)
+      world.mapDropRect(B.x0 - 24, B.y0 - 24, B.x1 + 24, B.y1 + 24);
     // the crossing takes the night: advance the WORLD's clock (persisted,
     // daynight.js dayPhase) so the player falls out of the sky into the
     // NEXT morning over Newhaven, whatever the wall clock says
