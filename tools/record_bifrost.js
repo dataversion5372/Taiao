@@ -53,10 +53,30 @@ function findPuppeteer() {
       browser: "firefox",
       executablePath: "/Applications/Firefox.app/Contents/MacOS/firefox",
       headless: true, protocol: "webDriverBiDi",
+      // MUTE the headless game — the boot plays birdsong/SFX and the crossing
+      // plays the Bifrost theme out loud on the host. media.volume_scale is
+      // Firefox's master output scale; 0 = silence. The webm has no audio
+      // track anyway (ffmpeg encodes PNG frames only), so this costs nothing.
+      extraPrefsFirefox: { "media.volume_scale": "0.0" },
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
     page.on("pageerror", e => console.error("[pageerror]", e.message));
+    // belt-and-suspenders game-level mute, injected before any game code runs:
+    // (1) the audio settings read these localStorage keys at boot (js/audio.js;
+    // nature/SFX default ON), (2) hard-stub every audio path so NOTHING can
+    // reach the host speakers even if a code path ignores the volume — SFX/
+    // birdsong are <audio> elements (play()→silent no-op), music.js is WebAudio
+    // (AudioContext never resumes → no output). The webm has no audio track.
+    await page.evaluateOnNewDocument(() => {
+      try {
+        for (const k of ["taiaoGameVol", "taiaoNatureVol", "taiaoMusicVol"]) localStorage.setItem(k, "0");
+        const M = window.HTMLMediaElement && HTMLMediaElement.prototype;
+        if (M) M.play = function () { try { this.muted = true; this.volume = 0; this.pause(); } catch (e) {} return Promise.resolve(); };
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC && AC.prototype) { AC.prototype.resume = function () { return Promise.resolve(); }; }
+      } catch (e) {}
+    });
 
     console.log("booting game…");
     await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: "domcontentloaded", timeout: 120000 });
