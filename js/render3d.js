@@ -962,24 +962,45 @@ void main() {
   ];
   const FARLOD_SINK = 0.45, FARLOD_CELL = 96;
   let farMeshes = [], farMat = null, farJob = null, farCenter = null;
-  const _farBands = [
-    [0.00, 0xb3a077], [0.05, 0x6b8757], [0.30, 0x54724a],
-    [0.50, 0x77694f], [0.72, 0x8b8478], [0.92, 0xb9bcc0],
-  ].map(([t, hex]) => [t, (hex >> 16) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255]);
-  function farColor(rel, wx, wz, out, o) {
-    // land colour: interpolate the elevation band ramp, jitter to break bands
-    let a = _farBands[0], b = _farBands[_farBands.length - 1], t = 1;
-    for (let i = 1; i < _farBands.length; i++)
-      if (rel <= _farBands[i][0]) {
-        a = _farBands[i - 1]; b = _farBands[i];
-        t = (rel - a[0]) / (b[0] - a[0] || 1);
-        break;
+  // ACCURATE distant terrain colour: the biome the world would actually
+  // classify there (world.biomeAt — the same pure classify the chunks use),
+  // coloured with the mean pixel of that biome's own ground tile art from
+  // the atlas (at_* cells; bg_* fallback, exactly as the chunk mesh resolves
+  // them). At 16-64-tile sampling the per-tile variant dither averages out,
+  // so the biome mean IS what a resolved chunk reads as from afar — deserts
+  // tan, farmland gold, forests deep green, snowfields white.
+  const _farBiomeCol = new Map();
+  function farColorForBiome(b) {
+    let c = _farBiomeCol.get(b);
+    if (c) return c;
+    c = [0.45, 0.5, 0.38];   // fallback: neutral scrub
+    if (atlas && atlas.canvas && atlas.cells) {
+      let keys = Object.keys(atlas.cells).filter(k => k.startsWith(`at_${b}_`));
+      if (!keys.length) keys = Object.keys(atlas.cells).filter(k => k.startsWith(`bg_${b}_`));
+      if (keys.length) {
+        const ctx2 = atlas.canvas.getContext("2d");
+        let r = 0, g = 0, bl = 0, n = 0;
+        for (const k of keys) {
+          const cell = atlas.cells[k];
+          const px = ctx2.getImageData(cell.cx, cell.cy, CSZ, CSZ).data;
+          for (let i = 0; i < px.length; i += 16) {   // every 4th pixel
+            if (px[i + 3] < 128) continue;
+            r += px[i]; g += px[i + 1]; bl += px[i + 2]; n++;
+          }
+        }
+        if (n) c = [r / n / 255, g / n / 255, bl / n / 255];
       }
+    }
+    _farBiomeCol.set(b, c);
+    return c;
+  }
+  function farColor(shade, wx, wz, out, o) {
+    const c = farColorForBiome(world.biomeAt(wx, wz));
     const s = Math.sin(wx * 12.9898 + wz * 78.233) * 43758.5453;
-    const j = 0.94 + ((s - Math.floor(s)) - 0.5) * 0.1;
-    out[o] = (a[1] + (b[1] - a[1]) * t) * j;
-    out[o + 1] = (a[2] + (b[2] - a[2]) * t) * j;
-    out[o + 2] = (a[3] + (b[3] - a[3]) * t) * j;
+    const j = shade * (0.96 + ((s - Math.floor(s)) - 0.5) * 0.08);
+    out[o] = Math.min(1, c[0] * j);
+    out[o + 1] = Math.min(1, c[1] * j);
+    out[o + 2] = Math.min(1, c[2] * j);
   }
   function startFarBuild(cx, cz) {
     farJob = { cx, cz, ring: 0, row: 0, parts: [] };
@@ -1012,7 +1033,11 @@ void main() {
           } else {
             const rel = (h - LE) / (1 - LE);
             part.pos[k + 1] = rel * 50 * STEP_H - FARLOD_SINK;
-            farColor(rel, wx, wz, part.col, k);
+            // NW-lit hillshade (like the world map): slopes rising toward
+            // the south-east catch the light, falling ones sit in shade
+            const dse = (world.heightAt(wx + ring.step, wz + ring.step) - h) / (1 - LE) * 50;
+            const shade = Math.max(0.8, Math.min(1.18, 1 + dse * 0.05));
+            farColor(shade, wx, wz, part.col, k);
           }
         }
         farJob.row++;
