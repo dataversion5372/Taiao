@@ -1002,6 +1002,116 @@ void main() {
     out[o + 1] = Math.min(1, c[1] * j);
     out[o + 2] = Math.min(1, c[2] * j);
   }
+  // ---- distant roads and rivers: ribbons over the LOD landscape ----
+  // The world's actual polyline registries (riversNear/roadsNear — MAP
+  // half-scale coords) drawn as thin draped strips: rivers in the painted
+  // water art's mean colour, roads in dirt#1's. Draping samples the SAME
+  // bilinear height surface the LOD grid triangulates, plus a small lift,
+  // so the strips lie on the distant hills; under the loaded chunk ring
+  // everything sits below the real terrain and stays hidden.
+  let farRivMat = null, farRoadMat = null;
+  function _farCellAvg(keys, fallback) {
+    if (atlas && atlas.canvas && atlas.cells) {
+      const ctx2 = atlas.canvas.getContext("2d");
+      for (const k of keys) {
+        const cell = atlas.cells[k];
+        if (!cell) continue;
+        const px = ctx2.getImageData(cell.cx, cell.cy, CSZ, CSZ).data;
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let i = 0; i < px.length; i += 16) {
+          if (px[i + 3] < 128) continue;
+          r += px[i]; g += px[i + 1]; b += px[i + 2]; n++;
+        }
+        if (n) return new THREE.Color(r / n / 255, g / n / 255, b / n / 255);
+      }
+    }
+    return new THREE.Color(fallback);
+  }
+  function buildFarRibbons(cx, cz) {
+    const out = [];
+    if (!world.riversNear || !world.roadsNear) return out;
+    if (!farRivMat) {
+      const rc = farColorForBiome(1);   // B.WATER's own painted art
+      farRivMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(rc[0], rc[1], rc[2]) });
+      tintPatch(farRivMat);
+      farRoadMat = new THREE.MeshBasicMaterial({ color: _farCellAvg(["dirt#1", "dirt"], 0xb0763c) });
+      tintPatch(farRoadMat);
+    }
+    const LE = world.LAND_ELEVATION;
+    const outerHalf = FARLOD_RINGS[FARLOD_RINGS.length - 1].half;
+    const innerHalf = FARLOD_RINGS[0].half;
+    const hv = (X, Z) => {
+      const h = world.heightAt(X, Z);
+      return h < LE ? -STEP_H - 0.08 : ((h - LE) / (1 - LE)) * 50 * STEP_H - FARLOD_SINK;
+    };
+    const lodY = (gx, gz) => {
+      const step = Math.max(Math.abs(gx - cx), Math.abs(gz - cz)) < innerHalf - 1
+        ? FARLOD_RINGS[0].step : FARLOD_RINGS[1].step;
+      const x0 = Math.floor((gx - cx) / step) * step + cx;
+      const z0 = Math.floor((gz - cz) / step) * step + cz;
+      const fx = (gx - x0) / step, fz = (gz - z0) / step;
+      return (hv(x0, z0) * (1 - fx) + hv(x0 + step, z0) * fx) * (1 - fz) +
+             (hv(x0, z0 + step) * (1 - fx) + hv(x0 + step, z0 + step) * fx) * fz;
+    };
+    const mkStrips = (polys, halfWOf, lift) => {
+      const pos = [], idx = [];
+      let n = 0;
+      for (const pts of polys) {
+        // resample to ≤20-unit steps in GAME coords, carrying per-point width
+        const rs = [];
+        for (let i = 0; i < pts.length; i++) {
+          const gx = pts[i][0] * 2, gz = pts[i][1] * 2, w = halfWOf(pts[i]);
+          if (i > 0) {
+            const [pxg, pzg, pw] = rs[rs.length - 1];
+            const d = Math.hypot(gx - pxg, gz - pzg);
+            const nSub = Math.ceil(d / 20);
+            for (let s = 1; s < nSub; s++)
+              rs.push([pxg + (gx - pxg) * s / nSub, pzg + (gz - pzg) * s / nSub,
+                pw + (w - pw) * s / nSub]);
+          }
+          rs.push([gx, gz, w]);
+        }
+        let strip = -1;   // index of previous cross-section start, -1 = broken
+        for (let i = 0; i < rs.length; i++) {
+          const [gx, gz, w] = rs[i];
+          if (Math.max(Math.abs(gx - cx), Math.abs(gz - cz)) > outerHalf - 2) { strip = -1; continue; }
+          // direction from neighbours, perpendicular for the cross-section
+          const a = rs[Math.max(0, i - 1)], b = rs[Math.min(rs.length - 1, i + 1)];
+          let dx = b[0] - a[0], dz = b[1] - a[1];
+          const dl = Math.hypot(dx, dz) || 1;
+          const px = -dz / dl, pz = dx / dl;
+          const y = lodY(gx, gz) + lift;
+          pos.push(gx + px * w, y, gz + pz * w, gx - px * w, y, gz - pz * w);
+          if (strip >= 0) idx.push(strip, strip + 1, n, n, strip + 1, n + 1);
+          strip = n; n += 2;
+        }
+      }
+      if (!idx.length) return null;
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+      g.setIndex(idx);
+      return g;
+    };
+    const mx0 = (cx - outerHalf - 24) / 2, mz0 = (cz - outerHalf - 24) / 2;
+    const mx1 = (cx + outerHalf + 24) / 2, mz1 = (cz + outerHalf + 24) / 2;
+    const rivPolys = [];
+    for (const rv of world.riversNear(mx0, mz0, mx1, mz1)) for (const p of rv.polys) rivPolys.push(p);
+    const rg = mkStrips(rivPolys, pt => Math.min(8, 2.4 + (pt[2] || 0) * 2), 0.1);
+    if (rg) {
+      const m = new THREE.Mesh(rg, farRivMat);
+      m.frustumCulled = false; m.renderOrder = -4;
+      out.push(m);
+    }
+    const roadPolys = world.roadsNear(mx0, mz0, mx1, mz1).map(rp => rp.pts);
+    const dg = mkStrips(roadPolys, () => 2.2, 0.14);
+    if (dg) {
+      const m = new THREE.Mesh(dg, farRoadMat);
+      m.frustumCulled = false; m.renderOrder = -3;
+      out.push(m);
+    }
+    return out;
+  }
+
   function startFarBuild(cx, cz) {
     farJob = { cx, cz, ring: 0, row: 0, parts: [] };
     for (const r of FARLOD_RINGS) {
@@ -1082,6 +1192,9 @@ void main() {
         scene.add(m);
         fresh.push(m);
       }
+      try {
+        for (const m of buildFarRibbons(farJob.cx, farJob.cz)) { scene.add(m); fresh.push(m); }
+      } catch (e) { /* distant roads/rivers are decoration — never fail the LOD */ }
       for (const m of farMeshes) { scene.remove(m); m.geometry.dispose(); }
       farMeshes = fresh;
       farCenter = { x: farJob.cx, z: farJob.cz };

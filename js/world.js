@@ -49,7 +49,7 @@ function genWorld() {
   } = terrain;
   const {
     personalityAt, villagesNearForMap, poisNearForMap, iconsNearForMap, villagesNear,
-    riverSourceAt, riverDoors, riverFlowAt, roadNearPt,
+    riverSourceAt, riverDoors, riverFlowAt, roadNearPt, riversNear, roadsNear,
   } = features;
   const {
     chunks, obstacles, npcs, getChunk, preloadSeen, persistChunk, persistAt, flushChunks, pruneChunks, dropChunkRect,
@@ -399,6 +399,9 @@ function genWorld() {
     MAP_WATER,
     MAP_BRIDGE,
     personalityAt,
+    // river/road polylines (MAP half-scale coords) — the far-terrain LOD
+    // draws them as ribbons on the distant landscape
+    riversNear, roadsNear,
     preloadSeen,
     persistChunk,
     persistAt,
