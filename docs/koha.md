@@ -58,9 +58,8 @@ honoured forever. That behaviour is code you can read
 
 ## Is there a way to give right now?
 
-Not yet. There's no funding link live at the time of writing — this page
-came first, on purpose, so the "why" exists before the "how." When one goes
-live, it'll be linked from the README and from `.github/FUNDING.yml`
-(OpenCollective is the intended rail, because its ledger is public and the
-transparency page then proves itself), and this page will be updated to say
-so plainly.
+Yes: **[ko-fi.com/taiao](https://ko-fi.com/taiao)**. It's a one-off or
+recurring gift, not a purchase — nothing on it is exchanged for anything in
+the game, which stays free either way. It's also linked from the README and
+from `.github/FUNDING.yml`, so it shows up as a "Sponsor" button on the
+GitHub repo too.

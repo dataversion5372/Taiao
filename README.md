@@ -184,4 +184,5 @@ If its stewardship ever went wrong, anyone could fork it and carry on.
 
 None of this requires your money to keep working. If you ever want to leave
 something for the road anyway, [docs/koha.md](docs/koha.md) says, honestly,
-what it would and wouldn't fund.
+what it would and wouldn't fund — koha (a gift, freely given) is at
+[ko-fi.com/taiao](https://ko-fi.com/taiao).

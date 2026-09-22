@@ -15,9 +15,8 @@ README's "truthful front page" rule: nothing promised that isn't in the build.
   "This file will be played in the browser".
 - **Pricing: $0, donations OFF.** The optional birdsong layer is CC BY-NC-SA
   (non-commercial); taking money on the page that distributes the game is a
-  line we don't need to test. Support goes through the koha page
-  ([docs/koha.md](https://github.com/dataversion5372/Taiao/blob/main/docs/koha.md))
-  linked from the body instead.
+  line we don't need to test. Support goes through Ko-fi
+  ([ko-fi.com/taiao](https://ko-fi.com/taiao)) linked from the body instead.
 - **Embed:** 1280×720 minimum, **fullscreen button ON**, mobile-friendly
   OFF (it isn't — say so, don't fake it). Enable "SharedArrayBuffer support"
   only if testing shows the ML dialogue layer wants it; the game itself
@@ -116,7 +115,8 @@ hand-drawn sheets (CC BY-SA). Sound effects CC0. Bird recordings from
 xeno-canto recordists (CC BY-NC-SA, distributed as an optional layer,
 individually credited). Full credits in the repo.
 Community: [GitHub Discussions](https://github.com/dataversion5372/Taiao/discussions) ·
-Support: [what koha funds](https://github.com/dataversion5372/Taiao/blob/main/docs/koha.md).
+Koha (support): [ko-fi.com/taiao](https://ko-fi.com/taiao) —
+[what it funds](https://github.com/dataversion5372/Taiao/blob/main/docs/koha.md).
 
 ---
 
