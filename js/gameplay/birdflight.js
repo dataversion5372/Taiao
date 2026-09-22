@@ -111,7 +111,7 @@ function birdPerchAt(x, y) {
   if (tk) {
     const art = (typeof REN !== "undefined" && REN && REN.objArtFor) ? REN.objArtFor(tk) : null;
     const sc = (art && art.scale) || 0;
-    return sc >= 1.5 ? { kind: "tree", alt: g + sc * 0.78, w: 4 } : null; // shrubs hold no roost
+    return sc >= 1.5 ? { kind: "tree", alt: g + sc * 0.78, w: 4, spr: tk } : null; // shrubs hold no roost
   }
   if (dk) return null; // other decor: rocks, stumps, stations — bad footing
   if (world.isBlocked(x, y)) return null;
@@ -145,6 +145,9 @@ function birdPickPerch(m, cfg, away, near) {
     let w = p.w;
     if (cfg.ground) w = p.kind === "ground" ? 4 : p.kind === "tree" ? 0.3 : w; // grass birds keep out of crowns
     if (away && p.kind === "tree") w *= 1.5;      // a flushed bird makes for cover
+    // flowering natives draw the birds — tūī and kākā feed on kōwhai, rātā,
+    // pōhutukawa and mānuka nectar, so those crowns get the traffic
+    if (p.spr && /kowhai|pohutukawa|rata_|manuka|karo|cherry|fruit/.test(p.spr)) w *= 1.9;
     const score = w * (0.5 + Math.random());
     if (score > bestScore) { bestScore = score; best = { kind: p.kind, alt: p.alt, x, y }; }
   }

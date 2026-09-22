@@ -4998,6 +4998,51 @@ void main() {
     octx.restore();
   }
 
+  // ---------- god rays ----------
+  // Low sun + forest canopy = shafts of light. Screen-space slanted bars
+  // (additive, like the sun glow) that ease in when the player stands in a
+  // forest biome through the golden hours, slanting away from the sun's
+  // bearing and shimmering slowly. duskW carries the overcast cut, so grey
+  // days have no shafts.
+  let _grBiome = "", _grBiomeT = -1e9, _grOn = 0, _grT = 0;
+  function drawGodRays() {
+    const d = Math.min(100, Math.max(0, now - _grT)); _grT = now;
+    if (now - _grBiomeT > 1200) {
+      _grBiomeT = now;
+      _grBiome = (typeof world !== "undefined" && world && world.biomeNameAt)
+        ? (world.biomeNameAt(player.x, player.y) || "") : "";
+    }
+    const forest = /forest|grove|woodland|jungle|taiga/i.test(_grBiome);
+    const target = (sunState.up && duskW > 0.05 && forest) ? 1 : 0;
+    _grOn += (target - _grOn) * Math.min(1, d / 1500);
+    if (_grOn < 0.03) return;
+    const W = overlayCssW, H = overlayCssH;
+    const fwdX = -Math.sin(camYaw), fwdZ = -Math.cos(camYaw);
+    const rel = Math.atan2(fwdX * -sunState.dz - fwdZ * -sunState.dx,
+      fwdX * -sunState.dx + fwdZ * -sunState.dz);
+    const slant = Math.max(-0.5, Math.min(0.5, rel)) * 0.8;
+    octx.save();
+    octx.globalCompositeOperation = "lighter";
+    for (let i = 0; i < 6; i++) {
+      const ph = ((i * 733) % 97) / 97;
+      const x = (((i + 0.5) / 6) + Math.sin(now / 9000 + i * 2.1) * 0.02) * W;
+      const flick = 0.6 + 0.4 * Math.sin(now / 2600 + i * 1.7);
+      const a = 0.17 * _grOn * duskW * flick * (0.45 + ph * 0.8);
+      const w = (0.025 + ph * 0.05) * W;
+      octx.save();
+      octx.translate(x, -H * 0.05);
+      octx.rotate(slant);
+      const g = octx.createLinearGradient(0, 0, 0, H * 0.75);
+      g.addColorStop(0, `rgba(255,232,170,${a.toFixed(3)})`);
+      g.addColorStop(0.55, `rgba(255,210,130,${(a * 0.5).toFixed(3)})`);
+      g.addColorStop(1, "rgba(255,200,120,0)");
+      octx.fillStyle = g;
+      octx.fillRect(-w / 2, 0, w, H * 0.8);
+      octx.restore();
+    }
+    octx.restore();
+  }
+
   // ---------- sun glow pass ----------
   // The camera never pitches above the horizon, so the sun itself is always
   // just off the top of the screen. Through the golden hour, when the view
@@ -5501,9 +5546,10 @@ void main() {
     // day/night LAST: darken the whole view (world + name labels + bars) with
     // circular light holes. Guarded so a light-pass edge case can't blank the game.
     try { drawNight(); } catch (e) { octx.globalCompositeOperation = "source-over"; octx.globalAlpha = 1; }
-    // sun glow OVER the dusk veil — like the fire glows, the sun is a light
-    // source, so its bloom punches through the ambient dim. duskW carries the
-    // overcast cut, so heavy cloud still smothers it.
+    // sun glow + god rays OVER the dusk veil — like the fire glows, the sun
+    // is a light source, so its bloom punches through the ambient dim. duskW
+    // carries the overcast cut, so heavy cloud still smothers both.
+    try { drawGodRays(); } catch (e) { octx.globalCompositeOperation = "source-over"; octx.globalAlpha = 1; }
     try { drawSunGlow(); } catch (e) { octx.globalCompositeOperation = "source-over"; octx.globalAlpha = 1; }
     if (now < player.stunUntil) {
       octx.fillStyle = "rgba(255,80,80,0.12)";
@@ -5576,6 +5622,210 @@ void main() {
       p.m.position.set(p.x, waterLevelAt(tx, ty) + 0.05, p.y);
       p.m.rotation.y = -Math.atan2(p.fy, p.fx);
     }
+  }
+
+  // ---------- valley mist ----------
+  // Soft wisps pooling over water, rivers and hollows — strongest through the
+  // low-sun hours and after rain, thinned by wind, gone by midday. A small
+  // billboard pool like the river foam: cards respawn onto qualifying tiles
+  // near the player, fade in/out over their lifetime, and drift downwind.
+  // Tint-patched, so dawn mist glows gold with everything else.
+  const MIST_N = 18;
+  let mistTex = null, mistPool = null, mistWet = 0;
+  function mistTexture() {
+    const cv = document.createElement("canvas");
+    cv.width = 128; cv.height = 48;
+    const cc = cv.getContext("2d");
+    let seed = 31;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 7; i++) {
+      const bx = 20 + rnd() * 88, by = 16 + rnd() * 18, br = 10 + rnd() * 16;
+      cc.save();
+      cc.translate(bx, by); cc.scale(2.6, 1);
+      const g = cc.createRadialGradient(0, 0, 0, 0, 0, br);
+      g.addColorStop(0, "rgba(235,240,246,0.32)");
+      g.addColorStop(1, "rgba(235,240,246,0)");
+      cc.fillStyle = g;
+      cc.fillRect(-br * 2.6, -br, br * 5.2, br * 2);
+      cc.restore();
+    }
+    return new THREE.CanvasTexture(cv);
+  }
+  function syncMist(wfog, dt) {
+    if (!mistPool) {
+      mistTex = mistTexture();
+      mistPool = [];
+    }
+    // ground wetness: the flood integral IS the recent-rain memory (rises
+    // through a downpour, stays up ~25 min after the sky clears)
+    mistWet = Math.max(wfog ? wfog.precip * 0.6 : 0, floodLvl);
+    const lowSun = sunState.up
+      ? Math.pow(Math.max(0, Math.min(1, (0.45 - sunState.elev) / 0.4)), 1.3) : 0;
+    const windMag = wfog && wfog.wind ? Math.min(1, Math.hypot(wfog.wind.x, wfog.wind.y)) : 0.4;
+    const mistK = Math.min(1, lowSun * 0.75 + mistWet * 0.85) * (1 - 0.45 * windMag);
+    // respawn expired cards onto water, rivers or hollows
+    for (let tries = 0; tries < 2 && mistK > 0.05; tries++) {
+      let slot = mistPool.find(p => p.die <= now);
+      if (!slot && mistPool.length < MIST_N) {
+        const mat = new THREE.MeshBasicMaterial({
+          map: mistTex, transparent: true, depthWrite: false, opacity: 0,
+        });
+        tintPatch(mat);
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+        m.visible = false;
+        scene.add(m);
+        slot = { m, die: 0, born: 0, x: 0, y: 0, gy: 0, w: 8, h: 1.6 };
+        mistPool.push(slot);
+      }
+      if (!slot) break;
+      const ang = Math.random() * Math.PI * 2, d = 8 + Math.random() * 28;
+      const wx = Math.round(player.x + Math.cos(ang) * d);
+      const wy = Math.round(player.y + Math.sin(ang) * d);
+      const wb = waterBit(wx, wy);
+      let ok = wb >= 1 && wb <= 3, gy, dim = 1;
+      if (ok) gy = waterLevelAt(wx, wy) + 0.35;
+      else {
+        const v0 = rawStep(wx, wy);
+        // a hollow: markedly lower than the ground a few tiles out — or the
+        // forest floor itself (the ngahere breathes), at reduced thickness
+        const rim = Math.min(rawStep(wx + 5, wy), rawStep(wx - 5, wy),
+          rawStep(wx, wy + 5), rawStep(wx, wy - 5));
+        ok = rim - v0 >= 2 * STEP_H;
+        if (!ok && world.biomeNameAt &&
+            /forest|grove|jungle|taiga|wetland|swamp/i.test(world.biomeNameAt(wx, wy) || "")) {
+          ok = true; dim = 0.75;
+        }
+        gy = v0 + 0.55;
+      }
+      if (!ok) continue;
+      slot.x = wx + 0.5; slot.y = wy + 0.5; slot.gy = gy; slot.dim = dim;
+      slot.w = 5 + Math.random() * 6; slot.h = 1.3 + Math.random() * 0.9;
+      slot.born = now;
+      slot.die = now + 7000 + Math.random() * 8000;
+      slot.m.visible = true;
+    }
+    const wv = wfog && wfog.wind ? wfog.wind : { x: 0.4, y: 0 };
+    for (const p of mistPool) {
+      if (p.die <= now) { p.m.visible = false; continue; }
+      const life = (now - p.born) / (p.die - p.born);
+      p.m.material.opacity = Math.sin(Math.PI * Math.min(1, Math.max(0, life))) * 0.44 * mistK * (p.dim || 1);
+      if (p.m.material.opacity < 0.01 && life > 0.5) { p.die = 0; p.m.visible = false; continue; }
+      p.x += wv.x * 0.4 * dt / 1000;
+      p.y += wv.y * 0.4 * dt / 1000;
+      p.m.position.set(p.x, p.gy, p.y);
+      p.m.scale.set(p.w, p.h, 1);
+      p.m.quaternion.copy(_bbQuat);
+    }
+  }
+
+  // ---------- waterfalls ----------
+  // Where a river's surface drops a half-tier or more into the next tile
+  // downstream, hang a scrolling white fall over the edge with foam and a
+  // mist puff at its base. Sites are found by a slow ring scan around the
+  // player (waterBit/waterLevel are chunk-cached, riverFlowAt is pure math)
+  // and expire once left behind. The tutorial isle's sea-level river never
+  // qualifies (carved-water tiles only).
+  const wfSites = new Map();   // "x,y" -> site
+  let wfScanT = 0, wfMat = null, wfFoamGeom = null, wfGeom = null;
+  function wfTexture() {
+    const cv = document.createElement("canvas");
+    cv.width = 32; cv.height = 64;
+    const cc = cv.getContext("2d");
+    let seed = 13;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 14; i++) {
+      const x = rnd() * 32, w = 1 + rnd() * 2.5, a = 0.25 + rnd() * 0.45;
+      cc.fillStyle = `rgba(240,250,255,${a.toFixed(2)})`;
+      cc.fillRect(x, 0, w, 64);
+    }
+    const tex = new THREE.CanvasTexture(cv);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  }
+  function syncWaterfalls() {
+    if (!world.riverFlowAt) return;
+    if (!wfMat) {
+      wfMat = new THREE.MeshBasicMaterial({
+        map: wfTexture(), transparent: true, opacity: 0.75,
+        depthWrite: false, side: THREE.DoubleSide,
+      });
+      tintPatch(wfMat);
+      wfGeom = new THREE.PlaneGeometry(1, 1);
+      wfFoamGeom = new THREE.PlaneGeometry(1.05, 0.55);
+    }
+    if (now - wfScanT > 1500) {
+      wfScanT = now;
+      // The water surface NEVER drops more than half a step per tile (the
+      // relaxation caps it) and the spring ramp descends one half-step per
+      // 2 tiles — so the steepest water anywhere is the stepped cascade of a
+      // mountain stream near its source. Dress those: a 4-tile downstream
+      // walk that sheds ≥0.95 (~2 steps, the full nominal ramp rate) gets a
+      // white cascade. Flat lowland rivers shed 0 and stay undressed;
+      // proximity dedupe keeps it to one cascade per few tiles of ramp.
+      const R = 22;
+      for (let dy = -R; dy <= R; dy++)
+        for (let dx = -R; dx <= R; dx++) {
+          const wx = player.x + dx, wy = player.y + dy;
+          if (wfSites.has(wx + "," + wy)) continue;
+          const b = waterBit(wx, wy);
+          if (b < 2 || b > 3) continue;                    // carved water only
+          let f = world.riverFlowAt(wx, wy);
+          if (!f) continue;
+          let cx = wx, cy = wy, ok = true;
+          const path = [[wx, wy]];
+          for (let s = 0; s < 4; s++) {
+            const ax = Math.abs(f[0]) >= Math.abs(f[1]) ? Math.sign(f[0]) : 0;
+            const ay = ax === 0 ? Math.sign(f[1]) : 0;
+            cx += ax; cy += ay;
+            const nb = waterBit(cx, cy);
+            if ((ax === 0 && ay === 0) || nb < 1 || nb > 3) { ok = false; break; }
+            path.push([cx, cy]);
+            f = world.riverFlowAt(cx, cy) || f;
+          }
+          if (!ok || path.some(([px, py]) => wfSites.has(px + "," + py))) continue;
+          const top = waterLevelBase(wx, wy), bot = waterLevelBase(cx, cy);
+          const drop = top - bot;
+          if (drop < 0.95) continue;
+          let crowded = false;
+          for (const s2 of wfSites.values())
+            if (Math.abs(s2.wx - wx) + Math.abs(s2.wy - wy) < 7) { crowded = true; break; }
+          if (crowded) continue;
+          const rx = cx - wx, ry = cy - wy;
+          const ctrX = (wx + cx) / 2 + 0.5, ctrZ = (wy + cy) / 2 + 0.5;
+          const fall = new THREE.Mesh(wfGeom, wfMat);
+          fall.scale.set(1.15, drop + 0.3, 1);
+          fall.position.set(ctrX, (top + bot) / 2 + 0.1, ctrZ);
+          fall.rotation.y = Math.atan2(rx, ry);
+          scene.add(fall);
+          const foam = new THREE.Mesh(wfFoamGeom, flowMat || wfMat);
+          foam.rotation.order = "YXZ";
+          foam.rotation.x = -Math.PI / 2;
+          foam.rotation.z = Math.atan2(rx, ry);
+          foam.position.set(cx + 0.5, bot + 0.06, cy + 0.5);
+          scene.add(foam);
+          const mm = new THREE.MeshBasicMaterial({
+            map: mistTex || (mistTex = mistTexture()), transparent: true,
+            depthWrite: false, opacity: 0.4,
+          });
+          tintPatch(mm);
+          const mist = new THREE.Mesh(wfGeom, mm);
+          mist.scale.set(2.1, 1, 1);
+          mist.position.set(cx + 0.5, bot + 0.55, cy + 0.5);
+          scene.add(mist);
+          const site = { wx, wy, fall, foam, mist, keys: path.map(([px, py]) => px + "," + py) };
+          for (const k of site.keys) wfSites.set(k, site);
+        }
+      const dead = new Set();
+      for (const s of wfSites.values())
+        if (Math.max(Math.abs(s.wx - player.x), Math.abs(s.wy - player.y)) > 30) dead.add(s);
+      for (const s of dead) {
+        scene.remove(s.fall); scene.remove(s.foam); scene.remove(s.mist);
+        s.mist.material.dispose();
+        for (const k of s.keys) wfSites.delete(k);
+      }
+    }
+    if (wfMat) wfMat.map.offset.y = -((now / 380) % 1);   // the water falls
+    for (const s of wfSites.values()) s.mist.quaternion.copy(_bbQuat);
   }
 
   // ---------- frame ----------
@@ -5729,6 +5979,8 @@ void main() {
     syncFlow();
     syncFarLod();
     syncClouds(wfog, dt);
+    syncMist(wfog, dt);
+    syncWaterfalls();
     sweep();
     // --- place the camera exactly on its orbit circle (no chord dip = no nausea) ---
     const _cz = camZoom;
