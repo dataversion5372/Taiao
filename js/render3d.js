@@ -1018,8 +1018,12 @@ void main() {
         farJob.row++;
         continue;
       }
-      // ring rows done: build indices (outer ring skips quads the inner covers)
+      // ring rows done: build indices (outer ring skips quads the inner
+      // covers; fully-open-water quads are HOLES so the sea backdrop — the
+      // plane carrying the sun-glint shader — shows through; coast-fringe
+      // quads with mixed corners keep their depth shading)
       const inner = farJob.ring > 0 ? FARLOD_RINGS[farJob.ring - 1].half : -1;
+      const WATER_Y = -STEP_H - 0.08;
       for (let z = 0; z < n - 1; z++)
         for (let x = 0; x < n - 1; x++) {
           if (inner > 0) {
@@ -1029,6 +1033,9 @@ void main() {
                 wz >= farJob.cz - inner && wz + ring.step <= farJob.cz + inner) continue;
           }
           const a = z * n + x;
+          if (part.pos[a * 3 + 1] <= WATER_Y && part.pos[(a + 1) * 3 + 1] <= WATER_Y &&
+              part.pos[(a + n) * 3 + 1] <= WATER_Y && part.pos[(a + n + 1) * 3 + 1] <= WATER_Y)
+            continue;
           part.idx.push(a, a + n, a + 1, a + 1, a + n, a + n + 1);
         }
       farJob.ring++; farJob.row = 0;
