@@ -28,13 +28,17 @@ function dayPhase() {
     const tp = Tutorial.phaseOverride();
     if (tp != null) return tp;
   }
-  // player.timeShiftMs: a PERSISTED whole-world clock shift (graduation's
-  // overnight crossing lands the player in a Newhaven morning; the shift
-  // sticks so their days stay anchored to that arrival, not the wall clock)
+  return (((_clockMs() % DAY_MS) + DAY_MS) % DAY_MS) / DAY_MS;
+}
+// the world clock in ms, with every shift applied — the base for the sun, the
+// moon's slower cycle and the aurora slots, so a time cheat moves all three.
+// player.timeShiftMs: a PERSISTED whole-world clock shift (graduation's
+// overnight crossing lands the player in a Newhaven morning; the shift
+// sticks so their days stay anchored to that arrival, not the wall clock)
+function _clockMs() {
   const off = ((typeof window !== "undefined" && window.__timeOffsetMs) || 0) +
     ((typeof player !== "undefined" && player.timeShiftMs) || 0);
-  const t = (typeof now !== "undefined" ? now : Date.now()) + off;
-  return (((t % DAY_MS) + DAY_MS) % DAY_MS) / DAY_MS;
+  return (typeof now !== "undefined" ? now : Date.now()) + off;
 }
 
 // ---- TIMEZONES: local time varies with LONGITUDE (world tile x) ----
@@ -126,6 +130,71 @@ function skyLabel(y, x) {
   if (L > 0.85) return "Day";
   if (L > 0.25) return ph < 0.5 ? "Dawn" : "Dusk";
   return "Night";
+}
+
+// ---- the MOON ------------------------------------------------------------
+// One lunar cycle every 8 game days (~8.5 real hours): the moon lags the sun
+// by its age, so a new moon hugs the sun (invisible) and the full moon rises
+// at sunset, exactly like the real sky. It rides the same flattened azimuth
+// circle as the sun (render3d matches), and its up-window widens toward the
+// endless-night pole — the polar winter keeps a long-riding moon for company,
+// mirroring the midnight sun on the other side of the world.
+const MOON_CYCLE = 8 * DAY_MS;
+function moonState(x) {
+  if (x == null) x = _px();
+  const t = _clockMs();
+  const age = (((t % MOON_CYCLE) + MOON_CYCLE) % MOON_CYCLE) / MOON_CYCLE; // 0 new … 0.5 full … 1 new
+  const illum = 0.5 * (1 - Math.cos(2 * Math.PI * age));                   // lit fraction of the disc
+  const mp = sunPhase(x) - age;
+  const mph = mp - Math.floor(mp);                    // moon phase-of-day: 0.5 = moon-noon
+  const y = (typeof player !== "undefined" && player) ? player.y : 0;
+  const D = dayFraction(y);
+  const Dm = Math.max(0.06, Math.min(0.97, 1.03 - D)); // up-window: long where nights are long
+  const u = (mph - (0.5 - Dm / 2)) / Dm;               // 0 moonrise … 1 moonset
+  if (u <= 0 || u >= 1) return { up: false, elev: 0, illum, age, dx: 0, dz: 0 };
+  const th = 2 * Math.PI * (mph - 0.25);
+  const mx = Math.cos(th), mz = 0.55 * Math.sin(th);   // same S/N flattening as the sun
+  const n = Math.hypot(mx, mz) || 1;
+  // elevation 0..1 (1 = zenith), deliberately LOW — the zoom-tilt sky band
+  // only reaches ~6° above the horizon, so the moon rides inside it (a big
+  // low moon, like the sun's own flattened arc, never lost off the top).
+  const elev = Math.sin(Math.PI * u) * (0.025 + 0.045 * Math.sin(Math.PI * Math.min(0.999, Dm)));
+  return { up: true, elev, illum, age, dx: mx / n, dz: mz / n };  // dx/dz point TOWARD the moon
+}
+// how much moonlight is falling right now, 0..1: needs the moon up and clear
+// of the horizon, scaled by its phase; cloud cover smothers it.
+function moonlightNow() {
+  const m = moonState(_px());
+  if (!m.up) return 0;
+  let k = m.illum * Math.min(1, m.elev / 0.035);
+  if (typeof weatherNow === "function") { const w = weatherNow(); if (w) k *= 1 - 0.85 * w.cloud; }
+  return k;
+}
+
+// ---- AURORA events --------------------------------------------------------
+// Deterministic random displays in the auroral ovals: the bands 8%–17% of the
+// pole-to-pole span from EACH pole (both the endless-day and endless-night
+// side — "83%–92% latitude" is the same band measured from the other pole).
+// Time is sliced into 20-minute slots hashed on the world clock; ~30% of
+// slots host a display, easing in and out inside its slot, each with its own
+// peak strength. Returns raw activity 0..1 — the renderer gates it by night
+// darkness and cloud cover (an aurora is always THERE, just invisible by day).
+const AURORA_SLOT_MS = 20 * 60 * 1000;
+function auroraNow(y) {
+  if (typeof window !== "undefined" && window.__auroraOverride != null)
+    return +window.__auroraOverride;                    // debug/testing hook (cheats console)
+  if (y == null) y = (typeof player !== "undefined" && player) ? player.y : 0;
+  const D = dayFraction(y);                             // 0..1 pole-to-pole position
+  const p = Math.min(D, 1 - D);                         // distance from the NEAREST pole
+  const band = smoothstep(0.065, 0.08, p) * (1 - smoothstep(0.17, 0.185, p));
+  if (band <= 0) return 0;
+  const t = _clockMs();
+  const s = Math.floor(t / AURORA_SLOT_MS);
+  if (_hash01(s * 0.618, 7.13) > 0.30) return 0;        // this slot: quiet sky
+  const f = (t - s * AURORA_SLOT_MS) / AURORA_SLOT_MS;
+  const env = smoothstep(0, 0.15, f) * (1 - smoothstep(0.85, 1, f));
+  const peak = 0.55 + 0.45 * _hash01(s * 1.37, 3.71);
+  return band * env * peak;
 }
 
 // ---- bioluminescent biomes: glow softly at night even with no fire ----
@@ -232,6 +301,9 @@ function nightState() {
   const dtv = Math.max(0, Math.min(1000, tv - _veilT)); _veilT = tv;
   _veilK += ((_sunUpNow() ? 0.32 : 1) - _veilK) * (dtv / 45000);
   dark *= _veilK;
+  // moonlight: a clear night under a high full moon is a shade less black —
+  // a gentle lift only (deep night stays properly dark; fires still rule).
+  dark *= 1 - 0.12 * moonlightNow();
   const biome = (typeof world !== "undefined" && world && world.biomeNameAt)
     ? world.biomeNameAt(player.x, player.y) : "";
   const bio = bioBiomeGlow(biome);
@@ -568,6 +640,7 @@ function shopClosed(npc) { return typeof isBedtime === "function" && isBedtime(n
 
 if (typeof window !== "undefined") Object.assign(window, {
   DAY_MS, dayPhase, tzZone, tzOffsetMin, localPhase, sunPhase, clockTime, isBedtime, dayFraction, daylightAt, daylightNow, skyLabel,
+  moonState, moonlightNow, auroraNow,
   bioBiomeGlow, monGlow, lightBrightness, candleInHand, candleLight, fireLight, inSettlement,
   nightState, collectNightLights, settlementLights, settlementCandleObjects, candleSpotAt, paintDarkness,
   lampMode, currentSettlement, lampSpotSet, lampSpotPlaced, npcAsleep, shopClosed,

@@ -5143,22 +5143,379 @@ void main() {
     octx.restore();
   }
 
+  // ---------- night sky: stars, the moon, aurora ----------
+  // The night look lives on the 2D overlay (drawNight blankets the whole
+  // frame, sky included, in up-to-0.99 darkness), so the celestial layer
+  // rides the overlay too, like the sun glow: everything here draws above
+  // the projected horizon line, fades in with darkness and is smothered by
+  // cloud. Costs nothing by day or at the default zoom — the horizon only
+  // enters the frame once the zoom-tilt levels the camera.
+  let stars = null;
+  const _vCel = new THREE.Vector3(), _vCel2 = new THREE.Vector3();
+  const _qCamInv = new THREE.Quaternion();
+  function initStars() {
+    stars = [];
+    let seed = 421;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 520; i++) {
+      const az = rnd() * Math.PI * 2;
+      // elevation biased LOW: the zoom-tilt sky band only reaches ~6° above
+      // the horizon, so the field concentrates where it can be seen
+      const sy = 0.003 + 0.14 * rnd() * rnd();
+      const r = Math.sqrt(1 - sy * sy);
+      const mag = rnd() * rnd();                 // many dim, a few bright
+      const c = rnd();
+      stars.push({
+        x: Math.cos(az) * r, y: sy, z: Math.sin(az) * r,
+        s: mag > 0.6 ? 2 : 1,
+        a: 0.3 + 0.7 * mag,
+        tw: 1400 + rnd() * 2600, ph: rnd() * Math.PI * 2,
+        col: c < 0.1 ? "255,224,186" : c < 0.22 ? "186,208,255" : "232,240,255",
+      });
+    }
+    stars.sort((p, q) => (p.col < q.col ? -1 : p.col > q.col ? 1 : 0)); // batch fillStyle swaps
+  }
+  function drawNightSky() {
+    if (typeof nightState !== "function") return;
+    const W = overlayCssW, H = overlayCssH;
+    const dark = nightState().dark;
+    if (dark < 0.22) return;                      // dusk hasn't truly fallen yet
+    // the horizon's screen line: a far point at eye height along the view.
+    // The camera never rolls, so the horizon is level; pitched down at the
+    // default zoom it sits above the top edge → no sky in frame, all skipped.
+    _vCel.set(camera.position.x - Math.sin(camYaw) * 1200, camera.position.y,
+              camera.position.z - Math.cos(camYaw) * 1200).project(camera);
+    if (_vCel.z > 1) return;
+    const horY = (1 - _vCel.y) / 2 * H;
+    if (horY < 4) return;
+    const skyH = Math.min(horY, H);
+    const clearK = 1 - 0.92 * wxCloudNow;         // overcast smothers the whole sky
+    const nightK = Math.max(0, Math.min(1, (dark - 0.3) / 0.5)) * clearK;
+    if (nightK < 0.03) return;
+    if (!stars) initStars();
+    octx.save();
+    // ---- stars: world-anchored directions, twinkling, thinning to nothing
+    // right at the horizon (atmospheric extinction)
+    let lastCol = "";
+    for (const st of stars) {
+      _vCel.set(camera.position.x + st.x * 1200, camera.position.y + st.y * 1200,
+                camera.position.z + st.z * 1200).project(camera);
+      if (_vCel.z > 1) continue;
+      const sx = (_vCel.x + 1) / 2 * W, sy2 = (1 - _vCel.y) / 2 * H;
+      if (sy2 > skyH - 3 || sy2 < -2 || sx < -2 || sx > W + 2) continue;
+      const twk = 0.72 + 0.28 * Math.sin(now / st.tw + st.ph);
+      octx.globalAlpha = st.a * twk * nightK *
+        Math.min(1, (skyH - 3 - sy2) / (H * 0.05));
+      if (st.col !== lastCol) { octx.fillStyle = "rgb(" + st.col + ")"; lastCol = st.col; }
+      octx.fillRect(sx, sy2, st.s, st.s);
+    }
+    octx.globalAlpha = 1;
+    // ---- aurora: slow-drifting additive curtains — green feet just above
+    // the horizon shading violet up and off the top of the frame. auroraNow
+    // (daynight.js) carries the oval-band membership and the event schedule;
+    // reduced motion pins the drift and shimmer still.
+    const au = (typeof auroraNow === "function") ? auroraNow(player.y) : 0;
+    const A = au * nightK;
+    if (A > 0.02) {
+      const t = (typeof reducedMotion === "function" && reducedMotion()) ? 0 : now;
+      octx.globalCompositeOperation = "lighter";
+      // a broad airglow hugging the horizon ties the curtains together — it
+      // bleeds a little BELOW the horizon line too (haze catches the glow),
+      // so the display never ends on a hard cut against the fog band.
+      const tail = H * 0.045;
+      const gh = Math.min(skyH, H * 0.3);
+      let g = octx.createLinearGradient(0, skyH + tail, 0, skyH - gh);
+      g.addColorStop(0, "rgba(40,190,120,0)");
+      g.addColorStop(0.2, "rgba(40,190,120," + (0.1 * A).toFixed(3) + ")");
+      g.addColorStop(1, "rgba(40,190,120,0)");
+      octx.fillStyle = g;
+      octx.fillRect(0, skyH - gh, W, gh + tail);
+      for (let i = 0; i < 9; i++) {
+        const drift = Math.sin(t / 6800 + i * 2.11) * 0.045 + Math.sin(t / 21000 + i * 0.7) * 0.1;
+        const cx = ((((i + 0.5) / 9 + drift) % 1 + 1) % 1) * W;
+        const flick = 0.55 + 0.45 * Math.sin(t / 1900 + i * 1.63);
+        const a = 0.08 * A * flick;   // ~3 soft strips overlap mid-curtain: ×3 there
+        const cw = W * (0.03 + 0.05 * ((i * 733 % 97) / 97));
+        const ch = Math.min(skyH, H * 0.55);
+        octx.save();
+        octx.translate(cx, skyH);
+        octx.rotate(Math.sin(t / 9000 + i) * 0.12);
+        g = octx.createLinearGradient(0, tail, 0, -ch);
+        g.addColorStop(0, "rgba(60,255,160,0)");
+        g.addColorStop(0.17, "rgba(60,255,160," + a.toFixed(3) + ")");
+        g.addColorStop(0.6, "rgba(90,170,255," + (a * 0.35).toFixed(3) + ")");
+        g.addColorStop(1, "rgba(150,80,255,0)");
+        octx.fillStyle = g;
+        // soft-edged curtain: overlapping strips under a smooth alpha window,
+        // so the sides feather out instead of cutting off as a hard rectangle
+        const NS = 5;
+        for (let j = 0; j < NS; j++) {
+          octx.globalAlpha = Math.sin(Math.PI * (j + 0.5) / NS);
+          const sw = cw * (0.34 + 0.66 * (j / (NS - 1)));
+          octx.fillRect(-sw / 2 + cw * 0.5 * (j / (NS - 1) - 0.5) * 0.6, -ch, sw, ch + tail);
+        }
+        octx.globalAlpha = 1;
+        octx.restore();
+      }
+      octx.globalCompositeOperation = "source-over";
+    }
+    // ---- the moon: soft glow + a fake-sphere crescent whose lit limb faces
+    // the (below-horizon) sun — phases fall out of the geometry for free.
+    const ms = (typeof moonState === "function") ? moonState(player.x) : null;
+    if (ms && ms.up && ms.illum > 0.02) {
+      const eA = ms.elev * Math.PI / 2, cE = Math.cos(eA);
+      _vCel.set(camera.position.x + ms.dx * cE * 1200,
+                camera.position.y + Math.sin(eA) * 1200,
+                camera.position.z + ms.dz * cE * 1200).project(camera);
+      if (_vCel.z <= 1) {
+        const mx = (_vCel.x + 1) / 2 * W, my = (1 - _vCel.y) / 2 * H;
+        const R = Math.max(7, Math.min(16, H * 0.017));
+        if (my < skyH + R && my > -3 * R && mx > -3 * R && mx < W + 3 * R) {
+          // eases THROUGH the horizon line while rising/setting, never pops
+          const horFade = Math.max(0, Math.min(1, (skyH + R * 0.5 - my) / (R * 1.4)));
+          if (horFade > 0.01) {
+            const ga = 0.3 * ms.illum * nightK * horFade;
+            octx.globalCompositeOperation = "lighter";
+            let mg = octx.createRadialGradient(mx, my, R * 0.4, mx, my, R * 3.4);
+            mg.addColorStop(0, "rgba(210,225,255," + ga.toFixed(3) + ")");
+            mg.addColorStop(1, "rgba(210,225,255,0)");
+            octx.fillStyle = mg;
+            octx.beginPath(); octx.arc(mx, my, R * 3.4, 0, Math.PI * 2); octx.fill();
+            octx.globalCompositeOperation = "source-over";
+            // screen angle from the moon toward the sun, both as camera-space
+            // directions — at night the lit side correctly tips down toward
+            // where the sun set
+            const sph = (typeof sunPhase === "function") ? sunPhase(player.x) : 0.5;
+            const thS = 2 * Math.PI * (sph - 0.25);
+            _qCamInv.copy(camera.quaternion).invert();
+            _vCel.set(Math.cos(thS), -0.5, 0.55 * Math.sin(thS)).normalize().applyQuaternion(_qCamInv);
+            _vCel2.set(ms.dx * cE, Math.sin(eA), ms.dz * cE).applyQuaternion(_qCamInv);
+            const la = Math.atan2(-(_vCel.y - _vCel2.y), _vCel.x - _vCel2.x);
+            const k = Math.cos(2 * Math.PI * ms.age);   // +1 new … −1 full: terminator bulge
+            octx.save();
+            octx.translate(mx, my);
+            octx.rotate(la);                            // lit limb along +x
+            octx.globalAlpha = (0.8 + 0.2 * ms.illum) * nightK * horFade;
+            octx.fillStyle = "rgb(228,231,224)";
+            octx.beginPath();
+            octx.arc(0, 0, R, -Math.PI / 2, Math.PI / 2);
+            octx.ellipse(0, 0, R * Math.max(0.02, Math.abs(k)), R, 0, Math.PI / 2, -Math.PI / 2, k > 0);
+            octx.fill();
+            octx.clip();                                // maria stay inside the lit shape
+            octx.fillStyle = "rgba(176,182,178,0.5)";
+            octx.beginPath();
+            octx.arc(-R * 0.22, -R * 0.18, R * 0.34, 0, Math.PI * 2);
+            octx.arc(R * 0.24, R * 0.3, R * 0.2, 0, Math.PI * 2);
+            octx.fill();
+            octx.restore();
+          }
+        }
+      }
+    }
+    octx.restore();
+  }
+
+  // ---------- biome atmosphere ----------
+  // The per-biome look layer (gameplay/biomeatmos.js): the player's biome is
+  // sampled on a slow cadence and its colour grade, air colour, mist, ray
+  // floor and particle signature ease in over ~2.5 s — walking from meadow
+  // into swamp, the world's palette, haze and life cross-fade with you.
+  const atmos = {
+    biome: "", sampleT: -1e9,
+    r: 1, g: 1, b: 1, sat: 1,             // eased material grade
+    fogR: 0.5, fogG: 0.5, fogB: 0.5, fogW: 0,   // eased air colour (0..1) + pull
+    mist: 0, rays: 0,
+    dens: {},                              // eased particle density per type
+  };
+  const _atmosFog = new THREE.Color();
+  function syncAtmos(dt) {
+    if (now - atmos.sampleT > 1200) {
+      atmos.sampleT = now;
+      atmos.biome = (typeof world !== "undefined" && world && world.biomeNameAt)
+        ? (world.biomeNameAt(player.x, player.y) || "") : "";
+    }
+    const a = (typeof biomeAtmos === "function") ? biomeAtmos(atmos.biome) : null;
+    const k = Math.min(1, dt / 2500);
+    const tt = (a && a.tint) || [1, 1, 1];
+    atmos.r += (tt[0] - atmos.r) * k;
+    atmos.g += (tt[1] - atmos.g) * k;
+    atmos.b += (tt[2] - atmos.b) * k;
+    atmos.sat += (((a && a.sat) || 1) - atmos.sat) * k;
+    const f = (a && a.fog) || [128, 128, 128];
+    atmos.fogW += (((a && a.fogW) || 0) - atmos.fogW) * k;
+    atmos.fogR += (f[0] / 255 - atmos.fogR) * k;
+    atmos.fogG += (f[1] / 255 - atmos.fogG) * k;
+    atmos.fogB += (f[2] / 255 - atmos.fogB) * k;
+    atmos.mist += (((a && a.mist) || 0) - atmos.mist) * k;
+    atmos.rays += (((a && a.rays) || 0) - atmos.rays) * k;
+    // particle cross-fade: the current biome's signatures ease up, every
+    // other type eases down and is dropped once it's gone
+    const want = {};
+    if (a && a.part) want[a.part] = a.dens || 0;
+    if (a && a.part2) want[a.part2] = (want[a.part2] || 0) + (a.dens2 || 0);
+    for (const t in atmos.dens) if (!(t in want)) want[t] = 0;
+    for (const t in want) {
+      const cur = atmos.dens[t] || 0, nx = cur + (want[t] - cur) * k;
+      if (nx < 0.005 && !want[t]) delete atmos.dens[t];
+      else atmos.dens[t] = nx;
+    }
+  }
+
+  // ---------- biome particles ----------
+  // The overlay's living-air pass: each biome's signature drifts through the
+  // frame — sakura petals, ash flakes, rising embers, glowing spores,
+  // fireflies, butterflies, blowing snow, crystal sparkle, canyon dust,
+  // steppe seeds, sun motes. Screen-space with pseudo-depth (like the rain),
+  // two phases: normal particles draw BEFORE the night veil (so darkness
+  // falls over them), light-emitting ones AFTER it (they punch through like
+  // the fires do). Physics steps once per frame in the first phase.
+  const AT_COLS = {
+    petals: ["255,183,197", "255,160,180", "250,205,215"],
+    ash: ["150,148,145", "122,120,118", "176,173,168"],
+    embers: ["255,150,60", "255,110,40", "255,190,90"],
+    spores: ["150,190,255", "190,150,255", "120,235,200", "255,180,240"],
+    motes: ["255,230,170", "255,240,200"],
+    fireflies: ["190,255,140", "255,240,150"],
+    butterflies: ["255,200,80", "240,240,255", "255,140,120", "190,160,255"],
+    sparkle: ["255,255,255", "200,225,255", "255,225,235", "215,255,235"],
+    snowdust: ["240,245,255"],
+    dust: ["214,184,134", "200,170,120"],
+    seeds: ["230,215,170", "215,200,160"],
+  };
+  // particles per unit density — flocks of small things, a few big soft ones
+  const AT_CAP = { butterflies: 16, dust: 26, sparkle: 55, snowdust: 80, fireflies: 30 };
+  let atParts = [], _apT = 0;
+  function _apGlow(t) { return typeof ATMOS_GLOW_PARTS !== "undefined" && ATMOS_GLOW_PARTS[t]; }
+  function _apSpawn(t, W, H) {
+    const col = Math.floor(Math.random() * AT_COLS[t].length);
+    return {
+      t, col,
+      x: Math.random() * W,
+      y: (t === "sparkle" ? 0.25 + Math.random() * 0.72 : Math.random()) * H,
+      s: 0.55 + Math.random(),                    // pseudo-depth: size/speed/alpha
+      ph: Math.random() * Math.PI * 2,
+      die: now + (t === "sparkle" ? 450 + Math.random() * 600 : 6000 + Math.random() * 7000),
+    };
+  }
+  function drawAtmosParticles(glowPhase) {
+    let types = 0;
+    for (const t in atmos.dens) types++;
+    if (!types && !atParts.length) return;
+    const W = overlayCssW, H = overlayCssH;
+    const rm = (typeof reducedMotion === "function" && reducedMotion());
+    const dark = (typeof nightState === "function") ? nightState().dark : 0;
+    const w = (typeof weatherNow === "function") ? weatherNow() : null;
+    const wv = (w && w.wind) || { x: 0.4, y: 0 };
+    // wind projected onto the current camera heading, like the rain slant
+    const wind = wv.x * Math.cos(camYaw) - wv.y * Math.sin(camYaw);
+    if (!glowPhase) {
+      // ---- physics + population (first phase only: one step per frame) ----
+      const dts = Math.min(100, Math.max(0, now - _apT)) / 1000; _apT = now;
+      const count = {};
+      for (const p of atParts) count[p.t] = (count[p.t] || 0) + 1;
+      for (const t in atmos.dens) {
+        const wantN = Math.round(atmos.dens[t] * (AT_CAP[t] || 70) * (rm ? 0.5 : 1));
+        for (let i = count[t] || 0; i < wantN; i++) atParts.push(_apSpawn(t, W, H));
+        count[t] = Math.max(count[t] || 0, wantN);
+      }
+      const flut = rm ? 0 : 1;   // reduced motion: drift only, no flutter
+      for (let i = atParts.length - 1; i >= 0; i--) {
+        const p = atParts[i];
+        const wantN = Math.round((atmos.dens[p.t] || 0) * (AT_CAP[p.t] || 70) * (rm ? 0.5 : 1));
+        if (p.die <= now) {
+          // expired: breathe back in only while its biome still wants it
+          if ((count[p.t] || 0) <= wantN) atParts[i] = _apSpawn(p.t, W, H);
+          else { count[p.t]--; atParts.splice(i, 1); }
+          continue;
+        }
+        let vx = 0, vy = 0;
+        switch (p.t) {
+          case "petals":   vy = (26 + 20 * p.s); vx = wind * 22 + Math.sin(now / 900 + p.ph) * 24 * flut; break;
+          case "ash":      vy = (13 + 12 * p.s); vx = wind * 14 + Math.sin(now / 1500 + p.ph) * 9 * flut; break;
+          case "embers":   vy = -(18 + 22 * p.s); vx = wind * 10 + Math.sin(now / 500 + p.ph) * 15 * flut; break;
+          case "spores":   vy = Math.sin(now / 2100 + p.ph) * 7 * flut - 3; vx = wind * 8 + Math.cos(now / 2600 + p.ph) * 6 * flut; break;
+          case "motes":    vy = Math.sin(now / 1900 + p.ph) * 4 * flut; vx = wind * 7 + Math.sin(now / 1300 + p.ph) * 5 * flut; break;
+          case "fireflies": vx = Math.sin(now / 800 + p.ph * 3) * 20 * flut + wind * 4; vy = Math.cos(now / 1100 + p.ph) * 14 * flut; break;
+          case "butterflies": vx = wind * 10 + Math.sin(now / 620 + p.ph) * 32 * flut; vy = Math.sin(now / 430 + p.ph * 2) * 26 * flut - 4; break;
+          case "snowdust": vx = (wind >= 0 ? 1 : -1) * (110 + 90 * p.s) + wind * 60; vy = 18 * p.s; break;
+          case "dust":     vx = wind * 34 + 16 * p.s; vy = Math.sin(now / 1700 + p.ph) * 5 * flut; break;
+          case "seeds":    vx = wind * 42 + 18 + Math.sin(now / 800 + p.ph) * 10 * flut; vy = 9 + Math.sin(now / 600 + p.ph) * 8 * flut; break;
+          case "sparkle":  break;   // sparkles are stationary twinkles
+        }
+        p.x += vx * dts * p.s; p.y += vy * dts * p.s;
+        if (p.x < -24) p.x += W + 48; else if (p.x > W + 24) p.x -= W + 48;
+        if (p.y < -24) p.y += H + 48; else if (p.y > H + 24) p.y -= H + 48;
+      }
+    }
+    // ---- draw this phase's particles ----
+    octx.save();
+    if (glowPhase) octx.globalCompositeOperation = "lighter";
+    for (const p of atParts) {
+      if (!!_apGlow(p.t) !== glowPhase) continue;
+      const col = AT_COLS[p.t][p.col];
+      let a = 0, sz = 2 * p.s;
+      switch (p.t) {
+        case "petals":   a = 0.8; break;
+        case "ash":      a = 0.6; break;
+        case "embers":   a = (0.45 + 0.5 * Math.sin(now / 120 + p.ph)) * (0.55 + 0.45 * dark); break;
+        case "spores":   a = (0.5 + 0.35 * Math.sin(now / 1600 + p.ph)) * (0.45 + 0.55 * dark); sz = 2.6 * p.s; break;
+        case "motes":    a = 0.38 * (0.6 + 0.4 * Math.sin(now / 1100 + p.ph)) * (1 - dark); sz = 1.8 * p.s; break;
+        case "fireflies": {
+          const pulse = Math.max(0, Math.sin(now / 1100 + p.ph));
+          a = pulse * pulse * (0.12 + 0.88 * dark); sz = 2.2 * p.s; break;
+        }
+        case "butterflies": a = 0.85 * (1 - dark); break;
+        case "sparkle": {
+          const lf = 1 - Math.max(0, Math.min(1, (p.die - now) / 800));
+          a = Math.sin(Math.PI * lf) * 0.9; break;
+        }
+        case "snowdust": a = 0.5; break;
+        case "dust":     a = 0.18; sz = (6 + 4 * p.s); break;
+        case "seeds":    a = 0.55; break;
+      }
+      if (a <= 0.02) continue;
+      octx.globalAlpha = Math.min(1, a);
+      octx.fillStyle = "rgb(" + col + ")";
+      if (p.t === "butterflies") {
+        // two wing dots flapping about a dark body speck
+        const ws = 2 + 1.2 * p.s;
+        const flap = Math.abs(Math.sin(now / 90 + p.ph)) * (ws + 1);
+        octx.fillRect(p.x - ws - flap, p.y - ws / 2, ws, ws);
+        octx.fillRect(p.x + flap, p.y - ws / 2, ws, ws);
+        octx.fillStyle = "rgb(40,32,28)";
+        octx.fillRect(p.x - 0.5, p.y - 1, 1, 3);
+      } else if (p.t === "sparkle") {
+        // 4-point star: a plus of thin rects
+        const r = 2 + 2.5 * p.s;
+        octx.fillRect(p.x - r, p.y - 0.5, r * 2, 1);
+        octx.fillRect(p.x - 0.5, p.y - r, 1, r * 2);
+      } else if (p.t === "snowdust") {
+        octx.fillRect(p.x, p.y, 5 + 4 * p.s, 1.2);   // wind-stretched streak
+      } else if (p.t === "fireflies") {
+        octx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, sz);
+        octx.globalAlpha = Math.min(1, a * 0.25);
+        octx.fillRect(p.x - sz * 1.6, p.y - sz * 1.6, sz * 3.2, sz * 3.2);   // soft halo
+      } else {
+        octx.fillRect(p.x - sz / 2, p.y - sz / 2, sz, Math.max(1, sz * (p.t === "petals" ? 0.75 : 1)));
+      }
+    }
+    octx.restore();
+    octx.globalAlpha = 1;
+  }
+
   // ---------- god rays ----------
   // Low sun + forest canopy = shafts of light. Screen-space slanted bars
   // (additive, like the sun glow) that ease in when the player stands in a
   // forest biome through the golden hours, slanting away from the sun's
   // bearing and shimmering slowly. duskW carries the overcast cut, so grey
-  // days have no shafts.
-  let _grBiome = "", _grBiomeT = -1e9, _grOn = 0, _grT = 0;
+  // days have no shafts. Biomes with a ray floor (biomeatmos.js — jungle,
+  // bamboo, ruins) keep dappled shafts through the whole day.
+  let _grOn = 0, _grT = 0;
   function drawGodRays() {
     const d = Math.min(100, Math.max(0, now - _grT)); _grT = now;
-    if (now - _grBiomeT > 1200) {
-      _grBiomeT = now;
-      _grBiome = (typeof world !== "undefined" && world && world.biomeNameAt)
-        ? (world.biomeNameAt(player.x, player.y) || "") : "";
-    }
-    const forest = /forest|grove|woodland|jungle|taiga/i.test(_grBiome);
-    const target = (sunState.up && duskW > 0.05 && forest) ? 1 : 0;
+    const forest = /forest|grove|woodland|jungle|taiga|ruins/i.test(atmos.biome);
+    const effW = Math.max(duskW, sunState.up ? atmos.rays * (1 - 0.75 * wxCloudNow) : 0);
+    const target = (sunState.up && effW > 0.05 && forest) ? 1 : 0;
     _grOn += (target - _grOn) * Math.min(1, d / 1500);
     if (_grOn < 0.03) return;
     const W = overlayCssW, H = overlayCssH;
@@ -5172,7 +5529,7 @@ void main() {
       const ph = ((i * 733) % 97) / 97;
       const x = (((i + 0.5) / 6) + Math.sin(now / 9000 + i * 2.1) * 0.02) * W;
       const flick = 0.6 + 0.4 * Math.sin(now / 2600 + i * 1.7);
-      const a = 0.17 * _grOn * duskW * flick * (0.45 + ph * 0.8);
+      const a = 0.24 * _grOn * effW * flick * (0.45 + ph * 0.8);
       const w = (0.025 + ph * 0.05) * W;
       octx.save();
       octx.translate(x, -H * 0.05);
@@ -5688,9 +6045,19 @@ void main() {
     // weather BEFORE night: precipitation + overcast dim first, then darkness
     // falls over the rain too — at night you only see rain where there's light.
     try { drawWeather(); } catch (e) { octx.globalAlpha = 1; }
+    // biome particles UNDER the night veil: petals, ash, snow-dust,
+    // butterflies, dust and seeds live in the world's light, so darkness
+    // falls over them like everything else. (Physics steps here too.)
+    try { drawAtmosParticles(false); } catch (e) { octx.globalCompositeOperation = "source-over"; octx.globalAlpha = 1; }
     // day/night LAST: darken the whole view (world + name labels + bars) with
     // circular light holes. Guarded so a light-pass edge case can't blank the game.
     try { drawNight(); } catch (e) { octx.globalCompositeOperation = "source-over"; octx.globalAlpha = 1; }
+    // the night sky OVER the darkness veil: stars, the moon and any aurora
+    // are light sources, so like the fire glows they punch through it.
+    try { drawNightSky(); } catch (e) { octx.globalCompositeOperation = "source-over"; octx.globalAlpha = 1; }
+    // glowing biome particles OVER the veil: embers, spores, fireflies and
+    // crystal sparkle are light sources — they brighten as the dark deepens.
+    try { drawAtmosParticles(true); } catch (e) { octx.globalCompositeOperation = "source-over"; octx.globalAlpha = 1; }
     // sun glow + god rays OVER the dusk veil — like the fire glows, the sun
     // is a light source, so its bloom punches through the ambient dim. duskW
     // carries the overcast cut, so heavy cloud still smothers both.
@@ -5807,7 +6174,9 @@ void main() {
     const lowSun = sunState.up
       ? Math.pow(Math.max(0, Math.min(1, (0.45 - sunState.elev) / 0.4)), 1.3) : 0;
     const windMag = wfog && wfog.wind ? Math.min(1, Math.hypot(wfog.wind.x, wfog.wind.y)) : 0.4;
-    const mistK = Math.min(1, lowSun * 0.75 + mistWet * 0.85) * (1 - 0.45 * windMag);
+    // atmos.mist: swampland and wetlands breathe ground mist all day, not
+    // just when rain or the golden hour bring it (biomeatmos.js)
+    const mistK = Math.min(1, lowSun * 0.75 + mistWet * 0.85 + atmos.mist) * (1 - 0.45 * windMag);
     // respawn expired cards onto water, rivers or hollows
     for (let tries = 0; tries < 2 && mistK > 0.05; tries++) {
       let slot = mistPool.find(p => p.die <= now);
@@ -5836,8 +6205,8 @@ void main() {
         const rim = Math.min(rawStep(wx + 5, wy), rawStep(wx - 5, wy),
           rawStep(wx, wy + 5), rawStep(wx, wy - 5));
         ok = rim - v0 >= 2 * STEP_H;
-        if (!ok && world.biomeNameAt &&
-            /forest|grove|jungle|taiga|wetland|swamp/i.test(world.biomeNameAt(wx, wy) || "")) {
+        if (!ok && (atmos.mist > 0.25 || (world.biomeNameAt &&
+            /forest|grove|jungle|taiga|wetland|swamp/i.test(world.biomeNameAt(wx, wy) || "")))) {
           ok = true; dim = 0.75;
         }
         gy = v0 + 0.55;
@@ -6011,6 +6380,7 @@ void main() {
     // over ~2 s so sunset never pops; the sky and fog ride the same light.
     const wfog = (typeof weatherNow === "function") ? weatherNow() : null;
     wxCloudNow = wfog ? wfog.cloud : 0;
+    syncAtmos(dt);   // per-biome grade/air/particles ease toward the local biome
     {
       let tr = 1, tg = 1, tb = 1, ts = 1, w = 0;
       if (sunState.up) {
@@ -6020,6 +6390,10 @@ void main() {
         ts = 1 + 0.32 * w;                        // golden hour pops, not just yellows
       } else { tr = 0.78; tg = 0.84; }
       duskW = w;
+      // biome grade (biomeatmos.js): the concept-art colour signature rides
+      // on top of the time-of-day light — swamp murk, red-desert heat, the
+      // ashen forest's grey — eased by syncAtmos at biome borders.
+      tr *= atmos.r; tg *= atmos.g; tb *= atmos.b; ts *= atmos.sat;
       const tc = tintUni.value, k = Math.min(1, dt / 1800);
       tc.r += (tr - tc.r) * k; tc.g += (tg - tc.g) * k; tc.b += (tb - tc.b) * k;
       satUni.value += (ts - satUni.value) * k;
@@ -6028,6 +6402,12 @@ void main() {
       // overlay does the actual darkening).
       if (sunState.up) _skyTarget.setHex(SKY).lerp(SKY_DUSK, w);
       else _skyTarget.setHex(SKY).multiply(tc);
+      // biome air: the haze pulls toward the biome's own colour (the fog IS
+      // the sky here) — pea-green over the swamp, rust over the red desert,
+      // violet through the mushroom forest. Halved at night so the dark
+      // stays cool rather than colour-washed.
+      _atmosFog.setRGB(atmos.fogR, atmos.fogG, atmos.fogB);
+      _skyTarget.lerp(_atmosFog, atmos.fogW * (sunState.up ? 1 : 0.5));
       if (scene.background) scene.background.lerp(_skyTarget, k);
       if (scene.fog) scene.fog.color.copy(scene.background);
       // sea glint: the sun's ground direction; strength peaks with the low sun
@@ -6040,6 +6420,9 @@ void main() {
         su.uHor.value.copy(scene.fog.color);
         if (sunState.up) _zenTarget.setHex(ZEN_DAY).lerp(ZEN_DUSK_C, w);
         else _zenTarget.setHex(ZEN_DAY).multiply(tc);
+        // the zenith leans toward the biome air too, at half strength — the
+        // red desert's sky reads orange overhead, not just at the horizon
+        _zenTarget.lerp(_atmosFog, atmos.fogW * 0.5 * (sunState.up ? 1 : 0.5));
         su.uZen.value.lerp(_zenTarget, k);
         const eA = sunState.elev * Math.PI / 2, cE = Math.cos(eA);
         su.uSunDir.value.set(-sunState.dx * cE, Math.sin(eA), -sunState.dz * cE).normalize();
@@ -6231,6 +6614,8 @@ void main() {
 
   return {
     init, frame, resize, pickTile, buildAtlasAsync, preloadArt, snapshotTile, objArtFor, _diag, _structDetail, _meshLog: meshLog,
+    _atmos: () => ({ biome: atmos.biome, dens: atmos.dens, parts: atParts.length, grOn: _grOn,
+      fogW: +atmos.fogW.toFixed(3), r: +atmos.r.toFixed(3), sat: +atmos.sat.toFixed(3) }),
     _sunDebug: () => ({ ...sunState, bakeKey: sunBakeKey, mats: _shadowMats.size }),
     // altitude probes for gameplay (movement picks deck vs. under level when
     // stepping onto a two-level tile): walkable ground height / deck height
