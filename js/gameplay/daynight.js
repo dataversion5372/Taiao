@@ -212,9 +212,26 @@ function _hash01(x, y) { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
 // out terrain shapes; the real light at night comes from fires and the
 // villagers' candles. A tiny ambient floor stops it going 100% pure black.
 const NIGHT_MAX_DARK = 0.99;   // deep night is near-absolute black — you need a light to see
+// golden hour stays LUMINOUS: while the sun is above the horizon the ambient
+// veil is mostly held off (a low sun means long gold light, not gloom), then
+// eases in across the first minute after sundown so dusk still falls gently.
+// Eased on wall time so the sundown flip never pops.
+let _veilK = 1, _veilT = 0;
+function _sunUpNow() {
+  const y = (typeof player !== "undefined" && player) ? player.y : 0;
+  const D = dayFraction(y);
+  if (D <= 0.001) return false;
+  if (D >= 0.999) return true;
+  const u = (sunPhase(_px()) - (0.5 - D / 2)) / D;
+  return u > 0 && u < 1;
+}
 function nightState() {
   const L = daylightNow();
   let dark = Math.min(1 - L, NIGHT_MAX_DARK);   // ambient floor: only a whisper above pure black
+  const tv = (typeof now !== "undefined" ? now : Date.now());
+  const dtv = Math.max(0, Math.min(1000, tv - _veilT)); _veilT = tv;
+  _veilK += ((_sunUpNow() ? 0.32 : 1) - _veilK) * (dtv / 45000);
+  dark *= _veilK;
   const biome = (typeof world !== "undefined" && world && world.biomeNameAt)
     ? world.biomeNameAt(player.x, player.y) : "";
   const bio = bioBiomeGlow(biome);

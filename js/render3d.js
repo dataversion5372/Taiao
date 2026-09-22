@@ -35,12 +35,19 @@ const R3D = (() => {
   // whole outside world sits in one light. Applied AFTER the snow mix, so
   // snowfields glow gold at sunset like the real thing.
   const tintUni = { value: new THREE.Color(1, 1, 1) };
-  const TINT_GLSL = "\n      gl_FragColor.rgb *= uTint;";
+  // golden-hour saturation: >1 through the low-sun window so dusk POPS instead
+  // of just yellowing (applied post-fog, so the haze itself goes rich, not grey)
+  const satUni = { value: 1 };
+  const TINT_DECL = "\nuniform vec3 uTint;\nuniform float uSat;";
+  const TINT_GLSL = `
+      gl_FragColor.rgb = mix(vec3(dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114))), gl_FragColor.rgb, uSat);
+      gl_FragColor.rgb *= uTint;`;
   function tintPatch(mat) {
     mat.onBeforeCompile = sh => {
       sh.uniforms.uTint = tintUni;
+      sh.uniforms.uSat = satUni;
       sh.fragmentShader = sh.fragmentShader
-        .replace("#include <common>", "#include <common>\nuniform vec3 uTint;")
+        .replace("#include <common>", "#include <common>" + TINT_DECL)
         .replace("#include <dithering_fragment>", "#include <dithering_fragment>" + TINT_GLSL);
     };
   }
@@ -52,11 +59,12 @@ const R3D = (() => {
     mat.onBeforeCompile = sh => {
       sh.uniforms.uSnow = snowUni;
       sh.uniforms.uTint = tintUni;
+      sh.uniforms.uSat = satUni;
       sh.vertexShader = sh.vertexShader
         .replace("#include <common>", "#include <common>\nattribute float aSnowOff;\nvarying vec3 vSnowP;\nvarying float vSnowA;")
         .replace("#include <begin_vertex>", "#include <begin_vertex>\nvSnowP = (modelMatrix * vec4(position, 1.0)).xyz;\nvSnowA = " + (forceAttr1 ? "1.0" : "1.0 - aSnowOff") + ";");
       sh.fragmentShader = sh.fragmentShader
-        .replace("#include <common>", "#include <common>\nvarying vec3 vSnowP;\nvarying float vSnowA;\nuniform float uSnow;\nuniform vec3 uTint;")
+        .replace("#include <common>", "#include <common>\nvarying vec3 vSnowP;\nvarying float vSnowA;\nuniform float uSnow;" + TINT_DECL)
         .replace("#include <dithering_fragment>", `#include <dithering_fragment>
       vec3 snN = normalize(cross(dFdx(vSnowP), dFdy(vSnowP)));
       float snUp = smoothstep(0.55, 0.85, abs(snN.y));
@@ -69,11 +77,12 @@ const R3D = (() => {
     mat.onBeforeCompile = sh => {
       sh.uniforms.uSnow = snowUni;
       sh.uniforms.uTint = tintUni;
+      sh.uniforms.uSat = satUni;
       sh.vertexShader = sh.vertexShader
         .replace("#include <common>", "#include <common>\nvarying float vSnowT;")
         .replace("#include <begin_vertex>", "#include <begin_vertex>\nvSnowT = position.y + 0.5;");
       sh.fragmentShader = sh.fragmentShader
-        .replace("#include <common>", "#include <common>\nvarying float vSnowT;\nuniform float uSnow;\nuniform vec3 uTint;")
+        .replace("#include <common>", "#include <common>\nvarying float vSnowT;\nuniform float uSnow;" + TINT_DECL)
         .replace("#include <dithering_fragment>", `#include <dithering_fragment>
       float snA = uSnow * smoothstep(0.35, 0.9, vSnowT);
       gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.94, 0.96, 1.0), snA * 0.7);` + TINT_GLSL);
@@ -102,6 +111,17 @@ const R3D = (() => {
   const _tiltAxis = new THREE.Vector3();
   const _qYaw = new THREE.Quaternion(), _qTilt = new THREE.Quaternion(), _bbQuat = new THREE.Quaternion();
   const SKY = 0x87b5d4;
+  // Golden hour: the camera never pitches above the horizon, so the "sky" the
+  // player sees IS the fog (and fog-swallowed geometry). Dusk therefore lives
+  // in the fog colour: lerp SKY → this apricot as the sun sinks, instead of
+  // multiplying SKY by the warm tint (blue × orange = muddy grey-green).
+  const SKY_DUSK = new THREE.Color(0xf0a05c);
+  const _skyTarget = new THREE.Color();
+  let duskW = 0;        // 0 high sun … 1 sun on the horizon (this frame, incl. cloud cut)
+  let wxCloudNow = 0;   // this frame's weather cloud scalar (for the overlay sun glow)
+  // sea sun-glint uniforms: xy = ground dir TOWARD the sun, z = strength, w = time (s)
+  const glintUni = { value: new THREE.Vector4(-0.7, -0.55, 0, 0) };
+  const glintCamUni = { value: new THREE.Vector3() };
   const CELL = 33, CSZ = 32; // atlas cell pitch / drawable size (32px for painted tiles)
   const FLAT_DECOR = new Set(["lily", "lily2", "lily3", "stepstone", "tilled_soil",
     "footprint_moa"]); // the easter-egg trail (chunks.js) — a flat pressed print, never a billboard
@@ -800,11 +820,37 @@ const R3D = (() => {
 
   function initSea() {
     const seaMat = new THREE.MeshBasicMaterial({ color: 0x3c7c9e });
-    tintPatch(seaMat);   // the sea backdrop reflects the sky's temperature
+    seaGlintPatch(seaMat);   // sky-temperature tint + the sun's reflection path
     sea = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), seaMat);
     sea.rotation.x = -Math.PI / 2;
     sea.position.y = -STEP_H - 0.12;
     scene.add(sea);
+  }
+
+  // sun glint on the sea backdrop: a long shimmering reflection path toward the
+  // sun, strongest through the golden hour. Applied AFTER the fog include, so
+  // the path shines through the haze at distance — which is exactly how a low
+  // sun reads over water. Sparkle is a cheap per-cell hash twinkle, no noise tex.
+  function seaGlintPatch(mat) {
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.uTint = tintUni;
+      sh.uniforms.uSat = satUni;
+      sh.uniforms.uGlint = glintUni;
+      sh.uniforms.uGlintCam = glintCamUni;
+      sh.vertexShader = sh.vertexShader
+        .replace("#include <common>", "#include <common>\nvarying vec3 vGlintP;")
+        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvGlintP = (modelMatrix * vec4(position, 1.0)).xyz;");
+      sh.fragmentShader = sh.fragmentShader
+        .replace("#include <common>", "#include <common>\nvarying vec3 vGlintP;\nuniform vec4 uGlint;\nuniform vec3 uGlintCam;" + TINT_DECL)
+        .replace("#include <dithering_fragment>", `#include <dithering_fragment>
+      vec2 toFrag = normalize(vGlintP.xz - uGlintCam.xz);
+      float align = max(0.0, dot(toFrag, uGlint.xy));
+      float streak = pow(align, 42.0);
+      vec2 gc = floor(vGlintP.xz * 3.0);
+      float gh = fract(sin(dot(gc, vec2(127.1, 311.7))) * 43758.5453);
+      float tw = 0.55 + 0.45 * sin(uGlint.w * 6.2832 * (0.35 + gh) + gh * 40.0);
+      gl_FragColor.rgb += vec3(1.0, 0.82, 0.55) * streak * uGlint.z * tw;` + TINT_GLSL);
+    };
   }
 
   // ---------- dynamic mesh helpers ----------
@@ -4712,6 +4758,41 @@ const R3D = (() => {
     octx.restore();
   }
 
+  // ---------- sun glow pass ----------
+  // The camera never pitches above the horizon, so the sun itself is always
+  // just off the top of the screen. Through the golden hour, when the view
+  // faces sunward, its light bleeds down from the top edge — an additive glow
+  // that reads as the low sun behind the world (and through the trees),
+  // without needing a sky that is never in frame. duskW already carries the
+  // low-sun curve AND the overcast cut, so heavy cloud smothers this too.
+  function drawSunGlow() {
+    if (!sunState.up || duskW < 0.03) return;
+    const W = overlayCssW, H = overlayCssH;
+    const fwdX = -Math.sin(camYaw), fwdZ = -Math.cos(camYaw);
+    const sunX = -sunState.dx, sunZ = -sunState.dz;   // ground dir toward the sun
+    const dot = fwdX * sunX + fwdZ * sunZ;
+    const crs = fwdX * sunZ - fwdZ * sunX;
+    const rel = Math.atan2(crs, dot);                 // sun bearing vs view, +ve = right
+    const hFov = 2 * Math.atan(Math.tan(24 * Math.PI / 180) * (W / Math.max(1, H)));
+    if (Math.abs(rel) > hFov * 0.85) return;          // facing away: no glow
+    const cx = W / 2 + Math.tan(rel) / Math.tan(hFov / 2) * (W / 2);
+    const cy = -H * 0.03;                             // centre just above the top edge
+    const R = H * 0.55;
+    const a = duskW * (1 - 0.5 * Math.abs(rel) / (hFov * 0.85));
+    octx.save();
+    octx.globalCompositeOperation = "lighter";
+    // wide ellipse (sunset light hugs the horizon), hot near-white core
+    octx.translate(cx, cy); octx.scale(1.9, 1);
+    const g = octx.createRadialGradient(0, 0, 0, 0, 0, R);
+    g.addColorStop(0, `rgba(255,244,214,${(0.85 * a).toFixed(3)})`);
+    g.addColorStop(0.28, `rgba(255,196,120,${(0.42 * a).toFixed(3)})`);
+    g.addColorStop(0.62, `rgba(255,158,84,${(0.16 * a).toFixed(3)})`);
+    g.addColorStop(1, "rgba(255,150,70,0)");
+    octx.fillStyle = g;
+    octx.fillRect(-R, -R, 2 * R, 2 * R);
+    octx.restore();
+  }
+
   // ---------- weather pass ----------
   // Screen-space precipitation + overcast dimming from the deterministic
   // weather field (gameplay/weather.js). Particles live in screen space and
@@ -5178,6 +5259,10 @@ const R3D = (() => {
     // day/night LAST: darken the whole view (world + name labels + bars) with
     // circular light holes. Guarded so a light-pass edge case can't blank the game.
     try { drawNight(); } catch (e) { octx.globalCompositeOperation = "source-over"; octx.globalAlpha = 1; }
+    // sun glow OVER the dusk veil — like the fire glows, the sun is a light
+    // source, so its bloom punches through the ambient dim. duskW carries the
+    // overcast cut, so heavy cloud still smothers it.
+    try { drawSunGlow(); } catch (e) { octx.globalCompositeOperation = "source-over"; octx.globalAlpha = 1; }
     if (now < player.stunUntil) {
       octx.fillStyle = "rgba(255,80,80,0.12)";
       octx.fillRect(0, 0, W, H);
@@ -5287,16 +5372,29 @@ const R3D = (() => {
     // (grazing light — permanent through subarctic winter days and under the
     // Fullday Pole's midnight sun), the cool blue hour once it's down. Eased
     // over ~2 s so sunset never pops; the sky and fog ride the same light.
+    const wfog = (typeof weatherNow === "function") ? weatherNow() : null;
+    wxCloudNow = wfog ? wfog.cloud : 0;
     {
-      let tr = 1, tg = 1, tb = 1;
+      let tr = 1, tg = 1, tb = 1, ts = 1, w = 0;
       if (sunState.up) {
-        const w = Math.pow(Math.max(0, Math.min(1, (0.45 - sunState.elev) / 0.4)), 1.3);
-        tg = 1 - 0.14 * w; tb = 1 - 0.30 * w;
+        w = Math.pow(Math.max(0, Math.min(1, (0.45 - sunState.elev) / 0.4)), 1.3);
+        w *= 1 - 0.65 * wxCloudNow;               // heavy overcast smothers the gold
+        tr = 1 + 0.08 * w; tg = 1 - 0.20 * w; tb = 1 - 0.42 * w;
+        ts = 1 + 0.32 * w;                        // golden hour pops, not just yellows
       } else { tr = 0.78; tg = 0.84; }
+      duskW = w;
       const tc = tintUni.value, k = Math.min(1, dt / 1800);
       tc.r += (tr - tc.r) * k; tc.g += (tg - tc.g) * k; tc.b += (tb - tc.b) * k;
-      if (scene.background) scene.background.setHex(SKY).multiply(tc);
+      satUni.value += (ts - satUni.value) * k;
+      // sky/fog: lerp toward the dusk apricot as the sun sinks — the fog IS the
+      // visible sky here. Sun down: the old blue-hour tint of SKY (the darkness
+      // overlay does the actual darkening).
+      if (sunState.up) _skyTarget.setHex(SKY).lerp(SKY_DUSK, w);
+      else _skyTarget.setHex(SKY).multiply(tc);
+      if (scene.background) scene.background.lerp(_skyTarget, k);
       if (scene.fog) scene.fog.color.copy(scene.background);
+      // sea glint: the sun's ground direction; strength peaks with the low sun
+      glintUni.value.set(-sunState.dx, -sunState.dz, 0.9 * w, (now / 1000) % 3600);
     }
     // river flood: when the flood integral (weather.js) has genuinely moved,
     // adopt the new quantized bucket, drop the level/ground caches and queue
@@ -5380,10 +5478,10 @@ const R3D = (() => {
     camera.lookAt(followX + sy * fb, 0.4 + followY, followZ + cyw * fb);
     // rain closes the fog in (a downpour swallows the horizon); overcast alone
     // hazes it only slightly
-    const wfog = (typeof weatherNow === "function") ? weatherNow() : null;
     const fogK = wfog ? Math.max(0.45, 1 - wfog.precip * 0.4 - wfog.cloud * 0.08) : 1;
     scene.fog.near = 28 * _cz * fogK;
     scene.fog.far = 52 * _cz * fogK;
+    glintCamUni.value.copy(camera.position);   // glint path radiates from the eye
     renderer.render(scene, camera);
     drawOverlay();
   }
