@@ -122,6 +122,22 @@ const R3D = (() => {
   // sea sun-glint uniforms: xy = ground dir TOWARD the sun, z = strength, w = time (s)
   const glintUni = { value: new THREE.Vector4(-0.7, -0.55, 0, 0) };
   const glintCamUni = { value: new THREE.Vector3() };
+  // ---- zoom-tilt: zoomed out, the camera levels toward the horizon ----
+  // The classic orbit pitches ~44° down, so even the top of the screen looks
+  // 20° BELOW horizontal — distant mountains and the sky are mathematically
+  // never in frame. tiltK eases 0 (camZoom ≤ 1.6: the close-up look, exactly
+  // as before) → 1 (max zoom: the aim point rises, the view levels to ~21°,
+  // and the far-terrain ring, sky dome, sun and clouds come into frame).
+  let tiltK = 0;
+  function tiltKFor(z) {
+    const t = Math.max(0, Math.min(1, (z - 1.6) / 1.4));
+    return t * t * (3 - 2 * t);
+  }
+  // sky dome (gradient + the real sun disc) and the horizon cloud deck
+  let skyDome = null, skyMat = null;
+  const _zenTarget = new THREE.Color();
+  const ZEN_DAY = 0x4d7fae, ZEN_DUSK_C = new THREE.Color(0x655f8e);
+  let clouds = null;
   const CELL = 33, CSZ = 32; // atlas cell pitch / drawable size (32px for painted tiles)
   const FLAT_DECOR = new Set(["lily", "lily2", "lily3", "stepstone", "tilled_soil",
     "footprint_moa"]); // the easter-egg trail (chunks.js) — a flat pressed print, never a billboard
@@ -821,10 +837,232 @@ const R3D = (() => {
   function initSea() {
     const seaMat = new THREE.MeshBasicMaterial({ color: 0x3c7c9e });
     seaGlintPatch(seaMat);   // sky-temperature tint + the sun's reflection path
-    sea = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), seaMat);
+    sea = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200), seaMat);
     sea.rotation.x = -Math.PI / 2;
     sea.position.y = -STEP_H - 0.12;
     scene.add(sea);
+  }
+
+  // ---------- sky dome ----------
+  // A camera-centred gradient sphere behind everything (depthTest off,
+  // renderOrder -10): horizon colour = the fog colour (so terrain melts into
+  // the sky seamlessly), zenith its own deeper blue, plus the REAL sun — a
+  // warm glow and a disc at the sun's true azimuth/elevation. Only visible
+  // once the zoom-tilt lets the view reach the horizon; costs one draw call.
+  function initSkyDome() {
+    skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
+      uniforms: {
+        uHor: { value: new THREE.Color(SKY) },
+        uZen: { value: new THREE.Color(ZEN_DAY) },
+        uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+        uSunI: { value: 0 },
+      },
+      vertexShader: "varying vec3 vDir;\nvoid main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+      fragmentShader: `varying vec3 vDir;
+uniform vec3 uHor, uZen, uSunDir;
+uniform float uSunI;
+void main() {
+  vec3 d = normalize(vDir);
+  vec3 col = mix(uHor, uZen, smoothstep(0.0, 0.35, d.y));
+  float s = max(dot(d, uSunDir), 0.0);
+  col += vec3(1.0, 0.74, 0.45) * pow(s, 24.0) * 0.55 * uSunI;          // wide warm glow
+  col += vec3(1.0, 0.92, 0.78) * smoothstep(0.9993, 0.9997, s) * uSunI; // the disc
+  gl_FragColor = vec4(col, 1.0);
+}`,
+    });
+    skyDome = new THREE.Mesh(new THREE.SphereGeometry(1200, 24, 12), skyMat);
+    skyDome.renderOrder = -10;
+    skyDome.frustumCulled = false;
+    scene.add(skyDome);
+  }
+
+  // ---------- horizon clouds ----------
+  // A small deck of soft billboard puffs riding the weather wind, high enough
+  // (y 60-130) that they live in the sky band the zoom-tilt reveals — at the
+  // default zoom no ray reaches them, so they cost nothing visually. Opacity
+  // follows cloudiness; the shared tint patch turns them gold at dusk.
+  const CLOUD_N = 12;
+  function initClouds() {
+    const cv = document.createElement("canvas");
+    cv.width = 160; cv.height = 96;
+    const cc = cv.getContext("2d");
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 8; i++) {
+      const bx = 24 + rnd() * 112, by = 34 + rnd() * 34, br = 14 + rnd() * 22;
+      const g = cc.createRadialGradient(bx, by, 0, bx, by, br);
+      g.addColorStop(0, "rgba(255,255,255,0.5)");
+      g.addColorStop(1, "rgba(255,255,255,0)");
+      cc.fillStyle = g;
+      cc.fillRect(0, 0, 160, 96);
+    }
+    const tex = new THREE.CanvasTexture(cv);
+    const geo = new THREE.PlaneGeometry(1, 1);
+    clouds = [];
+    for (let i = 0; i < CLOUD_N; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        map: tex, transparent: true, depthWrite: false, fog: false, opacity: 0,
+      });
+      tintPatch(mat);
+      const m = new THREE.Mesh(geo, mat);
+      const wsc = 190 + rnd() * 170;
+      m.scale.set(wsc, wsc * (0.24 + rnd() * 0.1), 1);
+      m.frustumCulled = false;
+      scene.add(m);
+      clouds.push({
+        m, jit: 0.55 + rnd() * 0.45, drift: 2.5 + rnd() * 4,
+        // absolute world offsets, wrapped into a box around the player. Low
+        // and far: the zoom-tilt sky band only spans a few degrees above the
+        // horizon, so high overhead cloud would never be in frame.
+        x: (rnd() - 0.5) * 2000, z: (rnd() - 0.5) * 2000, y: 35 + rnd() * 45,
+      });
+    }
+  }
+  function syncClouds(wfog, dt) {
+    if (!clouds) return;
+    const cl = wfog ? wfog.cloud : 0.3;
+    const wv = (wfog && wfog.wind) ? wfog.wind : { x: 0.5, y: 0 };
+    const px = WX(player.px), pz = WX(player.py);
+    const move = Math.min(100, dt) / 1000;
+    for (const c of clouds) {
+      c.x += wv.x * c.drift * move;
+      c.z += wv.y * c.drift * move;
+      // wrap into a ±1000 box around the player
+      let rx = c.x - px, rz = c.z - pz;
+      if (rx > 1000) c.x -= 2000; else if (rx < -1000) c.x += 2000;
+      if (rz > 1000) c.z -= 2000; else if (rz < -1000) c.z += 2000;
+      rx = c.x - px; rz = c.z - pz;
+      const d = Math.hypot(rx, rz);
+      const target = (0.14 + 0.6 * cl) * c.jit *
+        Math.max(0, Math.min(1, 1.6 - d / 1100)) *   // fade at the far edge
+        Math.max(0, Math.min(1, d / 220 - 0.3));      // never overhead
+      const mt = c.m.material;
+      mt.opacity += (target - mt.opacity) * Math.min(1, dt / 2500);
+      c.m.visible = mt.opacity > 0.01;
+      c.m.position.set(c.x, c.y + followY, c.z);
+      c.m.quaternion.copy(_qYaw);                     // upright, facing the view
+    }
+  }
+
+  // ---------- far terrain LOD ----------
+  // Beyond the loaded chunk ring, a coarse vertex-coloured height mesh carries
+  // the landscape to the horizon — the SAME pure heightAt math the chunks use
+  // (no chunk generation, no erosion: at these distances the haze owns the
+  // detail). Two rings: step-16 tiles out to 384, step-64 out to 1152. Sits
+  // 0.45 below true ground so the real chunks always cover it. Rebuilt
+  // incrementally (time-budgeted rows per frame) when the player crosses a
+  // 96-tile cell; the finished mesh swaps in atomically, old one stays up
+  // meanwhile. Colours are elevation bands (water depth → sand → lowland →
+  // forest → upland → rock) with a position hash to break the banding —
+  // biome-true colouring (deserts, snowfields) is a known follow-up.
+  const FARLOD_RINGS = [
+    { step: 16, half: 384 },
+    { step: 64, half: 1152 },
+  ];
+  const FARLOD_SINK = 0.45, FARLOD_CELL = 96;
+  let farMeshes = [], farMat = null, farJob = null, farCenter = null;
+  const _farBands = [
+    [0.00, 0xb3a077], [0.05, 0x6b8757], [0.30, 0x54724a],
+    [0.50, 0x77694f], [0.72, 0x8b8478], [0.92, 0xb9bcc0],
+  ].map(([t, hex]) => [t, (hex >> 16) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255]);
+  function farColor(rel, wx, wz, out, o) {
+    // land colour: interpolate the elevation band ramp, jitter to break bands
+    let a = _farBands[0], b = _farBands[_farBands.length - 1], t = 1;
+    for (let i = 1; i < _farBands.length; i++)
+      if (rel <= _farBands[i][0]) {
+        a = _farBands[i - 1]; b = _farBands[i];
+        t = (rel - a[0]) / (b[0] - a[0] || 1);
+        break;
+      }
+    const s = Math.sin(wx * 12.9898 + wz * 78.233) * 43758.5453;
+    const j = 0.94 + ((s - Math.floor(s)) - 0.5) * 0.1;
+    out[o] = (a[1] + (b[1] - a[1]) * t) * j;
+    out[o + 1] = (a[2] + (b[2] - a[2]) * t) * j;
+    out[o + 2] = (a[3] + (b[3] - a[3]) * t) * j;
+  }
+  function startFarBuild(cx, cz) {
+    farJob = { cx, cz, ring: 0, row: 0, parts: [] };
+    for (const r of FARLOD_RINGS) {
+      const n = (2 * r.half) / r.step + 1;
+      farJob.parts.push({
+        n, pos: new Float32Array(n * n * 3), col: new Float32Array(n * n * 3), idx: [],
+      });
+    }
+  }
+  function stepFarBuild() {
+    const t0 = performance.now();
+    const LE = world.LAND_ELEVATION;
+    while (farJob && performance.now() - t0 < 3) {
+      const ring = FARLOD_RINGS[farJob.ring], part = farJob.parts[farJob.ring];
+      const n = part.n, r = farJob.row;
+      if (r < n) {
+        const wz = farJob.cz - ring.half + r * ring.step;
+        for (let i = 0; i < n; i++) {
+          const wx = farJob.cx - ring.half + i * ring.step;
+          const h = world.heightAt(wx, wz);
+          const k = (r * n + i) * 3;
+          part.pos[k] = wx; part.pos[k + 2] = wz;
+          if (h < LE) {                      // open water: flat, colour by depth
+            part.pos[k + 1] = -STEP_H - 0.08;
+            const dpt = Math.min(1, (LE - h) / (LE * 0.35 || 1));
+            part.col[k] = 0.25 - 0.09 * dpt;
+            part.col[k + 1] = 0.51 - 0.14 * dpt;
+            part.col[k + 2] = 0.65 - 0.15 * dpt;
+          } else {
+            const rel = (h - LE) / (1 - LE);
+            part.pos[k + 1] = rel * 50 * STEP_H - FARLOD_SINK;
+            farColor(rel, wx, wz, part.col, k);
+          }
+        }
+        farJob.row++;
+        continue;
+      }
+      // ring rows done: build indices (outer ring skips quads the inner covers)
+      const inner = farJob.ring > 0 ? FARLOD_RINGS[farJob.ring - 1].half : -1;
+      for (let z = 0; z < n - 1; z++)
+        for (let x = 0; x < n - 1; x++) {
+          if (inner > 0) {
+            const wx = farJob.cx - ring.half + x * ring.step;
+            const wz = farJob.cz - ring.half + z * ring.step;
+            if (wx >= farJob.cx - inner && wx + ring.step <= farJob.cx + inner &&
+                wz >= farJob.cz - inner && wz + ring.step <= farJob.cz + inner) continue;
+          }
+          const a = z * n + x;
+          part.idx.push(a, a + n, a + 1, a + 1, a + n, a + n + 1);
+        }
+      farJob.ring++; farJob.row = 0;
+      if (farJob.ring < FARLOD_RINGS.length) continue;
+      // all rings sampled: swap the meshes in
+      if (!farMat) {
+        farMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+        snowPatchUp(farMat, true);           // altitude snow + the shared tint/sat
+      }
+      const fresh = [];
+      for (const p of farJob.parts) {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.BufferAttribute(p.pos, 3));
+        g.setAttribute("color", new THREE.BufferAttribute(p.col, 3));
+        g.setIndex(p.idx);
+        const m = new THREE.Mesh(g, farMat);
+        m.frustumCulled = false;
+        m.renderOrder = -5;                  // under everything but the sky
+        scene.add(m);
+        fresh.push(m);
+      }
+      for (const m of farMeshes) { scene.remove(m); m.geometry.dispose(); }
+      farMeshes = fresh;
+      farCenter = { x: farJob.cx, z: farJob.cz };
+      farJob = null;
+    }
+  }
+  function syncFarLod() {
+    if (!world || !world.heightAt) return;
+    const qx = Math.round(player.x / FARLOD_CELL) * FARLOD_CELL;
+    const qz = Math.round(player.y / FARLOD_CELL) * FARLOD_CELL;
+    if ((!farCenter || farCenter.x !== qx || farCenter.z !== qz) &&
+        (!farJob || farJob.cx !== qx || farJob.cz !== qz)) startFarBuild(qx, qz);
+    if (farJob) stepFarBuild();
   }
 
   // sun glint on the sea backdrop: a long shimmering reflection path toward the
@@ -2173,7 +2411,7 @@ const R3D = (() => {
     if (typeof window !== "undefined") window._R3DScene = scene; // headless-test hook
     scene.background = new THREE.Color(SKY);
     scene.fog = new THREE.Fog(SKY, 28, 52);
-    camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
+    camera = new THREE.PerspectiveCamera(48, 1, 0.1, 1600);   // far covers the LOD horizon
     overlay = document.getElementById("overlay");
     octx = overlay.getContext("2d");
 
@@ -2201,6 +2439,8 @@ const R3D = (() => {
         ["gate_leaf", "City gate leaf"], ["ladder", "Ladder"], ["stairs", "Staircase"]])
         registerPlaceholder("spr:" + k, n, "structural billboard — tinted placeholder sprite");
     initSea();
+    initSkyDome();
+    initClouds();
     syncChunks();
     try { performance.mark("ef:firstChunks"); } catch (e) { /* boot beacon */ }
     resize();
@@ -4778,7 +5018,9 @@ const R3D = (() => {
     const cx = W / 2 + Math.tan(rel) / Math.tan(hFov / 2) * (W / 2);
     const cy = -H * 0.03;                             // centre just above the top edge
     const R = H * 0.55;
-    const a = duskW * (1 - 0.5 * Math.abs(rel) / (hFov * 0.85));
+    // fade out as the zoom-tilt brings the REAL sun (sky dome disc) into frame
+    const a = duskW * (1 - 0.5 * Math.abs(rel) / (hFov * 0.85)) * (1 - tiltK);
+    if (a < 0.02) return;
     octx.save();
     octx.globalCompositeOperation = "lighter";
     // wide ellipse (sunset light hugs the horizon), hot near-white core
@@ -5395,6 +5637,19 @@ const R3D = (() => {
       if (scene.fog) scene.fog.color.copy(scene.background);
       // sea glint: the sun's ground direction; strength peaks with the low sun
       glintUni.value.set(-sunState.dx, -sunState.dz, 0.9 * w, (now / 1000) % 3600);
+      // sky dome: horizon rides the fog colour, zenith keeps its own blue
+      // (dusty violet through the golden hour), and the sun sits at its true
+      // azimuth/elevation — a disc you can actually watch set at max zoom
+      if (skyMat) {
+        const su = skyMat.uniforms;
+        su.uHor.value.copy(scene.fog.color);
+        if (sunState.up) _zenTarget.setHex(ZEN_DAY).lerp(ZEN_DUSK_C, w);
+        else _zenTarget.setHex(ZEN_DAY).multiply(tc);
+        su.uZen.value.lerp(_zenTarget, k);
+        const eA = sunState.elev * Math.PI / 2, cE = Math.cos(eA);
+        su.uSunDir.value.set(-sunState.dx * cE, Math.sin(eA), -sunState.dz * cE).normalize();
+        su.uSunI.value = sunState.up ? (0.25 + 0.75 * w) * (1 - 0.85 * wxCloudNow) : 0;
+      }
     }
     // river flood: when the flood integral (weather.js) has genuinely moved,
     // adopt the new quantized bucket, drop the level/ground caches and queue
@@ -5431,7 +5686,10 @@ const R3D = (() => {
     // the camera-right axis (cos,0,-sin) so the lean stays screen-consistent at every
     // angle — Euler YXZ flipped the tilt sign on back-facing views (upside-down sprites).
     _qYaw.setFromAxisAngle(_up, camYaw);
-    _qTilt.setFromAxisAngle(_tiltAxis.set(cyw, 0, -sy), TILT);
+    // the sprite lean eases off as the zoom-tilt levels the camera — a full
+    // HD-2D lean against a near-horizontal view reads as sprites lying down
+    tiltK = tiltKFor(camZoom);
+    _qTilt.setFromAxisAngle(_tiltAxis.set(cyw, 0, -sy), TILT * (1 - 0.75 * tiltK));
     _bbQuat.multiplyQuaternions(_qTilt, _qYaw);
     // --- world + entities ---
     // wading in deep water sinks the body below the surface (playerSinkY:
@@ -5469,19 +5727,25 @@ const R3D = (() => {
     syncStructures();
     syncEntities();
     syncFlow();
+    syncFarLod();
+    syncClouds(wfog, dt);
     sweep();
     // --- place the camera exactly on its orbit circle (no chord dip = no nausea) ---
     const _cz = camZoom;
     const dist = 9.6 * _cz, hgt = 9.2 * _cz, fb = 0.5 * _cz;
     camera.position.set(followX + sy * dist, hgt + followY, followZ + cyw * dist);
     camPos.copy(camera.position);
-    camera.lookAt(followX + sy * fb, 0.4 + followY, followZ + cyw * fb);
+    // zoom-tilt: raising the aim point levels the view (~44° down at the
+    // default zoom → ~21° at max), bringing the horizon and sky into frame
+    camera.lookAt(followX + sy * fb, 0.4 + followY + 6.2 * _cz * tiltK, followZ + cyw * fb);
     // rain closes the fog in (a downpour swallows the horizon); overcast alone
-    // hazes it only slightly
+    // hazes it only slightly. The tilt pushes the fog far out so the far
+    // terrain ring reads as a hazy vista instead of a wall.
     const fogK = wfog ? Math.max(0.45, 1 - wfog.precip * 0.4 - wfog.cloud * 0.08) : 1;
     scene.fog.near = 28 * _cz * fogK;
-    scene.fog.far = 52 * _cz * fogK;
+    scene.fog.far = (52 * _cz + 380 * tiltK) * fogK;
     glintCamUni.value.copy(camera.position);   // glint path radiates from the eye
+    if (skyDome) skyDome.position.copy(camera.position);
     renderer.render(scene, camera);
     drawOverlay();
   }
@@ -5534,7 +5798,7 @@ const R3D = (() => {
       if (_shotRT) _shotRT.dispose();
       _shotRT = new THREE.WebGLRenderTarget(px, px);
     }
-    if (!_shotCam) _shotCam = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
+    if (!_shotCam) _shotCam = new THREE.PerspectiveCamera(38, 1, 0.1, 1600);
     const wx = tx + 0.5, wz = ty + 0.5;
     const base = liftAt(tx, ty);
     const a = yaw == null ? camYaw : yaw;
