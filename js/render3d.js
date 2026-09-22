@@ -122,6 +122,11 @@ const R3D = (() => {
   // sea sun-glint uniforms: xy = ground dir TOWARD the sun, z = strength, w = time (s)
   const glintUni = { value: new THREE.Vector4(-0.7, -0.55, 0, 0) };
   const glintCamUni = { value: new THREE.Vector3() };
+  // the sea backdrop's haze ramp: distance from the eye (world units) over
+  // which the plane fades IN — so it reads as fog thickening toward the
+  // horizon, invisible up close where the real water tiles show. Tracks the
+  // scene fog's near/far each frame (see the frame loop).
+  const seaHazeUni = { value: new THREE.Vector2(28, 52) };
   // ---- zoom-tilt: zoomed out, the camera levels toward the horizon ----
   // The classic orbit pitches ~44° down, so even the top of the screen looks
   // 20° BELOW horizontal — distant mountains and the sky are mathematically
@@ -835,11 +840,22 @@ const R3D = (() => {
   }
 
   function initSea() {
-    const seaMat = new THREE.MeshBasicMaterial({ color: 0x3c7c9e });
-    seaGlintPatch(seaMat);   // sky-temperature tint + the sun's reflection path
+    // The distant-sea backdrop — "the horizon is never void". It is DRAWN as
+    // atmospheric HAZE, not an opaque slab: transparent, its alpha ramping
+    // from 0 up close to 1 at the fog horizon (seaGlintPatch's uHaze), so the
+    // real textured `bg_1_*` water tiles own the near field and the plane only
+    // materialises as soft haze toward the horizon and through the far-LOD's
+    // open-water holes. Previously it was an opaque plane z-fighting the
+    // shallow tiles — a flat coloured sheet that read as a wall, not fog.
+    // depthWrite off + a very negative renderOrder keep it behind everything.
+    const seaMat = new THREE.MeshBasicMaterial({
+      color: 0x3c7c9e, transparent: true, depthWrite: false,
+    });
+    seaGlintPatch(seaMat);   // sky-temperature tint, the sun's reflection path + haze alpha
     sea = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200), seaMat);
     sea.rotation.x = -Math.PI / 2;
     sea.position.y = -STEP_H - 0.12;
+    sea.renderOrder = -9;    // behind the water tiles (0) and far LOD (-5), in front of the sky dome (-10)
     scene.add(sea);
   }
 
@@ -1220,11 +1236,12 @@ void main() {
       sh.uniforms.uSat = satUni;
       sh.uniforms.uGlint = glintUni;
       sh.uniforms.uGlintCam = glintCamUni;
+      sh.uniforms.uHaze = seaHazeUni;
       sh.vertexShader = sh.vertexShader
         .replace("#include <common>", "#include <common>\nvarying vec3 vGlintP;")
         .replace("#include <begin_vertex>", "#include <begin_vertex>\nvGlintP = (modelMatrix * vec4(position, 1.0)).xyz;");
       sh.fragmentShader = sh.fragmentShader
-        .replace("#include <common>", "#include <common>\nvarying vec3 vGlintP;\nuniform vec4 uGlint;\nuniform vec3 uGlintCam;" + TINT_DECL)
+        .replace("#include <common>", "#include <common>\nvarying vec3 vGlintP;\nuniform vec4 uGlint;\nuniform vec3 uGlintCam;\nuniform vec2 uHaze;" + TINT_DECL)
         .replace("#include <dithering_fragment>", `#include <dithering_fragment>
       vec2 toFrag = normalize(vGlintP.xz - uGlintCam.xz);
       float align = max(0.0, dot(toFrag, uGlint.xy));
@@ -1232,7 +1249,13 @@ void main() {
       vec2 gc = floor(vGlintP.xz * 3.0);
       float gh = fract(sin(dot(gc, vec2(127.1, 311.7))) * 43758.5453);
       float tw = 0.55 + 0.45 * sin(uGlint.w * 6.2832 * (0.35 + gh) + gh * 40.0);
-      gl_FragColor.rgb += vec3(1.0, 0.82, 0.55) * streak * uGlint.z * tw;` + TINT_GLSL);
+      gl_FragColor.rgb += vec3(1.0, 0.82, 0.55) * streak * uGlint.z * tw;
+      // HAZE alpha: the plane is a distant-sea backdrop, not a solid slab —
+      // fade it from fully transparent up close (the real water tiles own the
+      // near field) to opaque at the fog horizon, so it reads as atmospheric
+      // haze thickening with distance instead of an opaque coloured wall.
+      float hazeD = distance(vGlintP, uGlintCam);
+      gl_FragColor.a *= smoothstep(uHaze.x, uHaze.y, hazeD);` + TINT_GLSL);
     };
   }
 
@@ -6524,6 +6547,10 @@ void main() {
     const fogK = wfog ? Math.max(0.45, 1 - wfog.precip * 0.4 - wfog.cloud * 0.08) : 1;
     scene.fog.near = 28 * _cz * fogK;
     scene.fog.far = (52 * _cz + 380 * tiltK) * fogK;
+    // the sea-haze plane fades in over the same range the fog thickens, so the
+    // distant sea and the fogged near water meet seamlessly and the backdrop
+    // never reads as a hard opaque band
+    seaHazeUni.value.set(scene.fog.near, scene.fog.far);
     glintCamUni.value.copy(camera.position);   // glint path radiates from the eye
     if (skyDome) skyDome.position.copy(camera.position);
     renderer.render(scene, camera);
