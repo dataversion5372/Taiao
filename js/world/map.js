@@ -320,11 +320,6 @@ function createWorldMap(ctx) {
         ctx.fillRect(ox-4,oy+2,8,3); ctx.strokeRect(ox-4,oy+2,8,3);
         ctx.fillRect(ox-1.5,oy-3,3,5);
         ctx.beginPath(); ctx.arc(ox,oy-4.5,1.8,0,Math.PI*2); ctx.fill(); break;
-      case 'barrow':
-        ctx.fillStyle='#7a6a4c'; ctx.strokeStyle='#3a352a'; ctx.lineWidth=1.2;
-        ctx.beginPath(); ctx.ellipse(ox,oy,9,6,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle='#5c5240'; ctx.beginPath(); ctx.ellipse(ox,oy-1,5,3,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#151210'; ctx.fillRect(ox-1.5,oy+3,3,3); break;
       case 'shipwreck':
         ctx.strokeStyle='#4a3520'; ctx.lineWidth=2.2;
         ctx.beginPath(); ctx.arc(ox,oy-3,8,0.35,Math.PI-0.35); ctx.stroke();

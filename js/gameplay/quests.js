@@ -18,7 +18,8 @@
     const mk = (id, name, base, tint, examine) => {
       if (ITEMS[id]) return;
       let icon = base;
-      if (typeof defineIcon === "function" && SPR[base]) { defineIcon("iq_" + id, base, tint, ""); icon = "iq_" + id; }
+      if (SPR["iq_" + id]) icon = "iq_" + id;   // bespoke art (quest-icons-data.js)
+      else if (typeof defineIcon === "function" && SPR[base]) { defineIcon("iq_" + id, base, tint, ""); icon = "iq_" + id; }
       ITEMS[id] = { name, icon, value: 0, questItem: true, stack: true };
       if (typeof EXAMINE !== "undefined") EXAMINE[id] = examine;
       if (typeof registerPlaceholder === "function") registerPlaceholder(id, name, "quest item — tinted placeholder");
@@ -90,7 +91,44 @@
   }
 
   const greet = rng => pick(rng, ["Well met, traveller.", "Ah, a brave face at last.", "You there — yes, you.", "Fortune sends you my way."]);
-  const placeName = rng => pick(rng, ["the Sunken Shrine", "Greywater Hollow", "the Old Mine Road", "Thornreach", "the Amber Vale", "Whisperwood", "the Broken Tower", "the Gloaming Stair", "Saltmere", "the Hollow Oak"]);
+  // fallback fantasy names (used only when no real POI is in range), flavoured
+  // by the biome the invented spot actually lands in
+  const PLACE_POOLS = {
+    forest: ["Whisperwood", "the Hollow Oak", "the Mossgrave Clearing", "Thornreach", "the Wardens' Bough"],
+    cold: ["the Gloaming Stair", "Frostwatch Cairn", "the White Fell", "Winterhollow"],
+    dry: ["the Amber Vale", "Sunbleach Flats", "the Cracked Basin", "Old Kiln Waste"],
+    wet: ["Saltmere", "Greywater Hollow", "the Sunken Shrine", "Eelrun Marsh"],
+    rock: ["the Broken Tower", "the Old Mine Road", "Gullscar Bluff", "the Toppled Gate"],
+    plain: ["the Wanderer's Milestone", "Longgrass Barrow", "the Shepherd's Ring", "Cartwheel Rise"],
+  };
+  function placeName(rng, x, y) {
+    let pool = PLACE_POOLS.plain;
+    try {
+      const b = (typeof world !== "undefined" && world.biomeNameAt) ? (world.biomeNameAt(x, y) || "") : "";
+      const s = b.toLowerCase();
+      pool = /forest|wood|jungle|grove|mushroom/.test(s) ? PLACE_POOLS.forest :
+        /snow|tundra|glacier|frost|ice/.test(s) ? PLACE_POOLS.cold :
+        /desert|savanna|bone|ash|volcan|waste/.test(s) ? PLACE_POOLS.dry :
+        /swamp|marsh|bog|lake|coast|beach|sea|river/.test(s) ? PLACE_POOLS.wet :
+        /mountain|rock|crag|hill|crystal|ruin/.test(s) ? PLACE_POOLS.rock : PLACE_POOLS.plain;
+    } catch (e) { /* pure-noise query only; fall through */ }
+    return pick(rng, pool);
+  }
+  // a REAL point of interest rMin..rMax game tiles from (gx,gy) — quests send
+  // the player to places that actually exist (POI coords are map-scale, ×2)
+  function pickPoi(gx, gy, rng, rMin, rMax) {
+    if (!(typeof world !== "undefined" && world.poisNearForMap)) return null;
+    let pois = [];
+    try {
+      const mr = rMax / 2;
+      pois = world.poisNearForMap(gx / 2 - mr, gy / 2 - mr, gx / 2 + mr, gy / 2 + mr, 0) || [];
+    } catch (e) { return null; }
+    const good = pois
+      .map(p => ({ type: p.type, name: p.name, tx: Math.round(p.x * 2), ty: Math.round(p.y * 2), d: Math.hypot(p.x * 2 - gx, p.y * 2 - gy) }))
+      .filter(p => p.name && p.d >= rMin && p.d <= rMax);
+    if (!good.length) return null;
+    return good[Math.floor(rng() * good.length)];
+  }
 
   // ---- generate the quest a giver offers (deterministic per giver + series) ----
   function genQuest(giver, series) {
@@ -116,12 +154,33 @@
     const dist = tv ? Math.round(Math.hypot(tv.x - gx, tv.y - gy)) : 120;
 
     // ---- pick a TEMPLATE ----
-    const templates = ["relic", "courier", "hunt", "provisions"];
-    const tpl = pick(rng, templates.filter(t => (t !== "relic" && t !== "courier") || contact)) || "hunt";
+    const poi = pickPoi(gx, gy, rng, 200, 900);
+    const templates = ["relic", "courier", "hunt", "provisions", "expedition", "patrol"];
+    const tpl = pick(rng, templates.filter(t =>
+      ((t !== "relic" && t !== "courier") || contact) &&
+      (t !== "expedition" || poi) && (t !== "patrol" || tv))) || "hunt";
 
     const steps = [];
     let name, intro, giveAtStart = null;
-    if (tpl === "relic" && contact && room) {
+    if (tpl === "expedition" && poi) {
+      name = pick(rng, [`The road to ${poi.name}`, `What stirs at ${poi.name}`, `An eye on ${poi.name}`]);
+      intro = `"${greet(rng)} Travellers whisper of trouble out by ${poi.name}. Go and see it with your own eyes — and thin out whatever ${monName.toLowerCase()}s you find on the way."`;
+      steps.push({ type: "reach", x: poi.tx, y: poi.ty, r: 10, desc: `Scout ${poi.name}.` });
+      steps.push({ type: "slay", mon: monK, n: nSlay, got: 0, desc: `Put down ${nSlay} ${monName}${nSlay > 1 ? "s" : ""} while you're out there.` });
+      steps.push({ type: "talk", x: gx, y: gy, r: 6, giver: true, desc: `Bring word back to ${gname}.` });
+    } else if (tpl === "patrol" && tv) {
+      const wp = k => ({
+        x: Math.round(gx + (tv.x - gx) * k + (rng() - 0.5) * 40),
+        y: Math.round(gy + (tv.y - gy) * k + (rng() - 0.5) * 40),
+      });
+      const w1 = wp(0.4), w2 = wp(0.75);
+      name = pick(rng, [`The ${tvName} patrol`, `Walking the ${tvName} road`, `Eyes on the road`]);
+      intro = `"${greet(rng)} The road to ${tvName} has gone quiet — too quiet. Walk it end to end, deal with any ${monName.toLowerCase()}s, and report what you see."`;
+      steps.push({ type: "reach", x: w1.x, y: w1.y, r: 12, desc: `Patrol the first stretch of the ${tvName} road.` });
+      steps.push({ type: "reach", x: w2.x, y: w2.y, r: 12, desc: `Push on along the road toward ${tvName}.` });
+      steps.push({ type: "slay", mon: monK, n: Math.max(2, Math.floor(nSlay * 0.75)), got: 0, desc: `Deal with the ${monName.toLowerCase()}s you flush out: slay ${Math.max(2, Math.floor(nSlay * 0.75))}.` });
+      steps.push({ type: "talk", x: gx, y: gy, r: 6, giver: true, desc: `Report back to ${gname}.` });
+    } else if (tpl === "relic" && contact && room) {
       name = pick(rng, [`The sealed room of ${tvName}`, `What lies locked away`, `The ${tvName} vault`]);
       intro = `"${greet(rng)} Something of mine is locked away in ${tvName}, and the road there has grown dangerous. Help me get it back."`;
       steps.push({ type: "talk", x: contact.cx, y: contact.cy, r: 6, town: tvName, desc: `Speak with my old friend in ${tvName}.` });
@@ -159,7 +218,19 @@
     const xp = { [sk1]: Math.round((150 + rng() * 350 + effort * 60) * tier) };
     if (rng() < 0.4) { const sk2 = pick(rng, REWARD_SKILLS.filter(s => s !== sk1 && (typeof SKILLS === "undefined" || SKILLS.includes(s)))); if (sk2) xp[sk2] = Math.round(xp[sk1] * 0.4); }
     const rewItem = pick(rng, REWARD_ITEMS.filter(exists)) || "potion_health";
-    const reveal = rng() < 0.75 ? { x: gx + (rng() < 0.5 ? 1 : -1) * (500 + Math.floor(rng() * 1100)), y: gy + (rng() < 0.5 ? 1 : -1) * (500 + Math.floor(rng() * 1100)), name: placeName(rng) } : null;
+    // revealed places point at REAL landmarks when one is in range (the marker
+    // leads to an actual shrine/ruin/camp, and a first-visit cache waits there
+    // — see tick()); the invented-name fallback still gets its cache
+    let reveal = null;
+    if (rng() < 0.75) {
+      const rp = pickPoi(gx, gy, rng, 500, 1600);
+      if (rp) reveal = { x: rp.tx, y: rp.ty, name: rp.name };
+      else {
+        const rx = gx + (rng() < 0.5 ? 1 : -1) * (500 + Math.floor(rng() * 1100));
+        const ry = gy + (rng() < 0.5 ? 1 : -1) * (500 + Math.floor(rng() * 1100));
+        reveal = { x: rx, y: ry, name: placeName(rng, rx, ry) };
+      }
+    }
 
     return {
       id: qid, tpl, tier, name, intro, giveAtStart,
@@ -294,6 +365,25 @@
         s.done = true; advance(q); if (q.step >= q.steps.length) complete(q); if (typeof saveGame === "function") saveGame();
       } else if (s.type === "reach" && typeof player !== "undefined" && near(s, player.x, player.y)) {
         s.done = true; advance(q); if (q.step >= q.steps.length) complete(q); if (typeof saveGame === "function") saveGame();
+      }
+    }
+    // first visit to a revealed place: a traveller's cache waits there, so the
+    // map marker a quest granted is a real payoff, not just a label
+    if (st.revealed.length && typeof player !== "undefined") {
+      for (const rv of st.revealed) {
+        const fk = "cache:" + rv.x + "," + rv.y;
+        if (st.flags[fk]) continue;
+        if (Math.abs(player.x - rv.x) > 10 || Math.abs(player.y - rv.y) > 10) continue;
+        st.flags[fk] = 1;
+        const rng = rngFrom(qhash(fk));
+        const coins = 60 + Math.floor(rng() * 120);
+        if (typeof addItem === "function") addItem("coins", coins);
+        let extraStr = "";
+        const extra = pick(rng, REWARD_ITEMS.filter(exists));
+        if (extra && rng() < 0.8 && typeof addItem === "function") { addItem(extra, 1); extraStr = ` and ${(ITEMS[extra] || {}).name || extra}`; }
+        if (typeof log === "function") log(`You arrive at ${rv.name}. Tucked out of the weather you find a traveller's cache: ${coins} coins${extraStr}.`, "gold");
+        if (typeof sfx === "function") sfx("quest", 0.6);
+        if (typeof saveGame === "function") saveGame();
       }
     }
   }

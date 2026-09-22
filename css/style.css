@@ -543,6 +543,7 @@ input, textarea { user-select: text; -webkit-user-select: text; -moz-user-select
    native-resolution; in-world labels are canvas-drawn and scale with
    camZoom instead). #worldmap stays out too: its labels are canvas-drawn. */
 #sidebar, #log, #ctxmenu, #hovertext,
-#charselect, #skillguide, #bestiary, #questlog, #trade {
+#charselect, #skillguide, #bestiary, #questlog, #trade,
+#npcchat, #chantbar, #objedit, #wizardlg, #sharewin, #splitbar {
   zoom: var(--ui-scale, 1);
 }

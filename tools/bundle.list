@@ -6,9 +6,6 @@ js/sprites/characters-data.js
 js/sprites/outfit-manifest.js
 js/sprites/outfit-sheet-data.js
 js/sprites/objects-data.js
-js/sprites/tree-voxels-data.js
-js/sprites/ore-voxels-data.js
-js/sprites/forage-voxels-data.js
 js/sprites/mix-npc-data.js
 js/data.js
 js/character-stats.js
@@ -166,11 +163,14 @@ js/sprites/textile-paper-icons-data.js
 js/sprites/vial-icon-data.js
 js/sprites/reagent-icons-data.js
 js/sprites/rubber-icons-data.js
+js/sprites/quest-icons-data.js
+js/sprites/structure-sprites-data.js
 js/sprites/object-icons-hook.js
 # packed small-sheet atlas repoint — must stay the LAST js/sprites entry
 js/sprites/sheet-pack-data.js
 js/gameplay/bestiary.js
 js/gameplay/objedit.js
+js/gameplay/npc-starter-roles.js
 js/gameplay/quests.js
 js/gameplay/tutorial.js
 js/gameplay/daynight.js

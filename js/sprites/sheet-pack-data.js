@@ -6,45 +6,47 @@
 "use strict";
 (function () {
   if (typeof ASSET_DATA === "undefined" || typeof SHEET_OFFSET === "undefined") return;
-  var A = "assets/sheets/icon-pack.50e8ece8.webp";
-  ASSET_DATA["as"] = A; SHEET_OFFSET["as"] = { ox: 1286, oy: 2126 };   // 512x64 assets/sheet-src/as-sheep-dir.webp
-  ASSET_DATA["ay"] = A; SHEET_OFFSET["ay"] = { ox: 1542, oy: 1610 };   // 256x256 assets/sheet-src/ay-alloy-icons.webp
-  ASSET_DATA["bi"] = A; SHEET_OFFSET["bi"] = { ox: 258, oy: 1868 };   // 512x192 assets/sheet-src/bi-boat-icons.webp
-  ASSET_DATA["bp"] = A; SHEET_OFFSET["bp"] = { ox: 1222, oy: 2320 };   // 128x64 assets/sheet-src/bp-container-icons.webp
-  ASSET_DATA["cb"] = A; SHEET_OFFSET["cb"] = { ox: 1612, oy: 2320 };   // 64x64 assets/sheet-src/cb-copper-bar-icon.webp
-  ASSET_DATA["ev"] = A; SHEET_OFFSET["ev"] = { ox: 1678, oy: 2320 };   // 64x64 assets/sheet-src/ev-vial-icon.webp
-  ASSET_DATA["fb"] = A; SHEET_OFFSET["fb"] = { ox: 386, oy: 514 };   // 512x256 assets/sheet-src/fb-fibre-icons.webp
-  ASSET_DATA["fg"] = A; SHEET_OFFSET["fg"] = { ox: 900, oy: 514 };   // 512x256 assets/sheet-src/fg-forage-icons.webp
-  ASSET_DATA["fi"] = A; SHEET_OFFSET["fi"] = { ox: 1414, oy: 514 };   // 512x256 assets/sheet-src/fi-fruit-icons.webp
-  ASSET_DATA["fk"] = A; SHEET_OFFSET["fk"] = { ox: 772, oy: 1868 };   // 512x192 assets/sheet-src/fk-fish-icons.webp
-  ASSET_DATA["fp"] = A; SHEET_OFFSET["fp"] = { ox: 1744, oy: 2320 };   // 64x64 assets/sheet-src/fp-fishers-soap-icon.webp
-  ASSET_DATA["fr"] = A; SHEET_OFFSET["fr"] = { ox: 1286, oy: 1868 };   // 512x192 assets/sheet-src/fr-fish-icons.webp
+  var A = "assets/sheets/icon-pack.72665f98.webp";
+  ASSET_DATA["as"] = A; SHEET_OFFSET["as"] = { ox: 772, oy: 2320 };   // 512x64 assets/sheet-src/as-sheep-dir.webp
+  ASSET_DATA["ay"] = A; SHEET_OFFSET["ay"] = { ox: 514, oy: 1868 };   // 256x256 assets/sheet-src/ay-alloy-icons.webp
+  ASSET_DATA["bi"] = A; SHEET_OFFSET["bi"] = { ox: 1030, oy: 1868 };   // 512x192 assets/sheet-src/bi-boat-icons.webp
+  ASSET_DATA["bp"] = A; SHEET_OFFSET["bp"] = { ox: 1030, oy: 2450 };   // 128x64 assets/sheet-src/bp-container-icons.webp
+  ASSET_DATA["cb"] = A; SHEET_OFFSET["cb"] = { ox: 1420, oy: 2450 };   // 64x64 assets/sheet-src/cb-copper-bar-icon.webp
+  ASSET_DATA["ev"] = A; SHEET_OFFSET["ev"] = { ox: 1486, oy: 2450 };   // 64x64 assets/sheet-src/ev-vial-icon.webp
+  ASSET_DATA["fb"] = A; SHEET_OFFSET["fb"] = { ox: 836, oy: 514 };   // 512x256 assets/sheet-src/fb-fibre-icons.webp
+  ASSET_DATA["fg"] = A; SHEET_OFFSET["fg"] = { ox: 1350, oy: 514 };   // 512x256 assets/sheet-src/fg-forage-icons.webp
+  ASSET_DATA["fi"] = A; SHEET_OFFSET["fi"] = { ox: 0, oy: 836 };   // 512x256 assets/sheet-src/fi-fruit-icons.webp
+  ASSET_DATA["fk"] = A; SHEET_OFFSET["fk"] = { ox: 0, oy: 2126 };   // 512x192 assets/sheet-src/fk-fish-icons.webp
+  ASSET_DATA["fp"] = A; SHEET_OFFSET["fp"] = { ox: 1552, oy: 2450 };   // 64x64 assets/sheet-src/fp-fishers-soap-icon.webp
+  ASSET_DATA["fr"] = A; SHEET_OFFSET["fr"] = { ox: 514, oy: 2126 };   // 512x192 assets/sheet-src/fr-fish-icons.webp
   ASSET_DATA["fs"] = A; SHEET_OFFSET["fs"] = { ox: 1414, oy: 0 };   // 512x320 assets/sheet-src/fs-seed-icons.webp
-  ASSET_DATA["ft"] = A; SHEET_OFFSET["ft"] = { ox: 900, oy: 2320 };   // 320x64 assets/sheet-src/ft-fishing-icons.webp
-  ASSET_DATA["fu"] = A; SHEET_OFFSET["fu"] = { ox: 0, oy: 836 };   // 512x256 assets/sheet-src/fu-fulling-icons.webp
+  ASSET_DATA["ft"] = A; SHEET_OFFSET["ft"] = { ox: 386, oy: 2450 };   // 320x64 assets/sheet-src/ft-fishing-icons.webp
+  ASSET_DATA["fu"] = A; SHEET_OFFSET["fu"] = { ox: 514, oy: 836 };   // 512x256 assets/sheet-src/fu-fulling-icons.webp
   ASSET_DATA["gc"] = A; SHEET_OFFSET["gc"] = { ox: 514, oy: 0 };   // 512x384 assets/sheet-src/gc-garment-icons.webp
-  ASSET_DATA["gm"] = A; SHEET_OFFSET["gm"] = { ox: 514, oy: 836 };   // 512x256 assets/sheet-src/gm-gem-icons.webp
-  ASSET_DATA["hb"] = A; SHEET_OFFSET["hb"] = { ox: 1028, oy: 836 };   // 512x256 assets/sheet-src/hb-herb-icons.webp
-  ASSET_DATA["hi"] = A; SHEET_OFFSET["hi"] = { ox: 0, oy: 1094 };   // 512x256 assets/sheet-src/hi-hide-icons.webp
-  ASSET_DATA["jw"] = A; SHEET_OFFSET["jw"] = { ox: 514, oy: 1094 };   // 512x256 assets/sheet-src/jw-jewelry-icons.webp
-  ASSET_DATA["lb"] = A; SHEET_OFFSET["lb"] = { ox: 1028, oy: 1094 };   // 512x256 assets/sheet-src/lb-lb-icons.webp
-  ASSET_DATA["lt"] = A; SHEET_OFFSET["lt"] = { ox: 0, oy: 1352 };   // 512x256 assets/sheet-src/lt-leather-icons.webp
-  ASSET_DATA["mb"] = A; SHEET_OFFSET["mb"] = { ox: 514, oy: 1352 };   // 512x256 assets/sheet-src/mb-bar-icons.webp
-  ASSET_DATA["mi"] = A; SHEET_OFFSET["mi"] = { ox: 0, oy: 514 };   // 384x320 assets/sheet-src/mi-map-icon-atlas.webp
+  ASSET_DATA["gm"] = A; SHEET_OFFSET["gm"] = { ox: 1028, oy: 836 };   // 512x256 assets/sheet-src/gm-gem-icons.webp
+  ASSET_DATA["hb"] = A; SHEET_OFFSET["hb"] = { ox: 0, oy: 1094 };   // 512x256 assets/sheet-src/hb-herb-icons.webp
+  ASSET_DATA["hi"] = A; SHEET_OFFSET["hi"] = { ox: 514, oy: 1094 };   // 512x256 assets/sheet-src/hi-hide-icons.webp
+  ASSET_DATA["jw"] = A; SHEET_OFFSET["jw"] = { ox: 1028, oy: 1094 };   // 512x256 assets/sheet-src/jw-jewelry-icons.webp
+  ASSET_DATA["lb"] = A; SHEET_OFFSET["lb"] = { ox: 0, oy: 1352 };   // 512x256 assets/sheet-src/lb-lb-icons.webp
+  ASSET_DATA["lt"] = A; SHEET_OFFSET["lt"] = { ox: 514, oy: 1352 };   // 512x256 assets/sheet-src/lt-leather-icons.webp
+  ASSET_DATA["mb"] = A; SHEET_OFFSET["mb"] = { ox: 1028, oy: 1352 };   // 512x256 assets/sheet-src/mb-bar-icons.webp
+  ASSET_DATA["mi"] = A; SHEET_OFFSET["mi"] = { ox: 450, oy: 514 };   // 384x320 assets/sheet-src/mi-map-icon-atlas.webp
   ASSET_DATA["mi2"] = A; SHEET_OFFSET["mi2"] = { ox: 1028, oy: 0 };   // 384x384 assets/sheet-src/mi2-map-icon-atlas-2.webp
-  ASSET_DATA["ml"] = A; SHEET_OFFSET["ml"] = { ox: 1028, oy: 1352 };   // 512x256 assets/sheet-src/ml-milling-icons.webp
-  ASSET_DATA["ms"] = A; SHEET_OFFSET["ms"] = { ox: 1810, oy: 2320 };   // 64x64 assets/sheet-src/ms-sheep-shorn.webp
-  ASSET_DATA["mt"] = A; SHEET_OFFSET["mt"] = { ox: 0, oy: 1610 };   // 512x256 assets/sheet-src/mt-malt-icons.webp
-  ASSET_DATA["mx"] = A; SHEET_OFFSET["mx"] = { ox: 0, oy: 1868 };   // 256x256 assets/sheet-src/mx-mi-icons.webp
-  ASSET_DATA["nl"] = A; SHEET_OFFSET["nl"] = { ox: 1028, oy: 2126 };   // 256x128 assets/sheet-src/nl-nz-log-icons.webp
-  ASSET_DATA["pd"] = A; SHEET_OFFSET["pd"] = { ox: 514, oy: 2126 };   // 512x128 assets/sheet-src/pd-pauldron-icons.webp
-  ASSET_DATA["rb"] = A; SHEET_OFFSET["rb"] = { ox: 0, oy: 2320 };   // 512x64 assets/sheet-src/rb-rubber-icons.webp
-  ASSET_DATA["rn"] = A; SHEET_OFFSET["rn"] = { ox: 1352, oy: 2320 };   // 128x64 assets/sheet-src/rn-rn-icons.webp
-  ASSET_DATA["ru"] = A; SHEET_OFFSET["ru"] = { ox: 514, oy: 1610 };   // 512x256 assets/sheet-src/ru-rune-icons.webp
-  ASSET_DATA["sk"] = A; SHEET_OFFSET["sk"] = { ox: 1482, oy: 2320 };   // 128x64 assets/sheet-src/sk-shrimp-icons.webp
-  ASSET_DATA["sp"] = A; SHEET_OFFSET["sp"] = { ox: 1028, oy: 1610 };   // 512x256 assets/sheet-src/sp-spinning-icons.webp
+  ASSET_DATA["ml"] = A; SHEET_OFFSET["ml"] = { ox: 0, oy: 1610 };   // 512x256 assets/sheet-src/ml-milling-icons.webp
+  ASSET_DATA["ms"] = A; SHEET_OFFSET["ms"] = { ox: 1618, oy: 2450 };   // 64x64 assets/sheet-src/ms-sheep-shorn.webp
+  ASSET_DATA["mt"] = A; SHEET_OFFSET["mt"] = { ox: 514, oy: 1610 };   // 512x256 assets/sheet-src/mt-malt-icons.webp
+  ASSET_DATA["mx"] = A; SHEET_OFFSET["mx"] = { ox: 772, oy: 1868 };   // 256x256 assets/sheet-src/mx-mi-icons.webp
+  ASSET_DATA["nl"] = A; SHEET_OFFSET["nl"] = { ox: 514, oy: 2320 };   // 256x128 assets/sheet-src/nl-nz-log-icons.webp
+  ASSET_DATA["pd"] = A; SHEET_OFFSET["pd"] = { ox: 0, oy: 2320 };   // 512x128 assets/sheet-src/pd-pauldron-icons.webp
+  ASSET_DATA["qd"] = A; SHEET_OFFSET["qd"] = { ox: 0, oy: 514 };   // 448x320 assets/sheet-src/qd-quest-icons.webp
+  ASSET_DATA["rb"] = A; SHEET_OFFSET["rb"] = { ox: 1286, oy: 2320 };   // 512x64 assets/sheet-src/rb-rubber-icons.webp
+  ASSET_DATA["rn"] = A; SHEET_OFFSET["rn"] = { ox: 1160, oy: 2450 };   // 128x64 assets/sheet-src/rn-rn-icons.webp
+  ASSET_DATA["ru"] = A; SHEET_OFFSET["ru"] = { ox: 1028, oy: 1610 };   // 512x256 assets/sheet-src/ru-rune-icons.webp
+  ASSET_DATA["sb"] = A; SHEET_OFFSET["sb"] = { ox: 708, oy: 2450 };   // 320x64 assets/sheet-src/sb-structure-sprites.webp
+  ASSET_DATA["sk"] = A; SHEET_OFFSET["sk"] = { ox: 1290, oy: 2450 };   // 128x64 assets/sheet-src/sk-shrimp-icons.webp
+  ASSET_DATA["sp"] = A; SHEET_OFFSET["sp"] = { ox: 0, oy: 1868 };   // 512x256 assets/sheet-src/sp-spinning-icons.webp
   ASSET_DATA["tp"] = A; SHEET_OFFSET["tp"] = { ox: 0, oy: 0 };   // 512x512 assets/sheet-src/tp-textile-paper-icons.webp
-  ASSET_DATA["wc"] = A; SHEET_OFFSET["wc"] = { ox: 1876, oy: 2320 };   // 64x64 assets/sheet-src/wc-watering-can-icon.webp
-  ASSET_DATA["wd"] = A; SHEET_OFFSET["wd"] = { ox: 0, oy: 2126 };   // 512x192 assets/sheet-src/wd-wild-dir.webp
-  ASSET_DATA["wt"] = A; SHEET_OFFSET["wt"] = { ox: 514, oy: 2320 };   // 384x64 assets/sheet-src/wt-world-tiles.webp
+  ASSET_DATA["wc"] = A; SHEET_OFFSET["wc"] = { ox: 1684, oy: 2450 };   // 64x64 assets/sheet-src/wc-watering-can-icon.webp
+  ASSET_DATA["wd"] = A; SHEET_OFFSET["wd"] = { ox: 1028, oy: 2126 };   // 512x192 assets/sheet-src/wd-wild-dir.webp
+  ASSET_DATA["wt"] = A; SHEET_OFFSET["wt"] = { ox: 0, oy: 2450 };   // 384x64 assets/sheet-src/wt-world-tiles.webp
 })();

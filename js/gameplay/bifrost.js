@@ -1,7 +1,8 @@
 // ===== Taiao — the Bifrost crossing (Tūhura Isle graduation cinematic) =====
 // Sigrid's wayfinding song calls down a pillar of light and lifts the player
-// clean out of the world. ONE continuous camera pull — no whiteout cut — sells the
-// illusion that every point of the mandelbrot holds an entire vast world:
+// clean out of the world. ONE continuous camera pull — no whiteout cut — the
+// isle falls away to a single star in an endless night sky, and another star
+// grows into the whole wide world:
 //
 //   BEAM     the sidebar clears, the pillar swells, and the LIVE camera climbs
 //            to RISE_ZOOM. The character is repainted centre-screen at a FIXED
@@ -11,18 +12,15 @@
 //            frames: the screenshots shrink inside a macro-tile bake of the
 //            whole isle, inside a painted endless ocean. The isle becomes a
 //            speck on open water. (The silent teleport fires here, hidden
-//            under the opaque painting, so Newhaven warms up for ~26s.)
-//   MELT     the XaoS zoomer (libs/xaos/xaos.js — the vendored GPL Hubička
-//            engine) fades in beneath, zooming OUT from seahorse valley; the
-//            ocean disc shrinks LOCKED to the fractal's own zoom rate behind a
-//            radial dissolve, so the sea's edges melt into filaments and the
-//            island/ocean recedes to a speck in the set's background.
-//   WIDE     the whole mandelbrot; the zoom-out eases off.
-//   PAN      the view drifts across the set toward elephant valley.
-//   DIVE     zoom IN on a new speck — which grows into the WORLD MAP seen from
+//            under the opaque painting, so Newhaven warms up for ~20s.)
+//   DISSOLVE streaking starlight fades in beneath; the ocean disc's rim
+//            dissolves into the night as the pull keeps accelerating, and the
+//            isle recedes to one departing star among the streaks.
+//   DRIFT    open sky: the character sails the dark between worlds.
+//   DIVE     a new mote of light grows dead ahead — the WORLD MAP seen from
 //            ~0.01 px/tile (a pre-baked panorama ~220k tiles across: flat
 //            classify colours sharpened by step-64 worker macros), proving the
-//            new speck holds a world as vast as the one you left.
+//            new star holds a world as vast as the one you left.
 //   FALL     the map zooms 0.01 → 14 into Newhaven — far bake, then live
 //            streamed macro tiles — and the character descends into the plaza.
 //
@@ -37,13 +35,12 @@
 // PRE-RENDERED: everything from T_BEAM on ships as a baked video
 // (assets/bifrost.webm, produced by tools/record_bifrost.js) — at runtime the
 // game only plays the video and composites the live screenshots + the
-// player's character on top, so no fractal or macro baking runs mid-game.
+// player's character on top, so no macro baking runs mid-game.
 // The full procedural painter is kept below: it IS the offline recorder, and
 // it takes over automatically as a fallback when the asset is missing/slow.
 //
 // Fail-safe: every phase is wrapped; any error (or Escape after a few seconds)
-// jumps to the landing so a player can never be stranded mid-sky. If XaoS
-// fails to load, the void falls back to streaking starlight; if a canvas
+// jumps to the landing so a player can never be stranded mid-sky. If a canvas
 // screenshot comes back blank it is simply skipped (the isle bake covers).
 "use strict";
 
@@ -52,14 +49,12 @@ const Bifrost = (function () {
   const T_BEAM  = 4.0;   // live ascent: pillar swells, camera climbs to RISE_ZOOM
   const T_PORT  = 4.6;   // earliest teleport (screen is fully painted from T_BEAM)
   const T_PORT_MAX = 11.0; // teleport deadline even if the chunk pregen is slow
-  const T_FXIN  = 10.6;  // fractal canvas fades in beneath the ocean
-  const T_LOCK  = 12.0;  // ocean disc LOCKS to the fractal zoom; edges dissolve
-  const T_WIDE  = 17.5;  // zoom-out bottoms out: the whole set on screen
-  const T_PAN   = 20.5;  // pan across the set toward the destination speck
-  const T_SPECK = 22.6;  // the world-map speck starts growing in the dive point
-  const T_MAP   = 24.0;  // map fills the screen (z = MAP_Z0); fractal fades
-  const T_FALL  = 30.0;  // map zoom-in bottoms out; the character descends
-  const T_LAND  = 30.9;  // crossfade to the live world; touchdown
+  const T_DISS  = 10.5;  // the painted sea's rim starts dissolving into the night
+  const T_VOID  = 14.0;  // the isle is gone: open starlit sky
+  const T_SPECK = 16.0;  // the world-map speck starts growing dead ahead
+  const T_MAP   = 19.5;  // map fills the screen (z = MAP_Z0); the sky fades
+  const T_FALL  = 25.5;  // map zoom-in bottoms out; the character descends
+  const T_LAND  = 26.4;  // crossfade to the live world; touchdown
   const RISE_ZOOM = 5.2; // live camZoom at capture (beyond ZOOM_MAX; shipped safe)
   const CAP_A_AT  = 2.6; // live camZoom at which the sharper mid capture is taken
 
@@ -68,26 +63,18 @@ const Bifrost = (function () {
   // 12.66 * camZoom world units (render3d: fov 48°, dist (9.1, 8.8)*camZoom).
   // Perspective tilt makes this approximate — the crossfade hides the rest.
   const LIVE_K = 11.28;
-  const Z_LOCK = 0.08;   // painted zoom when the fractal takes over (isle ~17px)
+  const Z_DISS = 0.08;   // painted zoom when the dissolve starts (isle ~17px)
+  const Z_VOID = 0.00025;// painted zoom when the isle has fully receded
   const MAP_Z0 = 0.13;   // the far-map reveal zoom — matched to FAR_SPAN so the
                          // coherent whole-world bake fills the frame as it grows
   const MAP_Z1 = 14;     // map zoom at touchdown (handoff to the live renderer)
-
-  // fractal viewpoints. region.center.y is stored PREMULTIPLIED by the canvas
-  // aspect (see xaos.js convertArea, which divides y by it) — so multiply here.
-  const ASPECT = () => (W && H) ? W / H : 16 / 10;
-  const PT_A = () => ({ x: -0.743643887037151, y: 0.13182590420533 * ASPECT() }); // seahorse valley (the isle)
-  const PT_B = () => ({ x: 0.2925, y: 0.0149 * ASPECT() });                        // elephant valley (the destination speck)
-  const RAD_TIGHT = 0.006;  // zoomed onto a single speck
-  const RAD_WIDE = 2.8;     // the whole set
-  const FX_W = 480, FX_H = 300;
-  const FX_HUE0 = 165;      // base hue-rotate: XaoS's default orange → deep ocean blue,
-                            // so the sea's rim melts into same-coloured filaments
+  const SPECK_K = 1 / 300; // the destination mote's first size, as a fraction
+                           // of MAP_Z0 (a few glowing px before the dive)
 
   // The crossing ships as a PRE-RENDERED VIDEO (tools/record_bifrost.js bakes
   // the whole T_BEAM..T_LAND timeline offline at VID_WxVID_H/30fps): at
   // runtime only the video, the live screenshots and the character are
-  // composited — no fractal, no macro bakes. The full procedural painter
+  // composited — no macro bakes run mid-game. The full procedural painter
   // below is kept as the automatic fallback when the asset is missing or
   // slow, and doubles as the offline recorder.
   const VID_SRC = "assets/bifrost.webm";
@@ -107,11 +94,10 @@ const Bifrost = (function () {
   const OCEAN_DEEP = "rgb(50,70,114)";                // MAP_WATER[0] (map.js)
 
   let ACTIVE = false;
-  let root = null, fx = null, top = null, tctx = null, charCv = null;
+  let root = null, top = null, tctx = null, charCv = null;
   let W = 0, H = 0, dpr = 1;
   let t0 = 0, raf = 0, opts = null;
   let teleported = false, doneCalled = false, skipping = false, restored = false;
-  let zoomer = null, frac = null, xaosReady = false, xaosFailed = false;
   let reducedRun = false; // this crossing ran the reduced-motion static path
   let savedZoom = 1.6, sidebarDisp = null;
   let stars = null, prewarmAt = 0, charDrawn = false, charH0 = 48;
@@ -162,10 +148,10 @@ const Bifrost = (function () {
     tctx.drawImage(charCv, -h / 2, -h / 2, h, h);
     tctx.restore();
   }
-  // fixed while the world shrinks (the rise), growing gently once the fractal
-  // owns the frame so the figure reads against the filaments
+  // fixed while the world shrinks (the rise), growing gently once the night
+  // sky owns the frame so the figure reads against the starlight
   function charSize(t) {
-    return lerp(charH0, 0.26 * cssH(), easeInOut(seg(t, T_LOCK, T_WIDE)));
+    return lerp(charH0, 0.26 * cssH(), easeInOut(seg(t, T_DISS, T_VOID + 0.5)));
   }
 
   // ---------- live-canvas screenshots (the first "pre-rendered frames") -----
@@ -199,53 +185,18 @@ const Bifrost = (function () {
     } catch (e) { return null; }
   }
 
-  // ---------- XaoS lazy-load ----------
-  function loadXaos() {
-    if ((typeof xaos !== "undefined" && xaos.zoom) || (window.xaos && window.xaos.zoom)) { xaosReady = true; return; }
-    const sc = document.createElement("script");
-    sc.src = "libs/xaos/xaos.js";
-    sc.onload = () => { xaosReady = true; };
-    sc.onerror = () => { xaosFailed = true; };
-    document.head.appendChild(sc);
+  // ---------- the crossing's zoom curves ----------
+  // painted world zoom (px/tile). Two exponential legs: the rise eases out to
+  // Z_DISS, then the pull accelerates again through the dissolve until the
+  // isle has receded to Z_VOID — a vanishing star among the streaks.
+  function worldZoomAt(zTop, t) {
+    if (t < T_DISS) return expLerp(zTop, Z_DISS, easeOut(seg(t, T_BEAM, T_DISS)));
+    return expLerp(Z_DISS, Z_VOID, seg(t, T_DISS, T_VOID));
   }
-  function startFractal() {
-    if (zoomer || !xaosReady) return;
-    try {
-      const X = (typeof xaos !== "undefined") ? xaos : window.xaos;
-      const a = PT_A();
-      frac = Object.assign({}, X.mandelbrot, { region: { center: { x: a.x, y: a.y }, radius: { x: RAD_TIGHT, y: RAD_TIGHT }, angle: 0 } });
-      zoomer = X.zoom(fx, frac);
-      if (!zoomer || !zoomer.drawFractal) { zoomer = null; xaosFailed = true; }
-    } catch (e) { zoomer = null; xaosFailed = true; }
-  }
-  function setRegion(cx, cy, rad) {
-    if (!frac) return;
-    frac.region.center.x = cx; frac.region.center.y = cy;
-    frac.region.radius.x = rad; frac.region.radius.y = rad;
-    try { zoomer.drawFractal(false); } catch (e) { zoomer = null; xaosFailed = true; }
-  }
-  // the fractal camera path: zoom OUT at A (log-space), pan A -> B, dive IN
-  function fracState(t) {
-    const A = PT_A(), B = PT_B();
-    if (t < T_WIDE) {
-      const k = easeInOut(seg(t, T_LOCK, T_WIDE));
-      return { cx: A.x, cy: A.y, rad: expLerp(RAD_TIGHT, RAD_WIDE, k) };
-    } else if (t < T_PAN) {
-      const k = easeInOut(seg(t, T_WIDE, T_PAN));
-      return { cx: lerp(A.x, (A.x + B.x) / 2, k), cy: lerp(A.y, (A.y + B.y) / 2, k), rad: RAD_WIDE * (1 + 0.05 * k) };
-    }
-    const k = seg(t, T_PAN, T_MAP);
-    return { cx: lerp((A.x + B.x) / 2, B.x, easeInOut(k)), cy: lerp((A.y + B.y) / 2, B.y, easeInOut(k)),
-             rad: expLerp(RAD_WIDE * 1.05, RAD_TIGHT, easeIn(k)) };
-  }
-  // painted world zoom (px/tile). Before T_LOCK the rise runs on its own
-  // exponential; from T_LOCK it is SLAVED to the fractal radius so the ocean
-  // disc recedes exactly as fast as the set zooms out — that lock is what
-  // makes the sea read as a place ON the fractal.
-  function worldZoom(t) {
-    if (t < T_LOCK) return expLerp(zCap, Z_LOCK, easeOut(seg(t, T_BEAM, T_LOCK)));
-    return Z_LOCK * (RAD_TIGHT / fracState(t).rad);
-  }
+  const worldZoom = t => worldZoomAt(zCap, t);
+  // the destination approach: the far-map bake grows from a mote a few px
+  // wide into the full MAP_Z0 reveal (constant perceptual zoom-in)
+  const diveZoom = t => MAP_Z0 * expLerp(SPECK_K, 1, easeIn(seg(t, T_SPECK, T_MAP)));
 
   // ---------- shared macro-tile painter (bakes + the live map dive) ---------
   const STEPS = [0.25, 0.5, 1, 2, 4, 8, 16, 64];
@@ -284,8 +235,9 @@ const Bifrost = (function () {
     tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     tctx.globalAlpha = clamp01(alpha == null ? 1 : alpha);
     tctx.imageSmoothingEnabled = true;
-    paintTiles(tctx, cssW(), cssH(), z, cx, cy);
+    const full = paintTiles(tctx, cssW(), cssH(), z, cx, cy);
     tctx.restore();
+    return full;
   }
   // finest zooms FIRST (the dive's final seconds need their art most), each
   // level centre-out, so whatever the worker manages lands where it is seen
@@ -530,7 +482,7 @@ const Bifrost = (function () {
   // altitude light: a rim of sky-glow that swallows the screen edges during
   // the early rise (and softens the seam where a screenshot meets the bake)
   function paintHaze(t, w, h) {
-    const a = 0.5 * easeOut(seg(t, 1.2, T_BEAM)) * (1 - seg(t, T_BEAM + 1.5, T_LOCK - 1));
+    const a = 0.5 * easeOut(seg(t, 1.2, T_BEAM)) * (1 - seg(t, T_BEAM + 1.5, T_DISS - 1));
     if (a <= 0.01) return;
     const g = tctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.30, w / 2, h / 2, Math.max(w, h) * 0.75);
     g.addColorStop(0, "rgba(215,235,255,0)");
@@ -538,43 +490,33 @@ const Bifrost = (function () {
     tctx.fillStyle = g; tctx.fillRect(0, 0, w, h);
   }
 
-  // RISE → MELT → WIDE → PAN → DIVE: everything between the beam and the map
+  // RISE → DISSOLVE → DRIFT → DIVE: everything between the beam and the map
   function paintSky(t) {
     const w = cssW(), h = cssH();
-    // fractal beneath (its own canvas under `top`) — driven only once it is
-    // about to matter, so it has a beat to converge before the fade-in
-    if (zoomer && frac) {
-      if (t >= T_FXIN - 1.2) {
-        const r = fracState(t);
-        setRegion(r.cx, r.cy, r.rad);
-        // fade out only once the destination map fully covers the screen —
-        // any earlier and the live world bleeds through the dive
-        fx.style.opacity = String(easeOut(seg(t, T_FXIN, T_LOCK)) * (1 - seg(t, T_MAP - 0.05, T_MAP + 0.35)));
-        fx.style.filter = `hue-rotate(${FX_HUE0 + (t - T_FXIN) * 14}deg) saturate(1.3) contrast(1.05)`;
-        fx.style.transform = `scale(${1.06 + 0.04 * Math.sin((t - T_FXIN) * 1.4)})`;
-      }
-    } else if (xaosReady && !xaosFailed) startFractal();
-
     clearTop();
-    if (!zoomer && t >= T_FXIN) paintStars(t, w, h);   // fallback backdrop
+    // the starlit sky is the crossing's backdrop: streaking starlight, fully
+    // opaque well before the ocean's rim starts dissolving over it, gone once
+    // the destination map owns the frame
+    const starA = easeOut(seg(t, T_BEAM + 0.8, T_DISS - 1)) * (1 - seg(t, T_MAP - 0.6, T_MAP));
+    if (starA > 0.01) paintStars(t, w, h, starA);
 
     const halfDiag = Math.hypot(w, h) / 2;
-    const sOut = t < T_LOCK ? 1 : RAD_TIGHT / fracState(t).rad;
+    const sOut = clamp01(worldZoom(t) / Z_DISS);
     const maskR = 1.25 * halfDiag * sOut;
     wctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     wctx.clearRect(0, 0, w, h);
     // the home world exists only until the zoom-out swallows it — the dive
     // (where the mask radius regrows) belongs to the DESTINATION speck
-    let worldA = t < T_WIDE ? 1 - seg(t, T_WIDE - 1.5, T_WIDE) : 0;
+    let worldA = t < T_VOID ? 1 - seg(t, T_VOID - 1.2, T_VOID) : 0;
     if (worldA > 0 && maskR > 1) {
-      // the receding home world, its rim dissolving into the set
+      // the receding home world, its rim dissolving into the night
       paintWorldLayers(wctx, worldZoom(t), t, w, h);
-      if (t >= T_LOCK) maskWorld(maskR, w, h);
+      if (sOut < 1) maskWorld(maskR, w, h);
     }
     let speckGlow = 0;
     if (worldA <= 0 && t >= T_SPECK && farCv) {
       // the DESTINATION world, growing out of the dive point
-      const zm = MAP_Z0 * (RAD_TIGHT / fracState(t).rad);
+      const zm = diveZoom(t);
       blitLayer(wctx, farCv, zm / FAR_R, w / 2, h / 2, 1, w, h);
       // feather radius rides the bake's own on-screen size (a soft round
       // mote, never the bake's square edge), then outgrows the corners so
@@ -583,6 +525,20 @@ const Bifrost = (function () {
       maskWorld(rBake * lerp(1, 2.6, easeIn(seg(zm / MAP_Z0, 0.25, 1))), w, h);
       worldA = easeOut(seg(t, T_SPECK, T_MAP - 0.4));
       speckGlow = Math.min(halfDiag, FAR_PX * (zm / FAR_R) * 0.75) * 1.6;
+    }
+    // between worlds: the isle lingers as one departing star among the
+    // streaks, sliding away behind the traveller before the new mote grows
+    if (t >= T_VOID - 0.4 && t < T_SPECK + 1.4) {
+      const gone = easeIn(seg(t, T_VOID - 0.4, T_SPECK + 1.2));
+      const a = 0.85 * (1 - gone);
+      if (a > 0.02) {
+        const sx = w / 2 - gone * w * 0.26, sy = h / 2 - gone * h * 0.14;
+        const g = tctx.createRadialGradient(sx, sy, 0, sx, sy, 22);
+        g.addColorStop(0, `rgba(240,246,255,${a})`);
+        g.addColorStop(0.25, `rgba(200,220,250,${a * 0.4})`);
+        g.addColorStop(1, "rgba(180,205,245,0)");
+        tctx.fillStyle = g; tctx.fillRect(sx - 22, sy - 22, 44, 44);
+      }
     }
     if (worldA > 0) {
       if (speckGlow > 2) {
@@ -617,8 +573,8 @@ const Bifrost = (function () {
       paintHaze(t, w, h);
     }
 
-    // deep-void vignette while the fractal reigns
-    const vk = seg(t, T_LOCK + 1, T_WIDE) * (1 - seg(t, T_SPECK, T_MAP));
+    // deep-void vignette while the open sky reigns
+    const vk = seg(t, T_DISS + 0.5, T_VOID) * (1 - seg(t, T_SPECK, T_MAP));
     if (vk > 0.01) {
       const vg = tctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.30, w / 2, h / 2, Math.max(w, h) * 0.72);
       vg.addColorStop(0, "rgba(0,0,0,0)");
@@ -642,7 +598,6 @@ const Bifrost = (function () {
 
   function paintMap(t) {
     const w = cssW(), h = cssH();
-    if (fx) fx.style.opacity = "0";
     clearTop();
     const zm = mapZoom(t);
     // the coherent whole-world bake carries the reveal; live streamed macro
@@ -651,7 +606,8 @@ const Bifrost = (function () {
     const liveA = clamp01((Math.log(zm) - Math.log(MAP_Z0 * 1.15)) / (Math.log(MAP_Z0 * 4) - Math.log(MAP_Z0 * 1.15)));
     if (liveA < 1 && farCv)
       blitLayer(tctx, farCv, zm / FAR_R, w / 2, h / 2, 1, w, h);
-    if (liveA > 0) drawMapView(zm, land.x, land.y, liveA);
+    let tilesFull = true;
+    if (liveA > 0) tilesFull = drawMapView(zm, land.x, land.y, liveA);
     // the character descends: drifts down and grows as the ground rushes up,
     // with a slow tumble that settles as they near the plaza
     const fall = seg(t, T_FALL - 1.4, T_LAND);
@@ -671,9 +627,14 @@ const Bifrost = (function () {
       g.addColorStop(1, "rgba(214,232,255,0)");
       tctx.fillStyle = g; tctx.fillRect(0, 0, w, h);
     }
+    return tilesFull;
   }
 
-  function paintStars(t, w, h) {
+  // streaking starlight radiating from the centre — flying forward through
+  // the dark between worlds. alpha fades the whole backdrop in/out.
+  function paintStars(t, w, h, alpha) {
+    tctx.save();
+    tctx.globalAlpha = clamp01(alpha == null ? 1 : alpha);
     tctx.fillStyle = "#04030a"; tctx.fillRect(0, 0, w, h);
     if (!stars) stars = [...Array(140)].map((_, i) => ({ a: i * 2.399, r: (i * 37 % 100) / 100, s: 0.4 + (i * 13 % 10) / 10 }));
     tctx.strokeStyle = "rgba(190,210,255,0.8)";
@@ -685,6 +646,7 @@ const Bifrost = (function () {
       tctx.lineTo(w / 2 + Math.cos(s.a) * (rr + 8), h / 2 + Math.sin(s.a) * (rr + 8));
       tctx.stroke();
     }
+    tctx.restore();
   }
 
   // ---------- pre-rendered video playback ----------
@@ -696,10 +658,7 @@ const Bifrost = (function () {
     : { x: org ? org.x : 0, y: org ? org.y : 0 };
   // the recording's zoom timeline (video px/tile) — same curve the recorder
   // painted with, so runtime overlays stay glued to the baked terrain
-  function zVidAt(t) {
-    if (t < T_LOCK) return expLerp(ZCAP_VID, Z_LOCK, easeOut(seg(t, T_BEAM, T_LOCK)));
-    return Z_LOCK * (RAD_TIGHT / fracState(t).rad);
-  }
+  const zVidAt = t => worldZoomAt(ZCAP_VID, t);
   // decide once, just before the static frames take over: play the video if
   // it buffered in time, else spin up the full procedural painter
   function decideMode(t) {
@@ -713,11 +672,8 @@ const Bifrost = (function () {
     if (procReady) return;
     procReady = true;
     try { if (vid) { vid.pause(); vid.style.display = "none"; } } catch (e) {}
-    loadXaos();
     try { if (!isleCv) isleSetup(); } catch (e) { console.error("bifrost isle bake:", e); }
     try { buildFarWorld(); } catch (e) { console.error("bifrost far bake:", e); }
-    const tryStart = () => { if (zoomer || !ACTIVE) return; if (xaosReady) startFractal(); else if (!xaosFailed) setTimeout(tryStart, 120); };
-    setTimeout(tryStart, 150);
   }
   function paintVideo(t) {
     const w = cssW(), h = cssH();
@@ -736,8 +692,8 @@ const Bifrost = (function () {
       try { vid.currentTime = Math.max(0, Math.min(want, vid.duration - 0.05)); } catch (e) {}
     }
     clearTop();
-    // the live screenshots ride the recorded zoom until the melt swallows them
-    if (t < T_WIDE) {
+    // the live screenshots ride the recorded zoom until the night swallows them
+    if (t < T_VOID) {
       if (capB) blitLayer(tctx, capB.cv, zs / capB.r, w / 2, h / 2 + capB.dy * (zs / capB.r), 1, w, h);
       if (capA) blitLayer(tctx, capA.cv, zs / capA.r, w / 2, h / 2 + capA.dy * (zs / capA.r), 1, w, h);
     }
@@ -816,7 +772,7 @@ const Bifrost = (function () {
     try { if (!reducedRun && typeof Postcard !== "undefined" && Postcard.offerBifrostKeepsake) Postcard.offerBifrostKeepsake(); } catch (e) {}
     try { if (vid) { vid.pause(); vid.removeAttribute("src"); } } catch (e) {}
     vid = null; vidMode = null;
-    zoomer = null; frac = null; stars = null; opts = null; charCv = null;
+    stars = null; opts = null; charCv = null;
     capA = capB = null; isleCv = isleShow = null; farCv = null; farBuilt = false;
     worldCv = null; wctx = null; org = null; pregen = null;
     // release the isle-visible macro pin and flush any unmasked seal tiles
@@ -846,7 +802,7 @@ const Bifrost = (function () {
     const t = (Date.now() - t0) / 1000;
     try {
       if (vidMode === false) {
-        if (isleCv && !isleDone && Date.now() - isleAt > 450 && t < T_LOCK + 2) isleCompose();
+        if (isleCv && !isleDone && Date.now() - isleAt > 450 && t < T_VOID) isleCompose();
       }
       if (t < T_BEAM) {
         decideMode(t);
@@ -887,7 +843,7 @@ const Bifrost = (function () {
     if (ACTIVE) return;
     // ── reduced-motion crossing (settings.js reducedMotion(): the OS
     // prefers-reduced-motion signal, overridable in the help tab) ────────
-    // The full crossing is ~30 s of continuous zoom, fractal melt and dive
+    // The full crossing is ~26 s of continuous zoom, starlit drift and dive
     // — precisely the content the preference asks us not to play. This
     // static alternative keeps the MEANING: a held black beat, one line of
     // text, the same sounds of arrival, and the identical onTeleport →
@@ -971,13 +927,10 @@ const Bifrost = (function () {
     vid.onerror = () => { vidFailed = true; if (vidMode) { vidMode = false; procSetup(); } };
     vid.src = VID_SRC;
     vid.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;";
-    fx = document.createElement("canvas");
-    fx.width = FX_W; fx.height = FX_H;
-    fx.style.cssText = "position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:0;transform-origin:50% 50%;";
     top = document.createElement("canvas");
     top.width = W; top.height = H;
     top.style.cssText = "position:absolute;inset:0;width:100%;height:100%;";
-    root.appendChild(vid); root.appendChild(fx); root.appendChild(top);
+    root.appendChild(vid); root.appendChild(top);
     root.onclick = () => { if ((Date.now() - t0) / 1000 > 3) skip(); };
     document.body.appendChild(root);
     tctx = top.getContext("2d");
@@ -1003,8 +956,8 @@ const Bifrost = (function () {
   // ---------- offline recorder ----------
   // tools/record_bifrost.js drives this from a headless browser: start()
   // builds the cinematic at a fixed VID_WxVID_H with no character /
-  // screenshots / teleport / sfx; ready() reports when every bake and the
-  // fractal have converged (pumping the composites meanwhile); frame(t)
+  // screenshots / teleport / sfx; ready() reports when every bake has
+  // converged (pumping the composites meanwhile); frame(t)
   // paints the timeline at a virtual second; the tool screenshots each frame
   // and encodes the stack to VID_SRC. Dev-only surface; inert in production.
   const record = {
@@ -1029,25 +982,19 @@ const Bifrost = (function () {
       root = document.createElement("div");
       root.id = "bifrost-rec";
       root.style.cssText = `position:fixed;left:0;top:0;width:${VID_W}px;height:${VID_H}px;z-index:9500;background:#000;overflow:hidden;`;
-      fx = document.createElement("canvas");
-      fx.width = FX_W; fx.height = FX_H;
-      fx.style.cssText = "position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;opacity:0;transform-origin:50% 50%;";
       top = document.createElement("canvas");
       top.width = W; top.height = H;
       top.style.cssText = "position:absolute;inset:0;width:100%;height:100%;";
-      root.appendChild(fx); root.appendChild(top);
+      root.appendChild(top);
       document.body.appendChild(root);
       tctx = top.getContext("2d");
       worldCv = document.createElement("canvas");
       worldCv.width = W; worldCv.height = H;
       wctx = worldCv.getContext("2d");
       zCap = pxPerTile(RISE_ZOOM);             // == ZCAP_VID at this fixed size
-      loadXaos();
       try { isleSetup(); } catch (e) { console.error("rec isle bake:", e); }
       try { buildFarWorld(); } catch (e) { console.error("rec far bake:", e); }
       try { prewarmMacros(land.x, land.y); } catch (e) {}
-      const tryStart = () => { if (zoomer || !ACTIVE) return; if (xaosReady) startFractal(); else if (!xaosFailed) setTimeout(tryStart, 120); };
-      setTimeout(tryStart, 150);
       return true;
     },
     ready() {
@@ -1056,29 +1003,23 @@ const Bifrost = (function () {
       buildFarWorld();
       try { prewarmMacros(land.x, land.y); } catch (e) {}
       const mq = (typeof world._macDebug === "function") ? world._macDebug() : { q: 0, rq: 0, inf: 0 };
-      return !!zoomer && isleDone && !!farCv && mq.q === 0 && mq.rq === 0 && mq.inf === 0;
+      return isleDone && !!farCv && mq.q === 0 && mq.rq === 0 && mq.inf === 0;
     },
+    // returns "full" when every painted tile was resolved art, "partial" when
+    // the dive borrowed a coarser step or flat colour (the tool re-paints the
+    // same t until the worker has baked the frame's own viewport), false on error
     frame(t) {
       if (!recMode) return false;
       try {
-        if (t < T_MAP) {
-          paintSky(t);
-          // drawFractal(true) = full exact recompute, no incremental
-          // approximation and no time-budget bail — every recorded frame is
-          // fully converged however fast the region is moving. SKIP it while
-          // the fractal is still invisible (before it fades in ~T_FXIN): those
-          // RISE frames sit at the deepest RAD_TIGHT zoom, the slowest possible
-          // recompute, and paint nothing — a big chunk of record wall-clock.
-          if (zoomer && t >= T_FXIN - 1.5) { try { zoomer.drawFractal(true); } catch (e) {} }
-        } else paintMap(t);
-        return true;
+        if (t < T_MAP) { paintSky(t); return "full"; }
+        return paintMap(t) ? "full" : "partial";
       } catch (e) { console.error("rec frame:", e); return false; }
     },
     stop() {
       if (!recMode) return;
       recMode = false; ACTIVE = false;
       if (root) { root.remove(); root = null; }
-      zoomer = null; frac = null; stars = null;
+      stars = null;
       capA = capB = null; isleCv = isleShow = null; farCv = null; farBuilt = false;
       worldCv = null; wctx = null; org = null; land = null;
     },

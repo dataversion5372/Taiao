@@ -895,10 +895,9 @@ SPR.roof_red   = ["t", 25, 21, { filter: "hue-rotate(-25deg) saturate(1.5) brigh
 SPR.roof_teal  = ["t", 25, 21, { filter: "hue-rotate(140deg) saturate(0.8)" }];
 SPR.roof_tower = ["t", 28, 22,   { filter: "brightness(0.58)" }];  // dark slate for towers
 // --- structural billboards (doors / gates / ladders / stairs) ---------------
-// DERIVED PLACEHOLDER sprites: there are no retired prototype 2D structural sprites to
-// import (retired prototype is a voxel engine), so these are tinted variants of the
-// existing wall/floor tiles, sized & swung by render3d's syncStructures().
-// Swap them for bespoke art later — the render code keys off these names.
+// Tinted wall/floor-tile FALLBACKS only: js/sprites/structure-sprites-data.js
+// overrides all five keys with bespoke PixelLab art (the "sb" sheet) at load.
+// These stay as the safety net if that data file is ever dropped.
 SPR.door_wood  = ["n", 17, 14, { filter: "brightness(0.5) saturate(1.35) contrast(1.1)" }];  // dark recessed wood door
 SPR.door_stone = ["t", 26, 12, { filter: "brightness(0.46) sepia(0.55) saturate(1.5)" }];   // heavy studded castle door
 SPR.gate_leaf  = ["n", 17, 14, { filter: "brightness(0.62) sepia(0.4) saturate(0.7) contrast(1.25)" }]; // iron-banded wood gate leaf

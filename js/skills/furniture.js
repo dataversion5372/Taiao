@@ -45,6 +45,9 @@
     ["mirror_dresser", "Mirrored dresser", "dresser_mirror", 25, { planks: 5, boards: 2 }, "The glass came dear."],
     ["wardrobe",       "Wardrobe",         "wardrobe",       27, { planks: 6, boards: 2 }, "Tall enough for winter cloaks."],
     ["fourposter_bed", "Four-poster bed",  "bed_fourposter", 29, { planks: 8, cloth: 4, rope: 2 }, "Fit for a manor's best room."],
+    ["display_cabinet","Display cabinet",  "cabinet",        30, { planks: 6, boards: 3, glass: 2 }, "Glazed doors for the pieces you're proudest of."],
+    ["warded_chest",   "Warded chest",     "chest_warded",   31, { planks: 5, iron_bar: 2, rope: 1 }, "Iron-bound and rune-scribed. It keeps what it's given."],
+    ["treasure_chest", "Treasure chest",   "treasure_chest", 32, { boards: 4, planks: 4, gold_bar: 1 }, "A masterwork strongbox. Worth more than most things you'd keep in it."],
   ];
   RECIPES.carpentry = RECIPES.carpentry || [];
   for (const [id, name, objKey, req, inputs, exam] of F) {

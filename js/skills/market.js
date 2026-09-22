@@ -113,7 +113,38 @@ function marketProfileForBiome(biome) {
 
 // ---------- prices ----------
 function reputation() { return (player.reputation | 0); }
-function repMult() { return 1 + Math.min(0.5, reputation() * 0.0008); }
+// ---------- reputation tiers ----------
+// Reputation used to be a self-referential number (a capped sell-price mult
+// and nothing else). Tiers give it teeth: a standing title on the trade
+// window, buy-price discounts, extra contract slots, and a higher sell-mult
+// ceiling at the top. Crossing a threshold announces itself (addRep).
+const REP_TIERS = [
+  { at: 0,     title: "Stranger",            buyDisc: 0,    slots: 0, sellCap: 0.5 },
+  { at: 150,   title: "Known face",          buyDisc: 0.03, slots: 0, sellCap: 0.5 },
+  { at: 500,   title: "Trusted trader",      buyDisc: 0.06, slots: 1, sellCap: 0.5 },
+  { at: 1500,  title: "Guild friend",        buyDisc: 0.10, slots: 2, sellCap: 0.6 },
+  { at: 4000,  title: "Town patron",         buyDisc: 0.14, slots: 2, sellCap: 0.7 },
+  { at: 10000, title: "Pillar of the realm", buyDisc: 0.18, slots: 3, sellCap: 0.8 },
+];
+function repTier() {
+  const r = reputation();
+  let t = REP_TIERS[0];
+  for (const tier of REP_TIERS) if (r >= tier.at) t = tier;
+  return t;
+}
+// every rep gain funnels through here so tier crossings get announced
+function addRep(n) {
+  const before = repTier();
+  player.reputation = reputation() + n;
+  const after = repTier();
+  if (after !== before && after.at > before.at) {
+    log(`Word of you spreads — the towns now know you as a ${after.title}.`, "gold");
+    if (after.buyDisc > before.buyDisc) log(`Merchants shave ${Math.round(after.buyDisc * 100)}% off their prices for you.`, "sys");
+    if (after.slots > before.slots) log(`Notice boards post more contracts for someone of your standing.`, "sys");
+    if (typeof sfx === "function") sfx("quest", 0.6);
+  }
+}
+function repMult() { return 1 + Math.min(repTier().sellCap, reputation() * 0.0008); }
 function demandMult(profile, id) { return profile.demand[itemTag(id)] || 0.85; }
 // what the town pays you for one unit (base value ×0.5, lifted by demand,
 // quality and your reputation, softened by a glut of player-sold stock —
@@ -128,7 +159,7 @@ function marketSellPrice(profile, id, q) {
 function marketBuyPrice(profile, id) {
   const surplus = profile.surplusTags.includes(itemTag(id)) || (profile.stock || []).includes(id);
   const supply = (typeof ShopSync !== "undefined" && activeMarket) ? ShopSync.buyMult(activeMarket.townKey, id) : 1;
-  return Math.max(1, Math.round((ITEMS[id].value || 1) * (surplus ? 0.9 : 1.15) * supply));
+  return Math.max(1, Math.round((ITEMS[id].value || 1) * (surplus ? 0.9 : 1.15) * supply * (1 - repTier().buyDisc)));
 }
 // Merchants only stock the early seed tiers; higher-level seeds must be found
 // or grown up to, not bought outright.
@@ -171,7 +202,7 @@ function townKeyOf(x, y) { return Math.round(x / 8) + "," + Math.round(y / 8); }
 function townContracts(townKey, profile) {
   const wanted = Object.keys(profile.demand).sort((a, b) => profile.demand[b] - profile.demand[a]);
   const out = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 3 + repTier().slots; i++) {
     const h = hashStr(townKey + ":" + i);
     const tag = wanted[h % Math.min(wanted.length, 4)];
     const pool = tagItems(tag);
@@ -191,7 +222,7 @@ function fulfilContract(c) {
   if (countItem(c.itemId) < c.qty) { log("You don't have the goods for that contract.", "warn"); return false; }
   removeItem(c.itemId, c.qty);
   addItem("coins", c.reward);
-  player.reputation = reputation() + c.rep;
+  addRep(c.rep);
   (player.contractsDone || (player.contractsDone = [])).push(c.key);
   log(`Contract fulfilled: ${c.qty} × ${ITEMS[c.itemId].name} for ${c.reward} coins (+${c.rep} rep).`, "gold");
   uiDirty = true;
@@ -374,8 +405,8 @@ function renderMarket() {
   const type = SHOP_TYPES[typeKey];
   const general = typeKey === "general";
   document.getElementById("trade-title").textContent = general
-    ? `${profile.label} — trade & contracts (Reputation ${reputation()})`
-    : `${type.name} (Reputation ${reputation()})`;
+    ? `${profile.label} — trade & contracts (Rep ${reputation()} · ${repTier().title})`
+    : `${type.name} (Rep ${reputation()} · ${repTier().title})`;
   // BUY
   const grid = document.getElementById("shopgrid");
   grid.innerHTML = "";
@@ -434,6 +465,26 @@ function renderMarket() {
         row.appendChild(btn); cbox.appendChild(row);
       }
     }
+    // civic donations: the standing coin sink — surplus coins become standing.
+    // 100 coins buys 1 reputation, in whatever slug the purse can manage.
+    const dRow = document.createElement("div");
+    dRow.className = "contract";
+    const coins = countItem("coins");
+    dRow.innerHTML = `<span>Civic fund — donate coins to the town (100c = 1 rep)</span>`;
+    for (const amt of [100, 1000]) {
+      const b = document.createElement("button");
+      b.textContent = `Give ${amt}c`;
+      b.disabled = coins < amt;
+      b.onclick = () => {
+        if (countItem("coins") < amt) return;
+        removeItem("coins", amt);
+        addRep(amt / 100);
+        log(`You donate ${amt} coins to the civic fund (+${amt / 100} rep).`, "gold");
+        uiDirty = true; renderMarket();
+      };
+      dRow.appendChild(b);
+    }
+    cbox.appendChild(dRow);
   }
   // SELL — only what THIS shop buys, from your inventory. Specialists pay a
   // 20% premium for their own trade's goods.

@@ -25,6 +25,8 @@
     snorkel_mouthpiece: "Snorkel mouthpiece", rubber_gloves: "Rubber gloves",
     rubber_boots: "Rubber boots", gasket_set: "Gasket set",
     slingshot: "Slingshot", sling_shot: "Rubber shot", rebreather: "Rubber rebreather",
+    rubber_hose: "Reinforced hose", diving_fins: "Diving fins",
+    bellows_kit: "Bellows kit", abyss_rebreather: "Abyss rebreather",
   };
   // multi-slot presets (EQUIP_SLOTS, main/state.js) — mirror outfit-items.js
   const FEET = ["left_foot", "right_foot"], HANDS = ["left_hand", "right_hand"];
@@ -71,6 +73,13 @@
   // slingshot — an Archery-style ranged weapon (bowPower → combatStyle "archery")
   mkWorn("slingshot", "i_bow", " brightness(0.55) saturate(0.5)",
     { value: 80, equip: "weapon", bowPower: 2, rangeReq: 1, range: 9, atkTick: 1150 });
+  // ---- the late ladder (req 20-32): the trade's master tier ----
+  mkItem("rubber_hose", "f", "i_leather", " brightness(0.52) saturate(0.35) hue-rotate(15deg)", 150);
+  mkItem("bellows_kit", "f", "i_leather", " brightness(0.6) saturate(0.4) hue-rotate(30deg)", 300);
+  mkWorn("diving_fins", "i_leather", " brightness(0.45) saturate(0.45) hue-rotate(180deg)",
+    { value: 260, equip: FEET, wearReq: 0, diveReach: 0.3 });
+  mkWorn("abyss_rebreather", "i_vial", " brightness(0.4) saturate(0.5) hue-rotate(200deg)",
+    { value: 900, equip: "cape", wearReq: 0, diveReach: 0.8, diveDrain: 0.18, diveAir: 24 });
 
   Object.assign(EXAMINE, {
     latex: "Milky sap tapped from a rubber tree. Cure it and it becomes rubber.",
@@ -87,6 +96,10 @@
     sling_shot: "A pouch of hard rubber shot — ammunition for a slingshot. Load it in your quiver.",
     slingshot: "A forked slingshot strung with a thick rubber band. A quick, short-range ranged weapon; fire rubber shot with Archery.",
     rebreather: "A rubber breathing bag and tubing worn on the back. Far better than a snorkel — it holds a big reserve of air, so you can stay under much longer.",
+    rubber_hose: "A cloth-wound rubber hose that holds pressure without kinking. Workshops pay well for it.",
+    diving_fins: "Broad moulded fins worn on the feet. In the water they let you push deeper with every kick.",
+    bellows_kit: "Rubber bladders, valves and boards — a complete bellows rebuild kit for forge and kiln work.",
+    abyss_rebreather: "A master-cured rebreather with doubled bladders and gasket-sealed valves. The deep places open to whoever wears it.",
   });
 
   // ---------- the rubber tree: a tappable world node (the gather half) ----------
@@ -130,6 +143,11 @@
     ["make_slingshot",    "slingshot",          "Fit a slingshot",          "weapon", 5,  { rubber: 2, boards: 1 },   1],
     // ---- diving: the rebreather (deeper/longer than a snorkel) ----
     ["make_rebreather",   "rebreather",         "Build a rubber rebreather","diving", 18, { rubber: 3, hard_rubber: 1, rubber_tubing: 1, glass: 1 }, 1],
+    // ---- the master tier (20-32): pressure work and the deep places ----
+    ["make_rubber_hose",  "rubber_hose",        "Wind a reinforced hose",   "goods",  20, { rubber_tubing: 2, cloth: 1 }, 1],
+    ["make_diving_fins",  "diving_fins",        "Mould diving fins",        "diving", 26, { rubber: 4, hard_rubber: 2 }, 1],
+    ["make_bellows_kit",  "bellows_kit",        "Assemble a bellows kit",   "goods",  28, { rubber: 3, hard_rubber: 2, boards: 2 }, 1],
+    ["make_abyss_rebreather", "abyss_rebreather", "Master-cure an abyss rebreather", "diving", 32, { rebreather: 1, hard_rubber: 3, rubber_seal: 2, gasket_set: 1 }, 1],
   ];
   RECIPES.rubbermaking = R.map(([id, out, name, family, req, inp, qty]) => ({
     id, out, qty, name, skill: "Rubbermaking", req, xp: 20 + req * 4, in: inp,

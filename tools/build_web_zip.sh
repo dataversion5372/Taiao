@@ -9,7 +9,7 @@
 # (sw.js REMOTE_PREFIXES) on first use and caches:
 #
 #   shipped:   index.html, sw.js, css/, fonts/, dist/bundle.js,
-#              libs/three.min.js + libs/xaos/, assets/sheets/ (all runtime
+#              libs/three.min.js, assets/sheets/ (all runtime
 #              art), assets/bifrost.webm (the graduation cinematic — the one
 #              big file we refuse to gamble on a CDN fetch for), license +
 #              credits texts.
@@ -46,7 +46,6 @@ copydir css
 copydir fonts
 copy dist/bundle.js
 copy libs/three.min.js
-copydir libs/xaos
 copydir assets/sheets
 copy assets/bifrost.webm
 # attribution ships even when the audio it describes streams from the CDN

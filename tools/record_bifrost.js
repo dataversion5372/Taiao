@@ -104,8 +104,17 @@ function findPuppeteer() {
     console.log(`recording ${frames} frames @ ${FPS}fps (t ${tl.t0}..${tl.t1})`);
     for (let i = 0; i < frames; i++) {
       const t = tl.t0 + i / FPS;
-      const painted = await page.evaluate(tt => Bifrost.record.frame(tt), t);
+      let painted = await page.evaluate(tt => Bifrost.record.frame(tt), t);
       if (!painted) throw new Error(`frame(${t.toFixed(2)}) failed`);
+      // "partial" = the map dive borrowed coarse/flat tiles for this viewport;
+      // give the macro worker a beat and re-paint the same instant until every
+      // tile is resolved art (bounded, so a wedged worker can't hang the bake)
+      for (let tries = 0; painted === "partial" && tries < 40; tries++) {
+        await new Promise(r => setTimeout(r, 250));
+        painted = await page.evaluate(tt => Bifrost.record.frame(tt), t);
+        if (!painted) throw new Error(`frame(${t.toFixed(2)}) failed`);
+      }
+      if (painted === "partial") console.warn(`  frame(${t.toFixed(2)}) still partial after 10s — keeping best effort`);
       await page.screenshot({
         path: path.join(frameDir, `f${String(i).padStart(5, "0")}.png`),
         clip: { x: 0, y: 0, width: tl.w, height: tl.h },

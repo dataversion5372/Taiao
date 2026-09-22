@@ -1662,7 +1662,7 @@ const Tutorial = (() => {
         { h: "Forge your kit",
           t: ["No hand-outs from me: you'll earn your gear at the anvil. Forge all FOUR pieces:",
               "• an IRON SHORTSWORD and IRON ARROWHEADS — thirty heads, two anvil batches (Weaponsmithing) • a BRONZE CHAINBODY and a BRONZE TARGE (Armoursmithing).",
-              "The forge gate opens when the furnace has ROARED and all four are MADE. Wear them if you're wise — armour SHOWS on your body, tinted to its metal — but the making is the lesson. My anvil forges only those four; the rest of the world's arms wait beyond the isle."] },
+              "The forge gate opens when the furnace has ROARED and all four are MADE. Wear them if you're wise — but the making is the lesson. My anvil forges only those four; the rest of the world's arms wait beyond the isle."] },
         { h: "Everything connects",
           t: ["This is the whole economy in miniature: the miner feeds the smelter, the smelter the smith, the smith arms the fighter, whose drops feed thirty-five other trades. There are THIRTY-TWO tiers of metal out there, humble copper to Eternium, climbing the further you roam.",
               "Master a craft — repeat a recipe family — and your quality climbs above other makers'; your goods even carry your name. Now: to the terrace, the furnace, the anvil. Forge your four and wear them, then on to {swim} at the lagoon."] },

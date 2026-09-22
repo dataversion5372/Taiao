@@ -185,7 +185,14 @@ const NPC_STARTER_GENERIC = [
 // pick a line from the bucket matching `text` (falling back to the generic
 // pool), skipping ones this NPC has already said recently
 function npcStarterReply(npc, text) {
+  // specific intents (name/weather/thanks/…) win; otherwise the NPC's ROLE
+  // pool (npc-starter-roles.js) speaks ahead of the shared generic lines, so
+  // a bank-less build still has a smith who talks like a smith
   let pool = NPC_STARTER_GENERIC;
+  if (typeof NPC_STARTER_ROLES !== "undefined") {
+    const rl = NPC_STARTER_ROLES[npcRoleKey(npc)];
+    if (rl && rl.length) pool = rl.concat(NPC_STARTER_GENERIC);
+  }
   if (text) for (const b of NPC_STARTER_BUCKETS) if (b.re.test(text)) { pool = b.lines; break; }
   const cid = npcCid(npc);
   if (!NPC_CHAT.starterUsed) NPC_CHAT.starterUsed = new Map();

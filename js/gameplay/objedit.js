@@ -1104,7 +1104,7 @@
         ? "Your votes count into the community tally — the small numbers are everyone's votes so far. Votes can be changed at any time."
         : typeof Server !== "undefined" && Server.enabled()
           ? "Votes are saved on this device; log in on the Account tab to have them counted with everyone else's."
-          : "Votes are saved locally for now and can be changed at any time.") +
+          : "Votes are saved on this device and can be changed at any time.") +
       " Proposed art shows only here — the in-game sprites don't change."));
 
     // ---- sprite variant sections (standard / tended / baby) ----

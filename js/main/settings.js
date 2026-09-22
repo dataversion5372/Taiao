@@ -12,8 +12,9 @@
 //
 // MOTION: reducedMotion() is the ONE global the rest of the game asks —
 // bifrost.js (static crossing, no landShake), dream.js (snap the compass
-// lie, no canopy zoom-ease, no white fade). Default follows the OS
-// prefers-reduced-motion signal; the help-tab select can force it either way.
+// lie, no canopy zoom-ease, no white fade), render3d.js (no sheet-lightning
+// strobe in storms). Default follows the OS prefers-reduced-motion signal;
+// the help-tab select can force it either way.
 "use strict";
 
 function _settingNum(key, def, lo, hi) {

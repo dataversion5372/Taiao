@@ -400,6 +400,7 @@ var Dream = (() => {
   function registerContent() {
     if (typeof ITEMS === "undefined") return;
     const di = (key, base, hue) => {
+      if (typeof SPR !== "undefined" && SPR[key]) return;   // bespoke art (quest-icons-data.js)
       if (typeof defineIcon === "function" && typeof SPR !== "undefined" && SPR[base]) defineIcon(key, base, hue);
     };
     const rp = (id, name, note) => { if (typeof registerPlaceholder === "function") registerPlaceholder(id, name, note); };

@@ -4779,8 +4779,10 @@ const R3D = (() => {
         octx.lineTo(d.x - slant * k, d.y - d.v * k);
       }
       octx.stroke();
-      // thunderstorm: an occasional sheet-lightning flash across the sky
-      if (w.precip > 0.85 && Math.random() < dt * 0.00035) wxFlash = now + 130;
+      // thunderstorm: an occasional sheet-lightning flash across the sky —
+      // a sudden full-screen strobe, so reduced motion suppresses it entirely
+      if (w.precip > 0.85 && Math.random() < dt * 0.00035 &&
+          !(typeof reducedMotion === "function" && reducedMotion())) wxFlash = now + 130;
       if (now < wxFlash) {
         octx.globalAlpha = 0.28 * ((wxFlash - now) / 130);
         octx.fillStyle = "#eaf2ff";

@@ -114,7 +114,7 @@ const Postcard = (function () {
 
   // ---------- Bifrost crossing keepsake ----------
   // Grabbed a beat after arrival at Newhaven (not mid-cinematic — the pillar
-  // and fractal are pre-rendered video/canvas layers composited in the DOM,
+  // and sky are pre-rendered video/canvas layers composited in the DOM,
   // and reproducing that stack flat would mean touching the fragile recorder
   // pipeline; the arrival frame uses the same safe render()+drawImage path
   // as captureWorld() and still marks the moment honestly).

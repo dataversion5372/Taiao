@@ -405,13 +405,13 @@ function renderGoals() {
     const as = (typeof GoalsArc !== "undefined" && GoalsArc.state) ? GoalsArc.state() : null;
     if (as) {
       const head =
-        `<div style="font-weight:bold;color:#8fa3c8;margin-top:14px;margin-bottom:4px">First days in Newhaven · ${as.doneN}/${as.total}</div>` +
+        `<div style="font-weight:bold;color:#8fa3c8;margin-top:14px;margin-bottom:4px">${as.title} · ${as.doneN}/${as.total}</div>` +
         `<div style="height:6px;background:#232a3d;border-radius:3px;overflow:hidden">` +
         `<div style="height:100%;width:${Math.round(100 * as.doneN / as.total)}%;background:linear-gradient(90deg,#7fe3c7,#ffd75e)"></div></div>`;
       const arcRows = as.rows.map(r => row(r.on, r.label, r.num, r.need)).join("");
       const now = as.cur
         ? `<div style="color:#7fe3c7;margin-top:10px;font-size:13px;font-weight:bold">Now: ${as.cur.label}</div>`
-        : `<div style="color:#9ecfb2;margin-top:10px;font-size:13px">✦ Newhaven is home. The wide world is yours to explore.</div>`;
+        : `<div style="color:#9ecfb2;margin-top:10px;font-size:13px">${as.doneLine || "✦ Newhaven is home. The wide world is yours to explore."}</div>`;
       const hint = as.cur && as.cur.hint
         ? `<div style="color:#8f96ad;margin-top:8px;font-size:12px;font-style:italic;line-height:1.45">${as.cur.hint}</div>`
         : "";
