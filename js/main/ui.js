@@ -715,8 +715,10 @@ function talkTo(npc) {
     log(`${npc.name} is fast asleep.`, "sys");
     return;
   }
-  // mix NPCs speak overhead (a bubble the renderer draws above their head)
-  if (npc.mix) npc._say = { text: npc.line || "...", until: performance.now() + 4000 };
+  // mix NPCs speak overhead (a bubble the renderer draws above their head).
+  // No explicit .line (most ambient villagers) falls to their role's canned
+  // dialogue bank (npc-starter-roles.js) instead of a mute "...".
+  if (npc.mix) npc._say = { text: npc.line || npcTalkLine(npc), until: performance.now() + 4000 };
   // main-branch bankers: open an account, or serve an existing one (ui.js)
   if (npc.banker) { bankerTalk(npc); return; }
   if (npc.trader) {
@@ -735,8 +737,15 @@ function talkTo(npc) {
     // AI dialogue is live (Nets bridge) — clicking a townsperson opens the chat
     // bar so you can speak to them (and anyone else in earshot).
   } else {
-    log(`${npc.name}: "${npc.line}"`, "sys");
+    log(`${npc.name}: "${npc.line || npcTalkLine(npc)}"`, "sys");
   }
+}
+// An ambient villager's canned line: their own .line if set, else a fresh
+// pick from their role's dialogue bank (varies across repeat clicks — see
+// npcStarterReply's per-NPC anti-repeat tracking). Falls back to "..." only
+// if the starter bank itself isn't loaded (shouldn't happen; core file).
+function npcTalkLine(npc) {
+  return (typeof npcStarterReply === "function") ? npcStarterReply(npc, null) : "...";
 }
 // Buy up to n of an item at a fixed price, logging what actually happened.
 // Returns how many were bought. Shared by the legacy shop and the market.

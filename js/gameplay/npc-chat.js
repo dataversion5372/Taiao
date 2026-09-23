@@ -1,10 +1,9 @@
-// ===== Taiao — AI NPC dialogue (Nets ⇄ lfm2.5-230m) =====
-// Every NPC within earshot gets its OWN ephemeral lfm2.5-230m instance (managed
-// by tools/npc_bridge.py over the user's Nets framework). Type in the chat bar
-// and every NPC in earshot answers, each in their own voice, as an overhead
-// speech bubble. NPCs speak only when spoken to — unprompted earshot greetings
-// are reserved for NPCs flagged npc.talksFirst (see npcChatTick). If the bridge
-// isn't running the game falls back to the canned one-liners — nothing breaks.
+// ===== Taiao — NPC dialogue (AI brain + ML retrieval, both parked; canned bank live) =====
+// Two richer dialogue modes live in this file behind feature flags (AI_NPC_ENABLED,
+// NPC_RETRIEVAL_ENABLED, both false below) — when either is on, NPCs answer a typed
+// chat bar in their own voice via an ephemeral LLM instance or semantic-search bank.
+// With both parked, NPCs speak entirely from the hand-authored canned bank in
+// npc-starter-roles.js via talkTo() (ui.js) — click an NPC, get a real line.
 "use strict";
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -18,10 +17,19 @@
 // ╚══════════════════════════════════════════════════════════════════════════╝
 const AI_NPC_ENABLED = false;
 
-// Retrieval dialogue (js/gameplay/npc-retrieval.js): NPCs answer from a large
-// pre-written line bank via in-browser semantic search — no brain process
-// needed. Runs whenever the AI brain is parked. Flip off to go fully canned.
-const NPC_RETRIEVAL_ENABLED = true;
+// ╔══════════════════════════════════════════════════════════════════════════╗
+// ║  ML RETRIEVAL DIALOGUE — PARKED (2026-09-23, on user request)            ║
+// ║  Flip NPC_RETRIEVAL_ENABLED back to true to re-enable it. The MiniLM     ║
+// ║  bank/runtime (js/gameplay/npc-retrieval.js, assets/npc_dialogue/,       ║
+// ║  libs/npcml/) is untouched and still gitignored — see the                ║
+// ║  "npc-retrieval-dialogue" auto-memory. While false, NPCs speak entirely  ║
+// ║  from the hand-authored canned bank: NPC_STARTER_ROLES (general flavor,  ║
+// ║  15 lines/role) + NPC_ROLE_TOPICS (trade/gossip/lore/complaint/advice/   ║
+// ║  smalltalk/seasonal, 8 lines/role/topic) in npc-starter-roles.js, for    ║
+// ║  all 40 dialogue roles. talkTo() (ui.js) draws from this bank via        ║
+// ║  npcStarterReply() whenever an NPC has no explicit .line of its own.     ║
+// ╚══════════════════════════════════════════════════════════════════════════╝
+const NPC_RETRIEVAL_ENABLED = false;
 
 const NPC_CHAT = {
   url: "http://127.0.0.1:8788",
@@ -182,18 +190,50 @@ const NPC_STARTER_GENERIC = [
   "Every day's a little different out here, even when it looks the same.",
   "Well now, what brings you round this way?",
 ];
+// role-aware topic buckets: matched AFTER the fixed-intent NPC_STARTER_BUCKETS
+// above, against NPC_ROLE_TOPICS[role][key] (js/gameplay/npc-starter-roles.js).
+// A role missing a topic (or the table itself being absent) just falls through
+// to the general pool below — nothing throws on a bank-less/partial build.
+const NPC_TOPIC_BUCKETS = [
+  { key: "trade", re: /\b(sell|buy|trade|stock|wares|goods|shop|price|cost|coin)\b/i },
+  { key: "gossip", re: /\bgossip|\bnews\b|rumou?r|word around|anything new|heard\b.*\b(about|any)/i },
+  { key: "lore", re: /\bhistory|\blegend|\btale\b|old days|founded|how (long|old) (is|has)|origin/i },
+  { key: "complaint", re: /\bcomplain|\btrouble\b|problem|annoy|frustrat|hard day|rough day|difficult/i },
+  { key: "advice", re: /\badvice|suggest|recommend|should i\b|what would you|\btip\b/i },
+  { key: "smalltalk", re: /how are you|how's it going|how goes it|how have you been|how.{0,4}you doing/i },
+  { key: "seasonal", re: /\bseason\b|festival|holiday|harvest|celebrat/i },
+];
+
 // pick a line from the bucket matching `text` (falling back to the generic
 // pool), skipping ones this NPC has already said recently
 function npcStarterReply(npc, text) {
-  // specific intents (name/weather/thanks/…) win; otherwise the NPC's ROLE
-  // pool (npc-starter-roles.js) speaks ahead of the shared generic lines, so
-  // a bank-less build still has a smith who talks like a smith
+  // specific intents (name/weather/thanks/…) win; then role-aware topics
+  // (trade/gossip/lore/…); otherwise the NPC's full ROLE pool — flavour lines
+  // plus every topic pool merged (npc-starter-roles.js) — speaks ahead of the
+  // shared generic lines, so a bank-less build still has a smith who talks
+  // like a smith and, over repeated clicks, cycles through a real range of
+  // trade/gossip/lore/grumbles/advice instead of 5 lines on a loop.
+  const roleKey = npcRoleKey(npc);
+  const roleTopics = (typeof NPC_ROLE_TOPICS !== "undefined") ? NPC_ROLE_TOPICS[roleKey] : null;
   let pool = NPC_STARTER_GENERIC;
   if (typeof NPC_STARTER_ROLES !== "undefined") {
-    const rl = NPC_STARTER_ROLES[npcRoleKey(npc)];
-    if (rl && rl.length) pool = rl.concat(NPC_STARTER_GENERIC);
+    const rl = NPC_STARTER_ROLES[roleKey];
+    if (rl && rl.length) {
+      pool = rl.slice();
+      if (roleTopics) for (const k in roleTopics) pool.push(...roleTopics[k]);
+      pool = pool.concat(NPC_STARTER_GENERIC);
+    }
   }
-  if (text) for (const b of NPC_STARTER_BUCKETS) if (b.re.test(text)) { pool = b.lines; break; }
+  if (text) {
+    let matched = null;
+    for (const b of NPC_STARTER_BUCKETS) if (b.re.test(text)) { matched = b.lines; break; }
+    if (!matched) for (const tb of NPC_TOPIC_BUCKETS) {
+      if (tb.re.test(text) && roleTopics && roleTopics[tb.key] && roleTopics[tb.key].length) {
+        matched = roleTopics[tb.key]; break;
+      }
+    }
+    if (matched) pool = matched;
+  }
   const cid = npcCid(npc);
   if (!NPC_CHAT.starterUsed) NPC_CHAT.starterUsed = new Map();
   let seen = NPC_CHAT.starterUsed.get(cid);
