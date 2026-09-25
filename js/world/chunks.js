@@ -365,6 +365,15 @@ function createWorldChunks(ctx) {
   // used to silently vanish from cached chunks after a reload.
   const npcDerived = new Set(); // building key -> already spawned this session
   function deriveNpcs(ch) {
+    // zone-unique names for pooled townsfolk (world/npc-names.js): clerks &
+    // shopkeepers draw from the flat "villager" pool; a duplicate within the
+    // zone is swapped for another unused villager name. Named singletons (Sten,
+    // Registrar, Weaver, quest givers) keep their curated-unique names.
+    const npcName = (x, y, base, culture) =>
+      (typeof NpcNames !== "undefined" ? NpcNames.pick(x, y, "npc:" + x + "," + y, base, culture || "villager") : base);
+    // hand-authored QuestScript quest givers near the Newhaven plaza (world/
+    // quest-anchors.js) — rooted, _script-tagged; each gated to its own chunk.
+    if (typeof deriveQuestGivers === "function") deriveQuestGivers(ch, npcs, npcDerived, CHUNK, PX);
     // Tūhura Isle tutors (gameplay/tutorial.js): derived exactly like
     // shopkeepers — pure position data, so hydrated chunks get them too.
     // They stand still; ui.js talkTo routes npc.tutor to the Tutorial module.
@@ -586,7 +595,7 @@ function createWorldChunks(ctx) {
         spots.forEach((sp, i) => {
           const look = hash2i(b.x0 + i * 17, b.y0, S ^ 0xb4a2) % VILLAGER_LOOKS.length;
           npcs.push({
-            name: VILLAGER_NAMES[hash2i(b.x0 + i * 13, b.y0, S ^ 0xb4a1) % VILLAGER_NAMES.length],
+            name: npcName(sp.x, sp.y, VILLAGER_NAMES[hash2i(b.x0 + i * 13, b.y0, S ^ 0xb4a1) % VILLAGER_NAMES.length]),
             x: sp.x, y: sp.y, look, spr: VILLAGER_LOOKS[look],
             banker: true,
             line: `"Welcome to the bank. Might I interest you in an account?"`,
@@ -620,7 +629,7 @@ function createWorldChunks(ctx) {
             npcDerived.add(bkey);
             const look = hash2i(b.x0, b.y0, S ^ 0xb4a2) % VILLAGER_LOOKS.length;
             npcs.push({
-              name: VILLAGER_NAMES[hash2i(b.x0, b.y0, S ^ 0xb4a1) % VILLAGER_NAMES.length],
+              name: npcName(spot.x, spot.y, VILLAGER_NAMES[hash2i(b.x0, b.y0, S ^ 0xb4a1) % VILLAGER_NAMES.length]),
               x: spot.x, y: spot.y, look, spr: VILLAGER_LOOKS[look],
               banker: true,
               line: `"Welcome to the ${coop.title}. Might I interest you in an account?"`,
@@ -660,7 +669,7 @@ function createWorldChunks(ctx) {
       const origin = b.job === "trader" && Math.abs(b.x0) < 70 && Math.abs(b.y0) < 70;
       const st = (typeof SHOP_TYPES !== "undefined") ? SHOP_TYPES[origin ? "general" : type] : null;
       npcs.push({
-        name: origin ? "Sten" : VILLAGER_NAMES[hash2i(b.x0, b.y0, S ^ 7) % VILLAGER_NAMES.length],
+        name: origin ? "Sten" : npcName(spot.x, spot.y, VILLAGER_NAMES[hash2i(b.x0, b.y0, S ^ 7) % VILLAGER_NAMES.length]),
         x: spot.x, y: spot.y,
         look: origin ? -1 : hash2i(b.x0, b.y0, S ^ 9) % VILLAGER_LOOKS.length,
         spr: origin ? [["body_npc"], ["shirt_orange"], ["hat_white"]] :
@@ -1217,6 +1226,8 @@ function createWorldChunks(ctx) {
         if (inCh(v.x - 4, v.y + 4)) {
           deco(v.x - 4, v.y + 4, "stall_awn", true);
         }
+        // QuestScript oploc quest objects near the plaza (world/quest-anchors.js)
+        if (typeof paintQuestLocs === "function") paintQuestLocs(deco, inCh);
       }
       if (inCh(v.x, v.y - 2)) labels.push({ x: v.x, y: v.y - 2, label: v.name + (v.kind === "city" ? " (city)" : " (village)"), c: "#ffd75e" });
     }

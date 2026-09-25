@@ -902,33 +902,35 @@ function createWorldFeatures(ctx) {
     return true;
   }
   // ---- WORLDS: the named-location registry ---------------------------------
-  // The infinite map is partitioned into WORLDS: 15000×15000-tile blocks with
-  // world (0,0) centred on the origin. Every named location — settlements and
-  // every "<Name> <Suffix>" landmark/portal — is tied to the world its anchor
-  // stands in (a `world: "wx,wy"` field on the record) and draws its name
-  // from that world's registry:
-  //   · within one world, names are unique (allocated per suffix bucket by a
+  // The infinite map is partitioned into ZONES: 15000×15000-tile blocks with
+  // zone (0,0) centred on the origin. Every named location — settlements and
+  // every "<Name> <Suffix>" landmark/portal — is tied to the zone its anchor
+  // stands in (a `zone: "wx,wy"` field on the record) and draws its name
+  // from that zone's registry:
+  //   · within one zone, names are unique (allocated per suffix bucket by a
   //     full-cycle walk of the pool, so full display names never repeat),
-  //   · worlds are 4-coloured by parity, and each colour owns a disjoint
-  //     quarter of the NAME_A×NAME_B combo space — the 8 neighbouring worlds
+  //   · zones are 4-coloured by parity, and each colour owns a disjoint
+  //     quarter of the NAME_A×NAME_B combo space — the 8 neighbouring zones
   //     therefore share NO names, and the nearest place that can repeat a
-  //     name is two worlds (≥ 15000 tiles) away.
+  //     name is two zones (≥ 15000 tiles) away.
+  // (NPC character names get the same per-zone uniqueness — see NpcNames /
+  // js/world/npc-names.js — reusing this registry's per-zone `used` scoping.)
   // Generic flavour venues (inns, guild halls, shacks/camps, wrecks, fairy
   // rings) keep their chain-style names: their pools are far too small to
   // promise uniqueness, and they read as establishments, not places.
   // Map.html mirrors the allocation with IDENTICAL pools and enumeration
   // order, so the standalone map shows exactly the in-game names.
-  const WORLD_T = 15000;                    // game tiles per world side
-  const WORLD_M = WORLD_T / 2;              // map units per world side
-  const worldOf = (gx, gy) => [Math.floor((gx + WORLD_T / 2) / WORLD_T),
-                               Math.floor((gy + WORLD_T / 2) / WORLD_T)];
-  const worldOfMap = (mx, my) => [Math.floor((mx + WORLD_M / 2) / WORLD_M),
-                                  Math.floor((my + WORLD_M / 2) / WORLD_M)];
-  const worldRegCache = new Map();          // "wx,wy" → { vNames, vCount, pNames, used, namer0 }
-  function worldReg(wx, wy) {
+  const ZONE_T = 15000;                    // game tiles per world side
+  const ZONE_M = ZONE_T / 2;              // map units per world side
+  const zoneOf = (gx, gy) => [Math.floor((gx + ZONE_T / 2) / ZONE_T),
+                               Math.floor((gy + ZONE_T / 2) / ZONE_T)];
+  const zoneOfMap = (mx, my) => [Math.floor((mx + ZONE_M / 2) / ZONE_M),
+                                  Math.floor((my + ZONE_M / 2) / ZONE_M)];
+  const zoneRegCache = new Map();          // "wx,wy" → { vNames, vCount, pNames, used, namer0 }
+  function zoneReg(wx, wy) {
     const key = wx + "," + wy;
-    let r = worldRegCache.get(key);
-    if (!r) { r = { vNames: null, vCount: 0, pNames: null, used: null, namer0: null }; worldRegCache.set(key, r); }
+    let r = zoneRegCache.get(key);
+    if (!r) { r = { vNames: null, vCount: 0, pNames: null, used: null, namer0: null }; zoneRegCache.set(key, r); }
     return r;
   }
   // Name allocator for one suffix bucket of one world: a full-cycle walk of
@@ -939,7 +941,7 @@ function createWorldFeatures(ctx) {
   // string must belong to exactly one colour class or neighbouring worlds
   // could share it. `used` (shared by all of the world's buckets) also keeps
   // every base unique within the world.
-  function worldBucketNamer(wx, wy, bucket, used) {
+  function zoneBucketNamer(wx, wy, bucket, used) {
     let hb = 0x9d0b;
     for (let i = 0; i < bucket.length; i++) hb = (hb * 131 + bucket.charCodeAt(i)) >>> 0;
     const NB2 = NAME_B.length, TOTAL = NAME_A.length * NB2;
@@ -968,7 +970,7 @@ function createWorldFeatures(ctx) {
   // pass 1: settlements, scanned in cell reading order. Newhaven (the fixed
   // origin city) is skipped — its name is not drawn from any pool.
   // GENERATOR CORE: yields [rowsDone, rowsTotal] once per cell row so the
-  // async boot driver (genWorldNamesAsync) can paint a real progress bar
+  // async boot driver (genZoneNamesAsync) can paint a real progress bar
   // through the multi-second pass; the sync wrappers just drain it. Names are
   // a pure function of (world, seed) and each run allocates its own local
   // map/namer, so a sync pass overtaking a half-finished async one computes
@@ -977,17 +979,17 @@ function createWorldFeatures(ctx) {
     if (reg.vNames) return;
     const m = new Map(); // filled locally, published at the end (re-entrancy)
     reg.used = new Set();
-    reg.namer0 = worldBucketNamer(wx, wy, "", reg.used); // bucket "" continues in the POI pass
+    reg.namer0 = zoneBucketNamer(wx, wy, "", reg.used); // bucket "" continues in the POI pass
     const namer = reg.namer0;
-    const mx0 = wx * WORLD_M - WORLD_M / 2, my0 = wy * WORLD_M - WORLD_M / 2;
-    const c0x = Math.floor((mx0 - VCELL) / VCELL), c1x = Math.floor((mx0 + WORLD_M + VCELL) / VCELL);
-    const c0y = Math.floor((my0 - VCELL) / VCELL), c1y = Math.floor((my0 + WORLD_M + VCELL) / VCELL);
+    const mx0 = wx * ZONE_M - ZONE_M / 2, my0 = wy * ZONE_M - ZONE_M / 2;
+    const c0x = Math.floor((mx0 - VCELL) / VCELL), c1x = Math.floor((mx0 + ZONE_M + VCELL) / VCELL);
+    const c0y = Math.floor((my0 - VCELL) / VCELL), c1y = Math.floor((my0 + ZONE_M + VCELL) / VCELL);
     let k = 0, lastName = null;
     for (let cy = c0y; cy <= c1y; cy++) {
       for (let cx = c0x; cx <= c1x; cx++) {
         if (cx === 0 && cy === 0) continue;
         const s2 = villageSeat(cx, cy);
-        if (!s2 || s2.x < mx0 || s2.x >= mx0 + WORLD_M || s2.y < my0 || s2.y >= my0 + WORLD_M) continue;
+        if (!s2 || s2.x < mx0 || s2.x >= mx0 + ZONE_M || s2.y < my0 || s2.y >= my0 + ZONE_M) continue;
         lastName = namer();
         m.set(cx + "," + cy, lastName);
         k++;
@@ -999,8 +1001,8 @@ function createWorldFeatures(ctx) {
     // drain the sync wrapper) — results are identical either way
     if (!reg.vNames) { reg.vNames = m; reg.vCount = k; }
   }
-  function worldSettlePass(wx, wy) {
-    const reg = worldReg(wx, wy);
+  function zoneSettlePass(wx, wy) {
+    const reg = zoneReg(wx, wy);
     for (const _ of _settleSteps(wx, wy, reg)) { /* drain synchronously */ }
     return reg;
   }
@@ -1016,18 +1018,18 @@ function createWorldFeatures(ctx) {
     if (reg.pNames) return;
     const m = new Map(); // filled locally, published at the end (re-entrancy)
     const buckets = new Map([["", reg.namer0]]); // continue after the settlements
-    const mx0 = wx * WORLD_M - WORLD_M / 2, my0 = wy * WORLD_M - WORLD_M / 2;
-    const p0x = Math.floor((mx0 - PCELL) / PCELL), p1x = Math.floor((mx0 + WORLD_M + PCELL) / PCELL);
-    const p0y = Math.floor((my0 - PCELL) / PCELL), p1y = Math.floor((my0 + WORLD_M + PCELL) / PCELL);
+    const mx0 = wx * ZONE_M - ZONE_M / 2, my0 = wy * ZONE_M - ZONE_M / 2;
+    const p0x = Math.floor((mx0 - PCELL) / PCELL), p1x = Math.floor((mx0 + ZONE_M + PCELL) / PCELL);
+    const p0y = Math.floor((my0 - PCELL) / PCELL), p1y = Math.floor((my0 + ZONE_M + PCELL) / PCELL);
     let lastName = null;
     for (let py2 = p0y; py2 <= p1y; py2++) {
       for (let px2 = p0x; px2 <= p1x; px2++) {
         const s2 = poiSeat(px2, py2);
         if (!s2 || POI_FLAVOUR.has(s2.rawType)) continue;
-        if (s2.x < mx0 || s2.x >= mx0 + WORLD_M || s2.y < my0 || s2.y >= my0 + WORLD_M) continue;
+        if (s2.x < mx0 || s2.x >= mx0 + ZONE_M || s2.y < my0 || s2.y >= my0 + ZONE_M) continue;
         const bucket = s2.rawType === "portal" ? " Portal" : (POI_SUFFIX[s2.rawType] || "");
         let nb = buckets.get(bucket);
-        if (!nb) { nb = worldBucketNamer(wx, wy, bucket, reg.used); buckets.set(bucket, nb); }
+        if (!nb) { nb = zoneBucketNamer(wx, wy, bucket, reg.used); buckets.set(bucket, nb); }
         lastName = nb();
         m.set(px2 + "," + py2, lastName);
       }
@@ -1038,8 +1040,8 @@ function createWorldFeatures(ctx) {
       _wnPersist(wx, wy, reg); // freshly computed — remember it for future boots
     }
   }
-  function worldPoiPass(wx, wy) {
-    const reg = worldSettlePass(wx, wy);
+  function zonePoiPass(wx, wy) {
+    const reg = zoneSettlePass(wx, wy);
     for (const _ of _poiSteps(wx, wy, reg)) { /* drain synchronously */ }
     return reg;
   }
@@ -1048,9 +1050,9 @@ function createWorldFeatures(ctx) {
   // fraction — the loading bar's "Naming the world…" stage. tick() gets
   // 0..0.5 through settlements, 0.5..1 through POIs. Instant no-op when the
   // registry is already computed/hydrated (every warm boot).
-  async function genWorldNamesAsync(mx, my, tick) {
-    const [wx, wy] = worldOfMap(mx, my);
-    const reg = worldReg(wx, wy);
+  async function genZoneNamesAsync(mx, my, tick) {
+    const [wx, wy] = zoneOfMap(mx, my);
+    const reg = zoneReg(wx, wy);
     // _bootYield (main/state.js): paints when visible, hidden-tab-safe
     const paint = typeof _bootYield === "function" ? _bootYield
       : () => new Promise(r => setTimeout(r, 0));
@@ -1071,7 +1073,7 @@ function createWorldFeatures(ctx) {
   }
   // ---- registry persistence (IndexedDB) ------------------------------------
   // A freshly computed world registry is written to IDB and restored on
-  // later boots (preloadWorldNames below, awaited by main.js init), so the
+  // later boots (preloadZoneNames below, awaited by main.js init), so the
   // ~8s full-world POI pass is paid once per world EVER, not per session.
   // Map.html reads the same store and shows the exact in-game names instead
   // of recomputing with its (drifted) terrain copy. Pure deterministic data.
@@ -1081,6 +1083,9 @@ function createWorldFeatures(ctx) {
   // REAL generation change). Read lazily so workers — which importScripts
   // this file and receive the signature via their init message — agree with
   // the main thread on the store name.
+  // NOTE: the concept is now "zone", but this IDB store name is a PERSISTED key on
+  // every player's machine — kept as 'ioe-worldnames-' so the rename doesn't orphan
+  // existing caches (a rename would force a one-time regen). Internal only.
   const _wnDbName = () =>
     'ioe-worldnames-' + (typeof WORLDGEN_SIG !== 'undefined' ? WORLDGEN_SIG : 'dev');
   try {
@@ -1105,7 +1110,7 @@ function createWorldFeatures(ctx) {
       tx.objectStore('w').put({ v: [...reg.vNames], vc: reg.vCount, p: [...reg.pNames] }, wx + "," + wy);
     }).catch(() => { /* private mode etc. — recomputed next boot */ });
   }
-  async function preloadWorldNames() {
+  async function preloadZoneNames() {
     try {
       const db = await _wnOpen();
       const store = db.transaction('w').objectStore('w');
@@ -1115,7 +1120,7 @@ function createWorldFeatures(ctx) {
       ]);
       keys.forEach((k, i) => {
         const [wx, wy] = String(k).split(",").map(Number);
-        const reg = worldReg(wx, wy);
+        const reg = zoneReg(wx, wy);
         if (reg.pNames) return;                 // already computed this session
         reg.vNames = new Map(vals[i].v);
         reg.vCount = vals[i].vc;
@@ -1123,13 +1128,13 @@ function createWorldFeatures(ctx) {
       });
     } catch (e) { /* first run — worlds compute (and persist) on demand */ }
   }
-  function worldSettlementName(vcx, vcy, seat) {
-    const [wx, wy] = worldOfMap(seat.x, seat.y);
-    return worldSettlePass(wx, wy).vNames.get(vcx + "," + vcy);
+  function zoneSettlementName(vcx, vcy, seat) {
+    const [wx, wy] = zoneOfMap(seat.x, seat.y);
+    return zoneSettlePass(wx, wy).vNames.get(vcx + "," + vcy);
   }
-  function worldPoiBase(pcx, pcy, seat) {
-    const [wx, wy] = worldOfMap(seat.x, seat.y);
-    return worldPoiPass(wx, wy).pNames.get(pcx + "," + pcy) ||
+  function zonePoiBase(pcx, pcy, seat) {
+    const [wx, wy] = zoneOfMap(seat.x, seat.y);
+    return zonePoiPass(wx, wy).pNames.get(pcx + "," + pcy) ||
       genName(pcx, pcy, 0x9106, 0x9107); // unreachable safety net
   }
   // Light settlement probe WITH its registry name and world tie. villageInfo
@@ -1141,9 +1146,9 @@ function createWorldFeatures(ctx) {
     const seat = villageSeat(vcx, vcy);
     let head = null;
     if (seat) {
-      const [wx, wy] = worldOfMap(seat.x, seat.y);
-      const name = (vcx === 0 && vcy === 0) ? "Newhaven" : worldSettlementName(vcx, vcy, seat);
-      head = { ...seat, name, world: wx + "," + wy };
+      const [wx, wy] = zoneOfMap(seat.x, seat.y);
+      const name = (vcx === 0 && vcy === 0) ? "Newhaven" : zoneSettlementName(vcx, vcy, seat);
+      head = { ...seat, name, zone: wx + "," + wy };
     }
     headCache.set(key, head);
     return head;
@@ -1302,8 +1307,8 @@ function createWorldFeatures(ctx) {
   }
   // debug/verification: a world's full name allocation — settlements and
   // registry-named POIs with their cells, for uniqueness/parity checks
-  function _worldNameDump(wx, wy) {
-    const reg = worldPoiPass(wx, wy);
+  function _zoneNameDump(wx, wy) {
+    const reg = zonePoiPass(wx, wy);
     return {
       settlements: [...reg.vNames.entries()],
       pois: [...reg.pNames.entries()],
@@ -1585,7 +1590,7 @@ function createWorldFeatures(ctx) {
         }
       }
       v = { x: x * 2, y: y * 2, name, kind, wall, keep, layout, well, field, origin,
-        world: head.world, // the 15000² world block this settlement is tied to
+        zone: head.zone, // the 15000² zone block this settlement is tied to
         R: (kind === "city" ? R : 17) * 2,
         buildings: gBuildings,
         streets: cityStreets.length ? cityStreets.map(st => ({
@@ -1881,10 +1886,10 @@ function createWorldFeatures(ctx) {
         name = "Fairy Ring " + "ABCD"[hash2i(pcx, pcy, S ^ 0x910d) % 4] +
                "IJKL"[hash2i(pcx, pcy, S ^ 0x910e) % 4] +
                "PQRS"[hash2i(pcx, pcy, S ^ 0x910f) % 4];
-      else name = worldPoiBase(pcx, pcy, seat) +
+      else name = zonePoiBase(pcx, pcy, seat) +
         (type === "portal" ? " Portal" : (POI_SUFFIX[type] || ""));
-      const [wwx, wwy] = worldOfMap(seat.x, seat.y);
-      p = { x: seat.x, y: seat.y, type, name, dir: seat.dir, world: wwx + "," + wwy };
+      const [wwx, wwy] = zoneOfMap(seat.x, seat.y);
+      p = { x: seat.x, y: seat.y, type, name, dir: seat.dir, zone: wwx + "," + wwy };
     }
     poiCache.set(key, p);
     return p;
@@ -2308,7 +2313,7 @@ function createWorldFeatures(ctx) {
     DEEP_E, GRID8, ROAD_W, gridRoute, shapePath, polyBBox, waterBody, riverTrace,
     lakeFill, lakeOutflows, riversNear, roadsNear, nearPoly, riverNearPt, riverSourceAt,
     riverAtPt, solidDoorX, riverDoors, riverFlowAt, _roadWarm, _roadCellInject,
-    roadNearPt, riverNear, roadNear, bankNetId, bankNetAt, bankNetInfo, roadNetId, mainBranchFor, _roadNetTrace, _edgeSeaSpans, worldOf, _worldNameDump, preloadWorldNames, genWorldNamesAsync, macroPixels, genName, villageInfo, villagesNear,
+    roadNearPt, riverNear, roadNear, bankNetId, bankNetAt, bankNetInfo, roadNetId, mainBranchFor, _roadNetTrace, _edgeSeaSpans, zoneOf, _zoneNameDump, preloadZoneNames, genZoneNamesAsync, macroPixels, genName, villageInfo, villagesNear,
     poiInfo, wildIcon, atlasVariantAt, personalityAt, biomeGround, BIOME_VEG,
     dreamGateSite, dreamGatesNear, dreamGateClearAt,
     GRASS_LIKE_B, FOREST_LIKE_B, DESERT_LIKE_B, ROCK_LIKE_B, SWAMP_LIKE_B,

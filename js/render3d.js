@@ -4244,7 +4244,10 @@ void main() {
       if (world.npcAt && world.npcAt(tx, ty, 0)) continue;    // townsfolk are placed on the ground floor
       if (liftAt(tx, ty) > groundY(tx, ty) + 1.2) continue;   // no rooftops/upper storeys
       const npc = {
-        name: def.name, x: tx, y: ty, px: PX(tx), py: PX(ty), look: -1, trader: false,
+        // zone-unique name (world/npc-names.js): a duplicate of def.name in this
+        // zone becomes a culturally-similar unused name. Quest-POI givers too.
+        name: (typeof NpcNames !== "undefined") ? NpcNames.pick(tx, ty, "npc:" + tx + "," + ty, def.name, (def.key || "").split("__")[0]) : def.name,
+        x: tx, y: ty, px: PX(tx), py: PX(ty), look: -1, trader: false,
         mix: def.key, mixTitle: def.title,
         line: quest ? MIX_QUEST_LINES[mixHash(def.key) % MIX_QUEST_LINES.length]
                     : MIX_LINES[mixHash(def.key + ":" + tx) % MIX_LINES.length],
@@ -4607,7 +4610,8 @@ void main() {
         const def = slot && !npc.banker ? mixDefForBuilding(slot.v, slot.i) : MIXR.list[h % MIXR.list.length];
         npc.mix = def.key;
         npc._shopName = npc.name;          // keep original label for the shop/market
-        npc.name = def.name;               // show the mix character's own name
+        // zone-unique name (world/npc-names.js), culturally-similar on collision
+        npc.name = (typeof NpcNames !== "undefined") ? NpcNames.pick(npc.x, npc.y, "npc:" + npc.x + "," + npc.y, def.name, (def.key || "").split("__")[0]) : def.name;
         npc.mixTitle = npc.banker ? "banker" : def.title;
         npc.dir8 = DIR8[h % 8];
         npc.px = PX(npc.x); npc.py = PX(npc.y);

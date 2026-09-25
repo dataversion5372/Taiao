@@ -130,6 +130,14 @@
     find_uid: async (args) => rBool(typeof countItem === "function" && countItem(asStr(val(args, 0))) > 0),
     invTotal: async (args) => rInt(typeof countItem === "function" ? countItem(asStr(val(args, 0))) : 0),
 
+    // bestiary kill tally for a monster kind (cumulative) — hunt quests snapshot
+    // a baseline at start (quests[base]=kills(k)) and check the delta at turn-in.
+    kills: async (args) => rInt((typeof player !== "undefined" && player && player.kills && player.kills[asStr(val(args, 0))]) | 0),
+    // grant skill xp as a reward (addXp is a no-op in DEV_MODE where skills are pinned)
+    give_xp: async (args) => { if (typeof addXp === "function") addXp(asStr(val(args, 0)), asInt(val(args, 1))); return rNull(); },
+    // current scripted quest-point total (for gating late quests)
+    qp: async () => rInt((typeof player !== "undefined" && player ? player.questPoints : 0) | 0),
+
     // scripted quest points
     questpoint_add: async (args) => {
       if (typeof player !== "undefined" && player) {

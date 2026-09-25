@@ -145,15 +145,16 @@ async function init() {
   }
   // restore persisted world-name registries first: chunk gen below stamps
   // settlement/POI labels, and a cache hit here skips an ~8s full-world
-  // naming pass (world/features.js preloadWorldNames)
-  if (world.preloadWorldNames) await world.preloadWorldNames();
-  M("preloadWorldNames");
+  // naming pass (world/features.js preloadZoneNames)
+  if (world.preloadZoneNames) await world.preloadZoneNames();
+  if (typeof NpcNames !== "undefined" && NpcNames.preload) await NpcNames.preload(); // zone-unique NPC names (world/npc-names.js)
+  M("preloadZoneNames");
   // cold cache only: run the full world-naming pass NOW, async-sliced with
   // real progress ticks, instead of letting the first chunk generation drag
   // it in as one giant synchronous freeze. Warm boots (registry hydrated
   // above) resolve instantly.
-  if (world.genWorldNames)
-    await world.genWorldNames(player.x, player.y,
+  if (world.genZoneNames)
+    await world.genZoneNames(player.x, player.y,
       (f, name) => { if (typeof window !== "undefined" && window.__boot) __boot.sub("nameGen", f, name); });
   M("nameGen");
   await world.preloadSeen(bootNear);

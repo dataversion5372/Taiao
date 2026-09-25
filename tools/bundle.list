@@ -52,6 +52,8 @@ js/skills/seed-drops.js
 js/biome-tiles.js
 js/world/terrain.js
 js/world/features.js
+js/world/npc-names.js
+js/world/quest-anchors.js
 # shared erosion + chunk field passes — before chunks.js (main thread) and
 # importScripts'd by world/chunkworker.js (worker); one copy, no drift
 js/world/erosion.js

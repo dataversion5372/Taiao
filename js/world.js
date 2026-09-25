@@ -333,13 +333,13 @@ function genWorld() {
     dreamGatesNear: features.dreamGatesNear,
     // WORLD partition: [wx,wy] of the 15000²-tile block holding GAME tile (x,y);
     // named locations carry a matching `world: "wx,wy"` tie — features.js
-    worldOf: features.worldOf,
-    _worldNameDump: features._worldNameDump, // debug: a world's name allocation
+    zoneOf: features.zoneOf,
+    _zoneNameDump: features._zoneNameDump, // debug: a world's name allocation
     // restore persisted world-name registries (awaited by main.js init)
-    preloadWorldNames: features.preloadWorldNames,
+    preloadZoneNames: features.preloadZoneNames,
     // async cold-boot naming of the world holding GAME tile (x,y), painting a
     // real progress fraction — the loading bar's "Naming the world…" stage
-    genWorldNames: (x, y, tick) => features.genWorldNamesAsync(x / 2, y / 2, tick),
+    genZoneNames: (x, y, tick) => features.genZoneNamesAsync(x / 2, y / 2, tick),
     inPeacefulZone,
     gatesForVillage,
     // the door or gate leaf occupying tile (x,y), or null
