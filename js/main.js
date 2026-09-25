@@ -336,6 +336,7 @@ async function init() {
       if (typeof npcChatTick === "function") npcChatTick(); // AI NPC earshot greetings (Nets)
       if (typeof tickPlaced === "function") tickPlaced(); // temporary placed decor withers
       if (!cine && typeof Quests !== "undefined") Quests.tick(); // quest collect/reach objectives
+      if (!cine && typeof QuestScript !== "undefined") QuestScript.tickRoutines(); // NPC daily routines (js/questscript; inert until routine scripts exist)
       if (!cine && typeof Tutorial !== "undefined" && Tutorial.tick) Tutorial.tick(); // Tūhura source-reach reward
       if (!cine && typeof GoalsArc !== "undefined") GoalsArc.tick(dt); // post-Bifrost "First days in Newhaven" arc
       if (!cine && typeof Eggs !== "undefined") Eggs.tick(dt); // easter-egg condition watchers (1 Hz inside)

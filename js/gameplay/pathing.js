@@ -98,6 +98,7 @@ function executeGoal() {
   else if (goal.type === "placedPickup") pickUpPlaced(goal.ent);
   else if (goal.type === "board") boardVessel(goal.ent);
   else if (goal.type === "decorPick") pickUpDecor(goal.x, goal.y, goal.key);
+  else if (goal.type === "scriptLoc") { if (typeof QuestScript !== "undefined") QuestScript.runLoc(goal.key, goal.x, goal.y); }
   // start CONTINUOUS tending — tickHusb keeps tending each tick until the animal
   // is depleted (husbSpent), then stops. nextAt:now → first tend fires at once.
   else if (goal.type === "husbAction") player.act = { kind: "husb", mon: goal.mon, actId: goal.act, nextAt: now };

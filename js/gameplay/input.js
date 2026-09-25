@@ -426,7 +426,12 @@ function buildTileMenu(t) {
     const dk = world.getDecor(t.x, t.y);
     const picked = typeof decorPicked === "function" && decorPicked(t.x, t.y);
     if (dk && !picked) {
-      if (typeof decorPickable === "function" && decorPickable(dk))
+      // QuestScript loc trigger (js/questscript) for this world object? Its
+      // scripted interaction replaces the default Take and becomes the
+      // left-click default (unshifted to the front of the menu).
+      if (typeof QuestScript !== "undefined" && QuestScript.hasLoc(dk))
+        items.unshift({ label: `Take ${decorName(dk)}`, fn: () => setGoal({ type: "scriptLoc", key: dk.split("#")[0], x: t.x, y: t.y }, t.x, t.y, 1) });
+      else if (typeof decorPickable === "function" && decorPickable(dk))
         items.push({ label: `Take ${decorName(dk)}`, fn: () => setGoal({ type: "decorPick", x: t.x, y: t.y, key: dk }, t.x, t.y, 1) });
       // city plaza fountains double as respawn anchors: "Set respawn point"
       // stores this city; death returns the player here instead of Newhaven

@@ -90,3 +90,6 @@ dist/taiao-web*.zip
 
 # telemetry analytics dumps (player data — repo is public, never commit)
 analytics/
+
+# QuestScript source map — generated from scripts/**/*.qs by tools/build.mjs
+js/questscript/qs-scripts-gen.js

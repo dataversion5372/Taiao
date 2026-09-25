@@ -4366,7 +4366,10 @@ void main() {
       if ((npc.level | 0) !== (glevel0 | 0)) { npcClimbToward(npc, glevel0, T); return; }
       if (npc.x === gx0 && npc.y === gy0) {
         npc._escortTarget = null; npc._escortStuck = 0;
-        if (typeof Tutorial !== "undefined" && Tutorial.onEscortArrive) Tutorial.onEscortArrive(npc);
+        // QuestScript routine NPCs (js/questscript) use _escortTarget too; their
+        // arrival is awaited by the coroutine (via the target clearing), so don't
+        // route them through the tutorial's escort-arrival hook.
+        if (!npc._qsRoutine && typeof Tutorial !== "undefined" && Tutorial.onEscortArrive) Tutorial.onEscortArrive(npc);
         return;
       }
       if (T < npc._wanderAt) return;
@@ -4390,6 +4393,13 @@ void main() {
       else { npc._lampStuck = (npc._lampStuck || 0) + 1; if (npc._lampStuck > 8) { npc._lampTarget = null; npc._lampStuck = 0; } }
       return;
     }
+    // QuestScript routine NPCs (js/questscript): their coroutine makes every
+    // decision below (wander, bedtime, climb-down) by setting _escortTarget,
+    // handled by the escort branch above. Skip the built-in JS wander/bedtime so
+    // the two don't fight. Locomotion (moving/escort/lamp) above still runs.
+    // The lamplighter dispatch (assignLampTasks) still sets _lampTarget and takes
+    // priority, so lamp errands interleave with routines until it too is ported.
+    if (npc._qsRoutine) return;
     // bedtime (20:00–04:00): head home and stand on the bed (residents) or the
     // home post (shopkeepers), instead of wandering. Overrides the idle wander.
     if (typeof isBedtime === "function" && isBedtime(npc.x)) {   // NPC's own timezone
@@ -4698,7 +4708,11 @@ void main() {
     //    and fan across the settlement; at dawn they gather back to it. Candle
     //    lighting itself is time-driven (daynight.settlementLights) so it stays
     //    consistent when you're away; this just animates the villagers doing it.
-    assignLampTasks();
+    // Lamplighting is now driven by the QuestScript villager routine
+    // (scripts/routines/villager.qs + qs-routines lamp verbs), so the built-in
+    // dispatcher is disabled. Left defined for reference/fallback. If QuestScript
+    // is somehow absent, re-enable this to keep towns lighting at dusk.
+    if (typeof QuestScript === "undefined") assignLampTasks();
     // 3) fluid wander for EVERY npc that has a home post — ambient townsfolk,
     //    quest-givers AND shopkeepers (who now step out of their shops too).
     for (const npc of world.npcs) if (npc._home) stepMixNpc(npc);

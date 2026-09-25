@@ -168,6 +168,8 @@ function buildSaveData() {
     kills: player.kills || {},     // bestiary: monster kind -> number slain
     unlocked: player.unlocked || {}, // opened door/gate locks: canonical "x,y" -> 1 (gameplay/locks.js)
     quests: player.quests || {},   // quest progress (gameplay/quests.js): active/done/flags/revealed
+    scriptVars: player.scriptVars || {}, // QuestScript scripted-quest stages (js/questscript): name -> int
+    questPoints: player.questPoints | 0, // QuestScript quest points (questpoint_add)
     stink: player.stink && player.stink.fl ? player.stink : { fl: {} }, // stink metre (gameplay/stink.js)
     respawn: player.respawn || null, // chosen respawn city fountain {x,y,name}; null = Newhaven
     timeShiftMs: player.timeShiftMs || 0, // persisted world-clock shift (graduation morning)
@@ -372,6 +374,8 @@ function loadGame() {
       player.kills = (d.kills && typeof d.kills === "object") ? d.kills : {};
       player.unlocked = (d.unlocked && typeof d.unlocked === "object") ? d.unlocked : {};
       player.quests = (d.quests && typeof d.quests === "object") ? d.quests : {};
+      player.scriptVars = (d.scriptVars && typeof d.scriptVars === "object") ? d.scriptVars : {};
+      player.questPoints = d.questPoints | 0;
       player.stink = (d.stink && d.stink.fl && typeof d.stink.fl === "object") ? d.stink : { fl: {} };
       player.respawn = (d.respawn && typeof d.respawn.x === "number" && typeof d.respawn.y === "number") ? d.respawn : null;
       player.timeShiftMs = (typeof d.timeShiftMs === "number" && isFinite(d.timeShiftMs)) ? d.timeShiftMs : 0;

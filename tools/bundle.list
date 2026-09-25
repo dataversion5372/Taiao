@@ -172,6 +172,16 @@ js/gameplay/bestiary.js
 js/gameplay/objedit.js
 js/gameplay/npc-starter-roles.js
 js/gameplay/quests.js
+# QuestScript — the R-flavored quest/interaction scripting VM. Order matters:
+# value model -> lexer -> parser -> interpreter -> stdlib -> (generated sources) -> engine.
+js/questscript/qs-value.js
+js/questscript/qs-lex.js
+js/questscript/qs-parse.js
+js/questscript/qs-interp.js
+js/questscript/qs-stdlib.js
+js/questscript/qs-scripts-gen.js
+js/questscript/qs-engine.js
+js/questscript/qs-routines.js
 js/gameplay/tutorial.js
 js/gameplay/daynight.js
 js/gameplay/biomeatmos.js
